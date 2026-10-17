@@ -8,16 +8,25 @@ Metninizi yazın, isterseniz bir referans ses yükleyin, **Üret** düğmesine b
 
 ## Kurulum
 
-**Python 3.10–3.12 kullanın; 3.11 önerilir.** Python 3.13+ bu kurulum için önerilmez. Başlamadan önce en az **20 GB boş disk alanı** ayırın.
+**Python 3.10–3.12 kullanın; 3.11 önerilir** ve sisteminizde kurulu olmalı ([python.org/downloads](https://www.python.org/downloads/)). Python 3.13+ bu kurulum için önerilmez. Başlamadan önce en az **20 GB boş disk alanı** ayırın.
 
 ```bash
 git clone https://github.com/hamarat52/sesklon.git
 cd sesklon
 ```
 
-Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi açın ve klasörde terminal açın.
+Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi açın.
 
-### macOS / Linux
+### Kolay yol: tek dosyaya çift tıklayın
+
+- **macOS:** `baslat.command` dosyasına çift tıklayın (ilk seferinde "Bilinmeyen geliştirici" uyarısı çıkarsa sağ tık → Aç).
+- **Windows:** `baslat.bat` dosyasına çift tıklayın.
+
+İlk çalıştırmada ortam otomatik kurulur (birkaç dakika sürebilir, bağımlılıklar indirilir); sonraki her çalıştırmada doğrudan açılır. Terminal/komut penceresi açık kalmalı; kapatmak için pencerede **Ctrl+C**.
+
+### Elle kurulum (isteğe bağlı, terminale aşinaysanız)
+
+#### macOS / Linux
 
 ```bash
 python3.11 -m venv .venv
@@ -27,7 +36,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Windows (PowerShell)
+#### Windows (PowerShell)
 
 ```powershell
 py -3.11 -m venv .venv
@@ -88,11 +97,15 @@ Test metni: “Merhaba, bugün Türkçe ses üretimini deniyoruz.” Her iki WAV
 
 ## Lisans, atıf ve sorumlu kullanım
 
-SesKlon [Apache-2.0](LICENSE) lisanslıdır. [VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu da Apache-2.0 altında sunulur; ticari kullanım mümkündür. Bağımlılıkların kendi lisansları geçerlidir. OpenBMB ekibine teşekkürler.
+**SesKlon'un kendi kodu (bu arayüz, `app.py`, testler) [PolyForm Noncommercial 1.0.0](LICENSE) lisanslıdır.** Kişisel kullanım, inceleme, eğitim, araştırma ve değiştirme serbesttir; **ticari kullanım ve yeniden satış izinli değildir** — SesKlon'u indirip başka birine satamaz veya ticari bir ürüne/servise dahil edemezsiniz. Ticari kullanım için lisans sahibinden ayrıca izin gerekir.
 
-Arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini kullanır; VoiceStudio kodu veya bağımlılığı içermez.
+Bu arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini (pip) kullanır; VoiceStudio kodu veya bağımlılığı içermez. Sizin kendi bilgisayarınıza kurduğunuz **[VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu ise ayrı bir bağımlılıktır ve kendi Apache-2.0 lisansı altındadır** (ticari kullanıma izin veren farklı bir lisans) — SesKlon'un lisansı o bağımlılığı kısıtlamaz, sadece bu depodaki arayüz koduna uygulanır. OpenBMB ekibine teşekkürler.
 
-**Üretilen içeriği paylaşırken “AI ile üretildi” diye açıkça etiketlemek zorunludur.** Bu, model kartındaki kullanım uyarısıdır; uygulama sese otomatik bir filigran eklemez. Apache-2.0 lisansı başka kişilerin sesini izinsiz kullanma hakkı vermez. İzin alın; kimliğe bürünme, dolandırıcılık veya yanıltıcı içerik üretmeyin.
+### Sorumluluk reddi
+
+Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/katkıda bulunanlar, yazılımın kullanımından doğan hiçbir zarardan sorumlu değildir (LICENSE dosyasındaki "No Liability" maddesi). **Üretilen içerikten ve bu aracın nasıl kullanıldığından tamamen kullanıcı sorumludur.**
+
+**Üretilen içeriği paylaşırken “AI ile üretildi” diye açıkça etiketlemek zorunludur.** Bu, model kartındaki kullanım uyarısıdır; uygulama sese otomatik bir filigran eklemez. Bu lisans başka kişilerin sesini izinsiz kullanma hakkı vermez. Sadece kendi sesinizi veya açık izin aldığınız bir sesi klonlayın; kimliğe bürünme, dolandırıcılık veya yanıltıcı/yasadışı içerik üretmek için kullanmayın. Bu araçla üretilen içerikle yapılan kimliğe bürünme, dolandırıcılık veya herhangi bir yasadışı eylemden tamamen kullanıcı sorumludur; proje sahibi/katkıda bulunanlar sorumlu tutulamaz.
 
 ## Sorun giderme ve katkı
 
