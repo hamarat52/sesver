@@ -1,4 +1,4 @@
-"""SesKlon — yerel VoxCPM2 ses üretimi."""
+"""SesVer — yerel VoxCPM2 ses üretimi."""
 import os
 
 # Üçüncü taraf modüller yüklenmeden önce telemetriyi kapat.
@@ -72,9 +72,9 @@ def generate_audio(text, reference_audio):
 
 
 def build_app():
-    with gr.Blocks(title="SesKlon", analytics_enabled=False) as demo:
+    with gr.Blocks(title="SesVer", analytics_enabled=False) as demo:
         gr.Markdown(
-            "# SesKlon\nÜcretsiz, yerel ve açık kaynak Türkçe ses üretimi + klonlama.\n\n"
+            "# SesVer\nÜcretsiz, yerel ve açık kaynak Türkçe ses üretimi + klonlama.\n\n"
             "**16 GB+ RAM önerilir.** M1'de gerçek zamanlı değildir: 10 saniyelik ses "
             "yaklaşık 70–80 saniye sürebilir. İlk üretimde ~5 GB model indirilir; "
             "indirme ve yükleme ayrıca zaman alır."

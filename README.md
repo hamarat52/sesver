@@ -1,4 +1,4 @@
-# SesKlon
+# SesVer
 
 **Ücretsiz, yerel ve açık kaynak Türkçe ses üretimi + ses klonlama.**
 
@@ -11,8 +11,8 @@ Metninizi yazın, isterseniz bir referans ses yükleyin, **Üret** düğmesine b
 **Python 3.10–3.12 kullanın; 3.11 önerilir** ve sisteminizde kurulu olmalı ([python.org/downloads](https://www.python.org/downloads/)). Python 3.13+ bu kurulum için önerilmez. Başlamadan önce en az **20 GB boş disk alanı** ayırın.
 
 ```bash
-git clone https://github.com/hamarat52/sesklon.git
-cd sesklon
+git clone https://github.com/hamarat52/sesver.git
+cd sesver
 ```
 
 Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi açın.
@@ -97,9 +97,9 @@ Test metni: “Merhaba, bugün Türkçe ses üretimini deniyoruz.” Her iki WAV
 
 ## Lisans, atıf ve sorumlu kullanım
 
-**SesKlon'un kendi kodu (bu arayüz, `app.py`, testler) [PolyForm Noncommercial 1.0.0](LICENSE) lisanslıdır.** Kişisel kullanım, inceleme, eğitim, araştırma ve değiştirme serbesttir; **ticari kullanım ve yeniden satış izinli değildir** — SesKlon'u indirip başka birine satamaz veya ticari bir ürüne/servise dahil edemezsiniz. Ticari kullanım için lisans sahibinden ayrıca izin gerekir.
+**SesVer'un kendi kodu (bu arayüz, `app.py`, testler) [PolyForm Noncommercial 1.0.0](LICENSE) lisanslıdır.** Kişisel kullanım, inceleme, eğitim, araştırma ve değiştirme serbesttir; **ticari kullanım ve yeniden satış izinli değildir** — SesVer'u indirip başka birine satamaz veya ticari bir ürüne/servise dahil edemezsiniz. Ticari kullanım için lisans sahibinden ayrıca izin gerekir.
 
-Bu arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini (pip) kullanır; VoiceStudio kodu veya bağımlılığı içermez. Sizin kendi bilgisayarınıza kurduğunuz **[VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu ise ayrı bir bağımlılıktır ve kendi Apache-2.0 lisansı altındadır** (ticari kullanıma izin veren farklı bir lisans) — SesKlon'un lisansı o bağımlılığı kısıtlamaz, sadece bu depodaki arayüz koduna uygulanır. OpenBMB ekibine teşekkürler.
+Bu arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini (pip) kullanır; VoiceStudio kodu veya bağımlılığı içermez. Sizin kendi bilgisayarınıza kurduğunuz **[VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu ise ayrı bir bağımlılıktır ve kendi Apache-2.0 lisansı altındadır** (ticari kullanıma izin veren farklı bir lisans) — SesVer'un lisansı o bağımlılığı kısıtlamaz, sadece bu depodaki arayüz koduna uygulanır. OpenBMB ekibine teşekkürler.
 
 ### Sorumluluk reddi
 
@@ -112,9 +112,9 @@ Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/ka
 - **İlk üretim uzun sürüyor:** Model indirme/yükleme aşamasını terminalden izleyin. M1'de üretim de zaman alır.
 - **Bellek hatası / sistem yavaşladı:** Uygulamayı durdurun, diğer ağır uygulamaları kapatın ve daha kısa metinle yeniden başlatın. 8 GB cihazlarda kullanım önerilmez.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
-- **7860 portu kullanımda:** Daha önce açtığınız SesKlon terminalini Ctrl+C ile kapatın.
+- **7860 portu kullanımda:** Daha önce açtığınız SesVer terminalini Ctrl+C ile kapatın.
 
-Hata ve öneriler için [issue açabilirsiniz](https://github.com/hamarat52/sesklon/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın. Küçük, odaklı katkılar kabul edilir.
+Hata ve öneriler için [issue açabilirsiniz](https://github.com/hamarat52/sesver/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın. Küçük, odaklı katkılar kabul edilir.
 
 Model indirmeden birim testleri çalıştırmak için:
 

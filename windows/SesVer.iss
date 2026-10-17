@@ -1,16 +1,16 @@
-; SesKlon Windows kurulum sihirbazı (Inno Setup).
+; SesVer Windows kurulum sihirbazı (Inno Setup).
 ; Derlemek için: ücretsiz Inno Setup'ı (https://jrsoftware.org/isinfo.php) Windows'a
-; kurun, bu dosyayı (SesKlon.iss) Inno Setup Compiler'da açın, "Compile" deyin.
-; Çıktı: Output\SesKlon-Kurulum.exe — çift tıklanabilir klasik "İleri/İleri/Kur/Bitti" kurulum.
+; kurun, bu dosyayı (SesVer.iss) Inno Setup Compiler'da açın, "Compile" deyin.
+; Çıktı: Output\SesVer-Kurulum.exe — çift tıklanabilir klasik "İleri/İleri/Kur/Bitti" kurulum.
 ;
 ; Not: Bu sihirbaz sadece dosyaları kopyalar + kısayol oluşturur. Ağır Python
-; ortamı/bağımlılık kurulumu (birkaç dakika sürer) ilk "SesKlon'u Başlat"
+; ortamı/bağımlılık kurulumu (birkaç dakika sürer) ilk "SesVer'u Başlat"
 ; tıklamasında baslat.bat tarafından yapılır — aynı, zaten test edilmiş mantık.
 
-#define MyAppName "SesKlon"
+#define MyAppName "SesVer"
 #define MyAppVersion "1.0"
-#define MyAppPublisher "SesKlon katkıda bulunanları"
-#define MyAppURL "https://github.com/hamarat52/sesklon"
+#define MyAppPublisher "SesVer katkıda bulunanları"
+#define MyAppURL "https://github.com/hamarat52/sesver"
 
 [Setup]
 AppId={{E4B6C4B2-7F1A-4D3E-9C2A-5A1F0B6D8E21}
@@ -25,7 +25,7 @@ DefaultGroupName={#MyAppName}
 PrivilegesRequired=lowest
 DisableProgramGroupPage=yes
 OutputDir=Output
-OutputBaseFilename=SesKlon-Kurulum
+OutputBaseFilename=SesVer-Kurulum
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -52,7 +52,7 @@ Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\baslat.bat"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\baslat.bat"; Description: "{cm:LaunchProgram,SesKlon (ilk kurulum birkaç dakika sürebilir)}"; Flags: postinstall skipifsilent shellexec nowait; WorkingDir: "{app}"
+Filename: "{app}\baslat.bat"; Description: "{cm:LaunchProgram,SesVer (ilk kurulum birkaç dakika sürebilir)}"; Flags: postinstall skipifsilent shellexec nowait; WorkingDir: "{app}"
 
 [UninstallDelete]
 ; Kaldırırken Python ortamını (.venv) da temizle — kurulumdan SONRA oluştuğu için
@@ -79,7 +79,7 @@ begin
   Result := True;
   if not PythonInstalled() then
   begin
-    if MsgBox('Python 3.10-3.12 bulunamadı. SesKlon çalışmak için Python gerektirir.' + #13#10 +
+    if MsgBox('Python 3.10-3.12 bulunamadı. SesVer çalışmak için Python gerektirir.' + #13#10 +
       #13#10 + 'Şimdi python.org indirme sayfasını açmak ister misiniz? Python''u kurduktan ' +
       'sonra bu kurulumu tekrar çalıştırın.',
       mbConfirmation, MB_YESNO) = IDYES then

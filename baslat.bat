@@ -1,5 +1,5 @@
 @echo off
-REM SesKlon başlatıcı — Windows. Çift tıklayın.
+REM SesVer başlatıcı — Windows. Çift tıklayın.
 REM İlk çalıştırmada ortamı kurar; sonrakilerde doğrudan açar.
 cd /d "%~dp0"
 
@@ -18,7 +18,7 @@ if not exist ".venv" (
     echo Kurulum tamamlandi.
 )
 
-echo SesKlon baslatiliyor... Tarayicinizda http://127.0.0.1:7860 acilacak.
+echo SesVer baslatiliyor... Tarayicinizda http://127.0.0.1:7860 acilacak.
 echo Durdurmak icin bu pencerede Ctrl+C kullanin.
 .\.venv\Scripts\python.exe app.py
 pause

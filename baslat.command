@@ -1,5 +1,5 @@
 #!/bin/bash
-# SesKlon başlatıcı — macOS / Linux. Çift tıklayın veya terminalde çalıştırın.
+# SesVer başlatıcı — macOS / Linux. Çift tıklayın veya terminalde çalıştırın.
 # İlk çalıştırmada ortamı kurar; sonrakilerde doğrudan açar.
 set -e
 cd "$(dirname "$0")"
@@ -22,6 +22,6 @@ if [ ! -d ".venv" ]; then
   echo "Kurulum tamamlandı."
 fi
 
-echo "SesKlon başlatılıyor... Tarayıcınızda http://127.0.0.1:7860 açılacak."
+echo "SesVer başlatılıyor... Tarayıcınızda http://127.0.0.1:7860 açılacak."
 echo "Durdurmak için bu pencerede Ctrl+C kullanın."
 ./.venv/bin/python app.py
