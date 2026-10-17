@@ -138,9 +138,46 @@ class AppTests(unittest.TestCase):
                 patch.object(app, "get_model", return_value=model):
             reference = str(Path(directory) / "reference.wav")
             sf.write(reference, np.zeros(48000), 16000)
-            list(app._clone_generate("Merhaba.", reference, "Neşeli"))
+            list(app._clone_generate("Merhaba.", reference, "Neşeli", None))
             self.assertEqual(model.generate.call_args.kwargs.get("text"), "(cheerful)Merhaba.")
             self.assertEqual(model.generate.call_args.kwargs.get("reference_wav_path"), reference)
+
+    def test_prompt_text_enables_continuation_mode(self):
+        import app
+        from unittest.mock import Mock
+        model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                generate=Mock(return_value=np.zeros(4800)))
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(app, "OUTPUT_DIR", Path(directory)), \
+                patch.object(app, "get_model", return_value=model):
+            reference = str(Path(directory) / "reference.wav")
+            sf.write(reference, np.zeros(48000), 16000)
+            list(app.generate_audio("Merhaba.", reference, prompt_text="Referansta söylenen tam metin."))
+            kwargs = model.generate.call_args.kwargs
+            self.assertEqual(kwargs.get("prompt_wav_path"), reference)
+            self.assertEqual(kwargs.get("prompt_text"), "Referansta söylenen tam metin.")
+            self.assertEqual(kwargs.get("reference_wav_path"), reference)
+
+    def test_prompt_text_without_reference_is_rejected(self):
+        import app
+        with patch.object(app, "get_model") as load:
+            with self.assertRaisesRegex(app.gr.Error, "Referans"):
+                list(app.generate_audio("Merhaba.", None, prompt_text="metin"))
+            load.assert_not_called()
+
+    def test_auto_transcribe_requires_reference(self):
+        import app
+        with self.assertRaisesRegex(app.gr.Error, "referans"):
+            app.auto_transcribe(None)
+
+    def test_auto_transcribe_returns_whisper_text(self):
+        import app
+        from unittest.mock import Mock
+        segment = SimpleNamespace(text=" Merhaba dünya. ")
+        whisper = Mock(transcribe=Mock(return_value=([segment], None)))
+        with patch.object(app, "_get_whisper", return_value=whisper):
+            result = app.auto_transcribe("/tmp/herhangi.wav")
+        self.assertEqual(result, "Merhaba dünya.")
 
 
 if __name__ == "__main__":

@@ -20,3 +20,4 @@ sortedcontainers
 soundfile==0.14.0
 librosa
 safetensors
+faster-whisper
