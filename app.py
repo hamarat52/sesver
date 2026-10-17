@@ -73,11 +73,19 @@ def generate_audio(text, reference_audio, instruction=None):
             raise gr.Error("Referans ses okunamadı. 1–30 saniyelik geçerli bir WAV yükleyin.") from exc
     final_text = f"({instruction}){text}" if instruction else text
     started = perf_counter()
-    yield None, None, "İşleniyor… İlk kullanımda model indiriliyor/yükleniyor."
+    yield None, None, "İşleniyor… İlk kullanımda model indiriliyor/yükleniyor (internet ve birkaç dakika gerekebilir)."
     try:
         with _model_lock:
             model = get_model()
-            yield None, None, "Ses üretiliyor… M1'de 10 saniyelik ses yaklaşık 70–80 saniye sürebilir."
+            # Kaba tahmin: M1'de karakter başına ~3-6 sn; uzun metin ve aynı anda
+            # çalışan başka ağır uygulamalar süreyi belirgin artırabilir.
+            est_min = max(1, round(len(text) * 3 / 60))
+            est_max = max(est_min + 1, round(len(text) * 6 / 60))
+            yield None, None, (
+                f"Ses üretiliyor… Metninizin uzunluğuna göre tahmini {est_min}-{est_max} dakika "
+                "sürebilir (başka ağır uygulamalar açıksa daha uzun sürer). "
+                "**Pencereyi kapatmayın, bu normal** — bittiğinde burada 'Tamamlandı' yazacak."
+            )
             wav = model.generate(
                 text=final_text, reference_wav_path=reference_audio or None,
                 cfg_value=2.0, inference_timesteps=10,
