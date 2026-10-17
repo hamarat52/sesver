@@ -232,7 +232,7 @@ _INFO = f"""
   <div class="sv-tile"><span class="sv-tile-ic">{_svg(_IC_CLOUD)}</span>
     <div><b>İlk üretimde ~5 GB indirilir</b><span>Bir kez internet gerekir; sonra model bilgisayarınızda kalır.</span></div></div>
   <div class="sv-tile"><span class="sv-tile-ic">{_svg(_IC_CLOCK)}</span>
-    <div><b>Biraz sabır</b><span>Gerçek zamanlı değildir: M1'de 10 sn ses ≈ 70–80 sn sürer.</span></div></div>
+    <div><b>Biraz sabır</b><span>Gerçek zamanlı değildir: 10 saniyelik ses, donanıma göre 1-2 dakika sürebilir.</span></div></div>
 </div>
 """
 
