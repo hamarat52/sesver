@@ -21,3 +21,8 @@ soundfile==0.14.0
 librosa
 safetensors
 faster-whisper
+# Ses kütüphanesi / efektler / dosya yükleme (zaten librosa ve faster-whisper
+# ile dolaylı geliyordu; doğrudan kullanıldıkları için açıkça yazıldı).
+numpy
+scipy
+av

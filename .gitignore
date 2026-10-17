@@ -31,3 +31,15 @@ flagged/
 .DS_Store
 Thumbs.db
 *.log
+
+# Ses kütüphanesi: hazır (sentetik) sesler repoyla gelir; kişisel sesler asla.
+voices/seslerim/
+voices/**/.tmp-*
+!voices/hazir/*/ref.wav
+!voices/hazir/*/ornek.wav
+# Gerçek kişi klonları hiçbir klasörde repoya girmez (voice_library.py'deki
+# PROTECTED_NAMES korumasının ikinci katmanı).
+voices/**/*yusuf*
+voices/**/*akif*
+voices/**/*Yusuf*
+voices/**/*Akif*

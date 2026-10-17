@@ -1,0 +1,149 @@
+{
+  "surum": 1,
+  "max_kelime": 25,
+  "bos_secenek": "Fark etmez",
+  "karakter_per_saniye": 16,
+  "gruplar": {
+    "cinsiyet": {
+      "etiket": "Cinsiyet",
+      "tip": "tek",
+      "secenekler": {
+        "Kadın": {"en": "female", "zamir": "her"},
+        "Erkek": {"en": "male", "zamir": "his"},
+        "Belirsiz": {"en": "androgynous", "zamir": "their"}
+      }
+    },
+    "yas": {
+      "etiket": "Yaş",
+      "tip": "tek",
+      "secenekler": {
+        "Çocuk": {"en": "child", "konum": "cinsiyetten_sonra"},
+        "Genç": {"en": "young"},
+        "30'lar": {"en": "in {zamir} thirties", "konum": "sona"},
+        "Orta yaş": {"en": "middle-aged"},
+        "Yaşlı": {"en": "elderly"}
+      }
+    },
+    "kullanim": {
+      "etiket": "Kullanım (isteğe bağlı)",
+      "tip": "tek",
+      "secenekler": {
+        "Masal": {"en": "storyteller"},
+        "Belgesel": {"en": "documentary narrator"},
+        "Reklam": {"en": "commercial voice-over"},
+        "Podcast": {"en": "podcast host"},
+        "Sosyal medya": {"en": "social media host"},
+        "Sohbet": {"en": "conversational voice"}
+      }
+    },
+    "perde": {
+      "etiket": "Ses perdesi",
+      "tip": "kaydirici",
+      "varsayilan": "Orta",
+      "secenekler": {
+        "Çok kalın": {"en": "very deep, low-pitched"},
+        "Kalın": {"en": "deep"},
+        "Orta": {"en": ""},
+        "İnce": {"en": "high-pitched"},
+        "Çok ince": {"en": "very high-pitched"}
+      }
+    },
+    "ton": {
+      "etiket": "Ton / duygu",
+      "tip": "tek",
+      "secenekler": {
+        "Sakin": {"en": "calm"},
+        "Sıcak": {"en": "warm"},
+        "Neşeli": {"en": "cheerful"},
+        "Heyecanlı": {"en": "excited and energetic"},
+        "Ciddi": {"en": "serious"},
+        "Gizemli": {"en": "mysterious"},
+        "Hüzünlü": {"en": "melancholic"},
+        "Otoriter": {"en": "authoritative"}
+      }
+    },
+    "doku": {
+      "etiket": "Ses dokusu (en fazla 2)",
+      "tip": "coklu",
+      "en_fazla": 2,
+      "secenekler": {
+        "Berrak": {"en": "clear"},
+        "Boğuk": {"en": "husky"},
+        "Nefesli": {"en": "breathy"},
+        "Pürüzlü": {"en": "raspy"},
+        "Tok": {"en": "resonant"},
+        "Yumuşak": {"en": "soft"}
+      }
+    },
+    "hiz": {
+      "etiket": "Hız",
+      "tip": "kaydirici",
+      "varsayilan": "Normal",
+      "secenekler": {
+        "Çok yavaş": {"en": "very slow"},
+        "Yavaş": {"en": "slow"},
+        "Normal": {"en": ""},
+        "Hızlı": {"en": "fast"},
+        "Çok hızlı": {"en": "very fast"}
+      }
+    },
+    "enerji": {
+      "etiket": "Enerji",
+      "tip": "kaydirici",
+      "varsayilan": "Orta",
+      "secenekler": {
+        "Düşük": {"en": "low energy, relaxed"},
+        "Orta": {"en": ""},
+        "Yüksek": {"en": "high energy"}
+      }
+    }
+  },
+  "sira": ["perde", "ton", "doku", "hiz", "enerji"],
+  "kisaltma_sirasi": ["enerji", "doku", "hiz"],
+  "unlu_istisnalari": {
+    "an": ["hour", "honest", "honorable"],
+    "a": ["young", "unique", "one", "user", "european", "uniform"]
+  },
+  "sablonlar": {
+    "Masalcı": {
+      "yas": "Yaşlı", "cinsiyet": "Erkek", "kullanim": "Masal", "perde": "Kalın",
+      "ton": "Sıcak", "doku": ["Boğuk"], "hiz": "Yavaş", "enerji": "Orta",
+      "kategori": "masal"
+    },
+    "Belgesel": {
+      "yas": "Orta yaş", "cinsiyet": "Erkek", "kullanim": "Belgesel", "perde": "Kalın",
+      "ton": "Ciddi", "doku": ["Tok"], "hiz": "Normal", "enerji": "Orta",
+      "kategori": "belgesel"
+    },
+    "Sunucu": {
+      "yas": "30'lar", "cinsiyet": "Kadın", "kullanim": "Podcast", "perde": "Orta",
+      "ton": "Neşeli", "doku": ["Berrak"], "hiz": "Hızlı", "enerji": "Yüksek",
+      "kategori": "sunucu"
+    },
+    "Sıcak kadın anlatıcı": {
+      "yas": "Orta yaş", "cinsiyet": "Kadın", "kullanim": "Masal", "perde": "Orta",
+      "ton": "Sıcak", "doku": ["Yumuşak"], "hiz": "Yavaş", "enerji": "Düşük",
+      "kategori": "masal"
+    }
+  },
+  "uyarilar": [
+    {"kosul": {"yas": ["Çocuk"], "perde": ["Çok kalın", "Kalın"]},
+     "mesaj": "Çocuk sesi için kalın perde alışılmadık; sonuç tutarsız olabilir."},
+    {"kosul": {"yas": ["Yaşlı"], "perde": ["Çok ince"]},
+     "mesaj": "Yaşlı ses için çok ince perde alışılmadık; sonuç tutarsız olabilir."},
+    {"kosul": {"yas": ["Çocuk"], "ton": ["Otoriter"]},
+     "mesaj": "Çocuk sesi + otoriter ton alışılmadık bir birleşim; adaylar birbirinden çok farklı çıkabilir."},
+    {"kosul": {"ton": ["Sakin"], "enerji": ["Yüksek"]},
+     "mesaj": "Sakin ton ile yüksek enerji birbirine ters düşebilir."},
+    {"kosul": {"ton": ["Heyecanlı"], "enerji": ["Düşük"]},
+     "mesaj": "Heyecanlı ton ile düşük enerji birbirine ters düşebilir."},
+    {"kosul": {"ton": ["Heyecanlı"], "hiz": ["Çok yavaş"]},
+     "mesaj": "Heyecanlı ton ile çok yavaş hız birbirine ters düşebilir."}
+  ],
+  "ornek_metinler": {
+    "masal": "Bir varmış, bir yokmuş. Uzak bir dağ köyünde yaşlı bir değirmenci yaşarmış. Onun en büyük hazinesi, rüzgârla konuşan küçük bir kuşmuş. Her sabah kuş pencereye konar, usulca şarkı söylermiş. Bir gün kuş hiç gelmemiş. Değirmenci de eline fenerini almış ve onu aramak için yola koyulmuş. Yol uzunmuş, gece de çok karanlıkmış.",
+    "belgesel": "Okyanusun derinliklerinde ışık neredeyse hiç yoktur. Burada yaşayan canlılar karanlığa uyum sağlamıştır. Bazıları kendi ışığını üretir. Bazıları ise en küçük titreşimi bile hisseder. Bilim insanları bu dünyanın ancak küçük bir bölümünü keşfedebilmiştir. Her yeni dalış, daha önce görülmemiş bir türü gün ışığına çıkarabilir.",
+    "sunucu": "Herkese merhaba, hoş geldiniz! Bugün sizin için çok güzel bir konuğumuz var. Hem eğlenceli hem de bol bilgili bir sohbet bizi bekliyor. Sorularınızı yorumlara yazmayı unutmayın. En iyilerini bölümün sonunda tek tek cevaplayacağız. Hazırsanız vakit kaybetmeden başlıyoruz, sakın ayrılmayın!"
+  },
+  "kategori_etiketleri": {"masal": "Masal", "belgesel": "Belgesel", "sunucu": "Sunucu"}
+}

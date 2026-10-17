@@ -1,0 +1,14 @@
+{
+  "id": "belgesel",
+  "ad": "Belgesel Anlatıcı",
+  "aciklama": "Derin, tok erkek sesi; belgesel ve tarih anlatımı",
+  "kategori": "Anlatım",
+  "tarif": "a deep-voiced middle-aged male documentary narrator, low and resonant",
+  "seed": null,
+  "secimler": null,
+  "varsayilan_efektler": [],
+  "kaynak": "Tarifle tasarlandı (sentetik ses, gerçek kişi değil)",
+  "hazir": true,
+  "surum": 1,
+  "olusturma": "2026-10-17T22:05:58+03:00"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "masalci",
+  "ad": "Yaşlı Masalcı",
+  "aciklama": "Sıcak, sakin, yavaş; masal ve çocuk hikâyeleri",
+  "kategori": "Hikâye",
+  "tarif": "a calm, warm, elderly storyteller, gentle and slow",
+  "seed": 4242,
+  "secimler": null,
+  "varsayilan_efektler": [],
+  "kaynak": "Tarifle tasarlandı (sentetik ses, gerçek kişi değil)",
+  "hazir": true,
+  "surum": 1,
+  "olusturma": "2026-10-17T22:05:58+03:00"
+}

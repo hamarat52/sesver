@@ -5,18 +5,29 @@ import os
 os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
+import logging
+import random
+from html import escape
 from pathlib import Path
 from threading import Event, Lock, Thread
 from time import perf_counter
+from types import SimpleNamespace
 from uuid import uuid4
 
 import gradio as gr
+import numpy as np
 import soundfile as sf
+
+import audio_prep
+import effects as fx
+import voice_designer as vdes
+import voice_library as vlib
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 MODEL_ID = "openbmb/VoxCPM2"
 _model = None
 _model_lock = Lock()
+log = logging.getLogger("sesver")
 
 # --- Duygu/ton seçici -------------------------------------------------------
 # VoxCPM2'nin stil talimatı ayrı bir API parametresi değildir; metnin başına
@@ -85,7 +96,56 @@ def auto_transcribe(reference_audio):
     return text
 
 
-def generate_audio(text, reference_audio, instruction=None, prompt_text=None, progress=gr.Progress()):
+def transcribe_with_info(path):
+    """auto_transcribe ile aynı model/kilit; VAD ile konuşma oranını da döndürür.
+
+    VAD modeli faster-whisper'ın içinde gömülü gelir (yeni indirme yok).
+    """
+    with _whisper_lock:
+        model = _get_whisper()
+        segments, info = model.transcribe(path, language="tr", vad_filter=True)
+        text = " ".join(s.text.strip() for s in segments).strip()
+    duration = float(getattr(info, "duration", 0) or 0)
+    after = float(getattr(info, "duration_after_vad", duration) or 0)
+    return text, (after / duration if duration else 0.0)
+
+
+def _seed_everything(seed):
+    """VoxCPM generate() seed almaz; rastgelelik torch.randn'den gelir."""
+    import torch
+    seed = int(seed)
+    random.seed(seed)
+    np.random.seed(seed % (2 ** 32))
+    torch.manual_seed(seed)
+
+
+def _build_kwargs(text, reference_audio, instruction, prompt_text, timesteps, voice_id=None, log_mode=None):
+    """Üç kipin generate() parametrelerini tek yerde kurar ve tek satır loglar.
+
+    Log yalnız kip/ses kimliği/parametre adlarını içerir; metin ve ses içeriği
+    yazılmaz (gizlilik).
+    """
+    final_text = f"({instruction}){text}" if instruction else text
+    kwargs = dict(text=final_text, cfg_value=2.0, inference_timesteps=int(timesteps))
+    if prompt_text:
+        # Devam kipi: model referansın GERÇEK içeriğini bilerek devam eder.
+        # reference_wav_path ile birlikte verilince sonuç daha da sağlam olur.
+        kwargs["prompt_wav_path"] = reference_audio
+        kwargs["prompt_text"] = prompt_text
+        kwargs["reference_wav_path"] = reference_audio
+        mode = "devam+stil" if instruction else "devam"
+    else:
+        kwargs["reference_wav_path"] = reference_audio or None
+        mode = ("kontrollu_klon" if instruction else "klon") if reference_audio else "referanssiz"
+    mode = log_mode or mode
+    names = ",".join(sorted(k for k, v in kwargs.items() if v is not None))
+    log.info("istek kip=%s ses=%s parametreler=%s tarif=%s", mode, voice_id or "-", names,
+             "var" if instruction else "yok")
+    return mode, kwargs
+
+
+def generate_audio(text, reference_audio, instruction=None, prompt_text=None, progress=gr.Progress(),
+                   seed=None, timesteps=10, voice_id=None, log_mode=None):
     """Durumu hemen göster; aynı modelde üretimleri sıraya koy.
 
     prompt_text verilmişse VoxCPM2'nin "devam kipi" kullanılır: model referans
@@ -115,7 +175,6 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
                 raise ValueError("Süre 1–30 saniye olmalı.")
         except (OSError, RuntimeError, ValueError) as exc:
             raise gr.Error("Referans ses okunamadı. 1–30 saniyelik geçerli bir WAV yükleyin.") from exc
-    final_text = f"({instruction}){text}" if instruction else text
     started = perf_counter()
     progress(0.05, desc="İlk kullanımda model indiriliyor/yükleniyor…")
     yield None, None, "İşleniyor… İlk kullanımda model indiriliyor/yükleniyor (internet ve birkaç dakika gerekebilir)."
@@ -132,15 +191,11 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
                 "sürebilir (başka ağır uygulamalar açıksa daha uzun sürer). "
                 "**Pencereyi kapatmayın, bu normal** — bittiğinde burada 'Tamamlandı' yazacak."
             )
-            generate_kwargs = dict(text=final_text, cfg_value=2.0, inference_timesteps=10)
-            if prompt_text:
-                # Devam kipi: model referansın GERÇEK içeriğini bilerek devam eder.
-                # reference_wav_path ile birlikte verilince sonuç daha da sağlam olur.
-                generate_kwargs["prompt_wav_path"] = reference_audio
-                generate_kwargs["prompt_text"] = prompt_text
-                generate_kwargs["reference_wav_path"] = reference_audio
-            else:
-                generate_kwargs["reference_wav_path"] = reference_audio or None
+            _mode, generate_kwargs = _build_kwargs(text, reference_audio, instruction, prompt_text, timesteps,
+                                                   voice_id=voice_id, log_mode=log_mode)
+            if seed is not None:
+                # "Aynı tarif + aynı seed = aynı ses" için üretimden hemen önce.
+                _seed_everything(seed)
             # Model.generate() tek bloklayıcı çağrı; gerçek adım bilgisi vermez.
             # Tahmini sürenin ortasına göre yumuşakça 0.2→0.93 arası ilerleyen
             # bir arka plan iş parçacığı, ilerlemeyi donuk göstermez.
@@ -185,6 +240,329 @@ def _clone_generate(text, reference_audio, emotion_label, prompt_text, progress=
     yield from generate_audio(text, reference_audio, EMOTIONS.get(emotion_label), prompt_text, progress=progress)
 
 
+# --- Ses kütüphanesi --------------------------------------------------------
+RANDOM_VOICE = "rastgele"
+QUALITY = {"Hızlı": 6, "Dengeli": 10, "En İyi": 16}  # inference_timesteps (Dengeli = eski varsayılan)
+SIMILARITY_NOTE = "Duygu seçmek sesin benzerliğini biraz azaltır."
+DESIGN_KAYNAK = "Tarifle tasarlandı (sentetik ses, gerçek kişi değil)"
+_RANDOM_CARD = {
+    "id": RANDOM_VOICE, "ad": "🎲 Rastgele ses", "kategori": "Referanssız", "hazir": True, "ornek": None,
+    "aciklama": "Her üretimde yeni, kalıcı olmayan bir ses. Duygu seçici serbestçe kullanılır.",
+}
+
+
+def _voice_list():
+    """Kartlar için hafif liste (gr.State içinde tutulur)."""
+    return [{k: v[k] for k in ("id", "ad", "aciklama", "kategori", "hazir", "ornek")} for v in vlib.list_voices()]
+
+
+def _mode_info(voice_id, emotion_label, text=""):
+    """Seçili sese ve duyguya göre kipi ve modele gidecek metni açıklar."""
+    instruction = EMOTIONS.get(emotion_label)
+    if not voice_id or voice_id == RANDOM_VOICE:
+        return f"**Rastgele ses** · Üretilecek: _{_preview_text(text, emotion_label)}_"
+    voice = vlib.get_voice(voice_id)
+    if not voice:
+        return "Seçili ses bulunamadı; kütüphaneden yeniden seçin."
+    if instruction:
+        return (f"**{escape(voice['ad'])}** · Kontrollü Klon kipi (`{instruction}`). "
+                f"⚠️ {SIMILARITY_NOTE} En sadık sonuç için “Nötr” kalsın.")
+    return (f"**{escape(voice['ad'])}** · Devam kipi: kayıtlı sesin kendi kaydı ve metniyle sürdürülür; "
+            "tarif ya da duygu eklenmez (en yüksek benzerlik).")
+
+
+def library_generate(text, emotion_label, quality="Dengeli", voice_id=RANDOM_VOICE,
+                     progress=gr.Progress(track_tqdm=True)):
+    """Kütüphanedeki seçili sesle üretim.
+
+    Rastgele → referanssız (eski Normal Üretim); kayıtlı ses + Nötr → Devam;
+    kayıtlı ses + duygu → Kontrollü Klon.
+    """
+    instruction = EMOTIONS.get(emotion_label)
+    steps = QUALITY.get(quality, 10)
+    voice_id = voice_id or RANDOM_VOICE
+    if voice_id == RANDOM_VOICE:
+        yield from generate_audio(text, None, instruction, progress=progress, timesteps=steps,
+                                  voice_id=RANDOM_VOICE)
+        return
+    voice = vlib.get_voice(voice_id)
+    if not voice:
+        raise gr.Error("Seçili ses bulunamadı; kütüphaneden yeniden seçin.")
+    if instruction:
+        yield from generate_audio(text, voice["ref_wav"], instruction, None, progress=progress,
+                                  timesteps=steps, voice_id=voice_id)
+    else:
+        yield from generate_audio(text, voice["ref_wav"], None, voice["ref_text"], progress=progress,
+                                  timesteps=steps, voice_id=voice_id)
+
+
+def _voice_error(exc):
+    return gr.Error(str(exc) or "İşlem yapılamadı.")
+
+
+def copy_voice_ui(voice_id):
+    try:
+        voice = vlib.copy_voice(voice_id)
+    except (vlib.VoiceError, PermissionError) as exc:
+        raise _voice_error(exc)
+    return _voice_list(), voice["id"], f"Kopyalandı: **{escape(voice['ad'])}** artık Seslerim'de."
+
+
+def delete_voice_ui(voice_id, selected):
+    try:
+        vlib.delete_voice(voice_id)
+    except vlib.VoiceError as exc:
+        raise _voice_error(exc)
+    new_selected = RANDOM_VOICE if selected == voice_id else selected
+    return _voice_list(), new_selected, "Ses silindi.", None, gr.update(visible=False)
+
+
+# --- Efektler (üretim sonrası DSP) --------------------------------------------
+_FX_KEYS = list(fx.EFFECTS)
+
+
+def _fx_settings(*vals):
+    """[açık, yoğunluk] * 6 + oda ön ayarı → ses.json biçimindeki liste."""
+    room = vals[-1]
+    out = []
+    for i, key in enumerate(_FX_KEYS):
+        if vals[2 * i]:
+            entry = {"ad": key, "yogunluk": int(vals[2 * i + 1])}
+            if key == "oda":
+                entry["on_ayar"] = room
+            out.append(entry)
+    return fx.clean_settings(out)
+
+
+def _fx_values(efektler):
+    by_name = {e["ad"]: e for e in fx.clean_settings(efektler)}
+    values = []
+    for key in _FX_KEYS:
+        values += [key in by_name, by_name.get(key, {}).get("yogunluk", 50)]
+    values.append(by_name.get("oda", {}).get("on_ayar", "salon"))
+    return values
+
+
+def apply_effects_ui(raw_path, *vals):
+    """Ham sesin kopyasına efekt zinciri; model yeniden çalışmaz."""
+    settings = _fx_settings(*vals)
+    if not raw_path:
+        return None, None, "Önce bir ses üretin; efektler üretilen sese uygulanır."
+    if not settings:
+        return None, None, "Efekt kapalı; ham ses olduğu gibi kullanılıyor."
+    audio, sr = sf.read(str(raw_path), dtype="float32", always_2d=True)
+    out = fx.apply(audio.mean(axis=1), sr, settings)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    stem = Path(raw_path).stem.split("-fx-")[0]
+    for old in OUTPUT_DIR.glob(f"{stem}-fx-*.wav"):
+        old.unlink(missing_ok=True)
+    path = OUTPUT_DIR / f"{stem}-fx-{uuid4().hex[:6]}.wav"
+    sf.write(str(path), out, sr, subtype="PCM_16")
+    names = ", ".join(f"{fx.EFFECTS[e['ad']]} %{e['yogunluk']}" for e in settings)
+    return str(path), str(path), (
+        f"Efekt uygulandı: {names}. Seviye {fx.loudness_lufs(out, sr):.1f} LUFS, "
+        f"tepe {fx.true_peak_dbtp(out):.1f} dBTP. Ham ses ayrıca korunuyor."
+    )
+
+
+def save_fx_preset_ui(voice_id, *vals):
+    if not voice_id or voice_id == RANDOM_VOICE:
+        raise gr.Error("Ön ayar yalnız kayıtlı bir sese kaydedilebilir.")
+    try:
+        voice = vlib.update_effects(voice_id, _fx_settings(*vals))
+    except vlib.VoiceError as exc:
+        raise _voice_error(exc)
+    return f"Efekt ön ayarı **{escape(voice['ad'])}** sesine kaydedildi."
+
+
+def select_voice_ui(voice_id, emotion_label, text):
+    """Kart seçimi: kip açıklaması ve sesin efekt ön ayarı yüklenir."""
+    voice = vlib.get_voice(voice_id) if voice_id != RANDOM_VOICE else None
+    values = _fx_values(voice["varsayilan_efektler"] if voice else [])
+    return [voice_id, _mode_info(voice_id, emotion_label, text)] + values
+
+
+# --- Ses oluştur: seçimlerle tarif -------------------------------------------
+_DMAP = vdes.load_map()
+_SAMPLE_CATEGORIES = [(label, key) for key, label in _DMAP["kategori_etiketleri"].items()]
+_DEFAULT_SAMPLE_SECONDS = 8
+
+
+def _slider_labels(group):
+    return list(_DMAP["gruplar"][group]["secenekler"])
+
+
+def _slider_default(group):
+    return _slider_labels(group).index(_DMAP["gruplar"][group]["varsayilan"]) + 1
+
+
+def design_selections(cins, yas, kullanim, perde, ton, doku, hiz, enerji):
+    """Arayüz değerlerini birleştiricinin beklediği sözlüğe çevirir (kaydırıcı 1'den başlar)."""
+    def at(group, index):
+        labels = _slider_labels(group)
+        return labels[min(max(int(round(index or 1)) - 1, 0), len(labels) - 1)]
+
+    return {"cinsiyet": cins, "yas": yas, "kullanim": kullanim, "perde": at("perde", perde), "ton": ton,
+            "doku": list(doku or [])[:2], "hiz": at("hiz", hiz), "enerji": at("enerji", enerji)}
+
+
+def rebuild_description_ui(cins, yas, kullanim, perde, ton, doku, hiz, enerji, manual, current):
+    secimler = design_selections(cins, yas, kullanim, perde, ton, doku, hiz, enerji)
+    tarif, parcalar, uyarilar = vdes.build_description(secimler, _DMAP)
+    if (doku or []) and len(doku) > 2:
+        uyarilar.insert(0, "Ses dokusu için en fazla 2 seçim kullanılır; ilk ikisi alındı.")
+    warn = "  \n".join(f"⚠️ {escape(u)}" for u in uyarilar)
+    head = ('<p class="sv-fine"><b>Elle düzenlendi:</b> seçimler tarifin üzerine yazmıyor.</p>' if manual else "")
+    return (current if manual else tarif), head + vdes.parts_html(parcalar), warn
+
+
+def apply_template_ui(name, seconds):
+    secimler, kategori = vdes.template(_DMAP, name)
+    idx = {g: _slider_labels(g).index(secimler[g]) + 1 for g in ("perde", "hiz", "enerji")}
+    kategori = kategori or "masal"
+    return (secimler["cinsiyet"], secimler["yas"], secimler["kullanim"], idx["perde"], secimler["ton"],
+            list(secimler["doku"]), idx["hiz"], idx["enerji"], kategori,
+            vdes.sample_text(kategori, seconds, _DMAP), False)
+
+
+def sample_estimate_md(text):
+    sec = vdes.estimate_seconds(text, _DMAP)
+    return f"Örnek ses ≈ **{sec:.0f} sn** (tahmini; okunacak metnin uzunluğundan hesaplanır)."
+
+
+def design_candidates(tarif, text, quality, batch, cands, cins, yas, kullanim, perde, ton, doku, hiz, enerji,
+                      progress=gr.Progress(track_tqdm=True)):
+    """4 aday: aynı tarif + aynı cümle, farklı seed. Her aday hazır olunca kartına düşer."""
+    tarif = (tarif or "").strip().strip("()").strip()
+    text = (text or "").strip()
+    if not tarif:
+        raise gr.Error("Önce seçim yapın ya da Gelişmiş alanına bir tarif yazın.")
+    if not text:
+        raise gr.Error("Örnek cümle boş olamaz.")
+    seeds = vdes.candidate_seeds(batch)
+    cands = dict(cands or {})
+    meta = {"tarif": tarif, "text": text,
+            "secimler": design_selections(cins, yas, kullanim, perde, ton, doku, hiz, enerji)}
+    audios: list = [None] * 4
+    labels = [f"Aday {i + 1} · seed {s} — sırada" for i, s in enumerate(seeds)]
+
+    def pack(status):
+        return (*audios, *labels, status, cands, meta, gr.update(visible=False), None)
+
+    yield pack(f"4 aday sırayla üretilecek (seed {', '.join(map(str, seeds))}). İlk aday hazır olunca dinleyebilirsiniz.")
+    for i, seed in enumerate(seeds):
+        labels[i] = f"Aday {i + 1} · seed {seed} — üretiliyor…"
+        last = None
+        for last in generate_audio(text, None, tarif, progress=progress, seed=seed,
+                                   timesteps=QUALITY.get(quality, 10), voice_id=f"aday-{seed}", log_mode="tasarim"):
+            yield pack(f"Aday {i + 1}/4 · {last[2]}")
+        if not last or not last[0]:
+            labels[i] = f"Aday {i + 1} · seed {seed} — başarısız"
+            yield pack(last[2] if last else "Üretim başarısız.")
+            return
+        audios[i] = last[0]
+        cands[str(seed)] = last[0]
+        labels[i] = f"Aday {i + 1} · seed {seed}"
+        yield pack(f"Aday {i + 1}/4 hazır." + (" Sıradaki üretiliyor…" if i < 3 else " Birini seçip kaydedin."))
+
+
+def pick_candidate_ui(index, batch, cands):
+    seed = vdes.candidate_seeds(batch)[index]
+    if str(seed) not in (cands or {}):
+        raise gr.Error("Bu aday henüz üretilmedi.")
+    return seed, gr.update(visible=True), f"Seçilen: **Aday {index + 1}** (seed {seed}). Ad verip kaydedin."
+
+
+def save_designed_ui(name, aciklama, kategori, picked, cands, meta):
+    if picked is None:
+        raise gr.Error("Önce bir aday seçin.")
+    path = (cands or {}).get(str(picked))
+    if not path or not Path(path).is_file() or not meta:
+        raise gr.Error("Seçilen aday bulunamadı; adayları yeniden üretin.")
+    try:
+        voice = vlib.save_voice(
+            ad=name, ref_wav=path, ref_text=meta["text"], kaynak=DESIGN_KAYNAK, aciklama=aciklama,
+            kategori=(kategori or "").strip() or "Genel", tarif=meta["tarif"], seed=int(picked),
+            secimler=meta.get("secimler"),
+        )
+    except (vlib.VoiceError, PermissionError) as exc:
+        raise _voice_error(exc)
+    return _voice_list(), voice["id"], gr.Tabs(selected="lib"), f"Kaydedildi: **{escape(voice['ad'])}**."
+
+
+# --- Ses oluştur: dosya yükle -------------------------------------------------
+def upload_analyze_ui(path):
+    """Çöz → mono → sessizliği kırp → kontroller. Hazırlanan dosya outputs/ altına yazılır."""
+    if not path:
+        return (None, None, None, "", gr.update(visible=False), gr.update(), gr.update(), "")
+    try:
+        info = audio_prep.analyze(path)
+    except audio_prep.PrepError as exc:
+        raise gr.Error(str(exc))
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    full = str(audio_prep.write_wav(info["audio"], info["sr"], OUTPUT_DIR / f"yukleme-{uuid4().hex}-tam.wav"))
+    dur = info["duration"]
+    long_ = dur > audio_prep.MAX_SECONDS
+    if long_:
+        prepared = str(audio_prep.write_wav(audio_prep.cut(info["audio"], info["sr"], 0, audio_prep.MAX_SECONDS),
+                                            info["sr"], OUTPUT_DIR / f"yukleme-{uuid4().hex}.wav"))
+    else:
+        prepared = full
+    lines = [f"Süre (sessizlik kırpıldı): **{dur:.1f} sn** · mono, 16-bit WAV'a çevrildi."]
+    lines += [f"⚠️ {escape(w)}" for w in info["warnings"]]
+    lines.append(audio_prep.CLEAN_NOTE)
+    end = min(dur, audio_prep.MAX_SECONDS)
+    return (full, prepared, prepared, "  \n".join(lines), gr.update(visible=long_),
+            gr.update(maximum=round(dur, 1), value=0), gr.update(maximum=round(dur, 1), value=round(end, 1)), "")
+
+
+def upload_cut_ui(full, start, end):
+    if not full:
+        raise gr.Error("Önce bir ses dosyası yükleyin.")
+    audio, sr = sf.read(full, dtype="float32")
+    try:
+        clip = audio_prep.cut(audio, sr, start, end)
+    except audio_prep.PrepError as exc:
+        raise gr.Error(str(exc))
+    out = str(audio_prep.write_wav(clip, sr, OUTPUT_DIR / f"yukleme-{uuid4().hex}.wav"))
+    return out, out, f"Seçilen aralık: {float(start):.1f}–{float(end):.1f} sn ({float(end) - float(start):.1f} sn)."
+
+
+def upload_transcribe_ui(prepared):
+    if not prepared:
+        raise gr.Error("Önce bir ses dosyası yükleyin.")
+    try:
+        text, ratio = transcribe_with_info(prepared)
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        raise gr.Error("Otomatik yazıya dökme başarısız; metni elle yazabilirsiniz.")
+    note = f"Konuşma oranı ≈ %{ratio * 100:.0f}."
+    if ratio < 0.6:
+        note += " ⚠️ Kaydın büyük kısmında konuşma algılanmadı; müzik veya sessizlik olabilir."
+    if not text:
+        note += " Ses anlaşılamadı; metni elle yazın."
+    return text, note + " Metni kayıtla birebir aynı olacak şekilde düzeltin."
+
+
+def save_uploaded_ui(prepared, text, name, aciklama, kategori, consent):
+    if not consent:
+        raise gr.Error("Kaydetmek için izin kutucuğunu işaretleyin.")
+    if not prepared or not Path(prepared).is_file():
+        raise gr.Error("Önce bir ses dosyası yükleyin.")
+    if not (text or "").strip():
+        raise gr.Error("Kaydın metni boş olamaz; devam kipi bu metinle çalışır.")
+    dur = sf.info(prepared).duration
+    if not audio_prep.MIN_SECONDS - 0.05 <= dur <= audio_prep.MAX_SECONDS + 0.05:
+        raise gr.Error(f"Kayıt {dur:.1f} sn; 8–20 sn arası olmalı.")
+    try:
+        voice = vlib.save_voice(ad=name, ref_wav=prepared, ref_text=text, kaynak="yüklendi",
+                                aciklama=aciklama, kategori=(kategori or "").strip() or "Genel")
+    except (vlib.VoiceError, PermissionError) as exc:
+        raise _voice_error(exc)
+    return _voice_list(), voice["id"], gr.Tabs(selected="lib"), f"Kaydedildi: **{escape(voice['ad'])}**."
+
+
 
 
 # --- Görünüm --------------------------------------------------------------
@@ -216,6 +594,9 @@ _IC_CPU = ('<rect x="5" y="5" width="14" height="14" rx="2.5"/><rect x="9.5" y="
 _IC_CLOUD = '<path d="M7 18a4.5 4.5 0 0 1-.5-9A6 6 0 0 1 18 8.5a4.5 4.5 0 0 1-1 9.5"/><path d="M12 11v9M9 17l3 3 3-3"/>'
 _IC_CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>'
 _IC_SHIELD = '<path d="M12 3 4.5 6v5.5c0 4.8 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.7 7.5-9.5V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>'
+_IC_LIB = '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><path d="M16.75 14v5.5M14 16.75h5.5"/>'
+_IC_SPARK = '<path d="M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.5 10.2 12.6 4.5 10.8 10.2 9z"/><path d="M19 17v4M17 19h4"/>'
+_IC_FX = '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'
 
 
 def _html(value, **kwargs):
@@ -396,8 +777,13 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 #sv-tabs [role="tab"]::after { display: none !important; }
 #sv-tabs [role="tab"]::before { content: ""; width: 17px; height: 17px; background: currentColor;
   -webkit-mask: var(--ic) center / contain no-repeat; mask: var(--ic) center / contain no-repeat; }
-#sv-tabs [role="tab"]:nth-child(1) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><path d='M4 6.5V5h16v1.5M12 5v14M9 19h6'/></svg>"); }
-#sv-tabs [role="tab"]:nth-child(2) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><rect x='9' y='3' width='6' height='11' rx='3'/><path d='M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21'/></svg>"); }
+#sv-tabs [role="tab"]:nth-child(1) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><rect x='4' y='4' width='6.5' height='6.5' rx='1.6'/><rect x='13.5' y='4' width='6.5' height='6.5' rx='1.6'/><rect x='4' y='13.5' width='6.5' height='6.5' rx='1.6'/><path d='M16.75 14v5.5M14 16.75h5.5'/></svg>"); }
+#sv-tabs [role="tab"]:nth-child(2) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.5 10.2 12.6 4.5 10.8 10.2 9z'/></svg>"); }
+#sv-tabs [role="tab"]:nth-child(3) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><rect x='9' y='3' width='6' height='11' rx='3'/><path d='M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21'/></svg>"); }
+/* İç sekmeler (Ses Oluştur): ikonsuz, sola dayalı, daha küçük hap. */
+#sv-subtabs > .tab-wrapper { justify-content: flex-start; margin: 0 0 18px; }
+#sv-subtabs [role="tab"]::before { display: none !important; }
+#sv-subtabs [role="tab"] { padding: 8px 16px !important; font-size: .88rem !important; }
 #sv-tabs [role="tab"]:hover { color: var(--sv-ink) !important; background: rgba(23,19,15,.04) !important; }
 #sv-tabs [role="tab"].selected { color: #fff !important; background: var(--sv-ink) !important;
   box-shadow: 0 6px 16px -8px rgba(23,19,15,.7); }
@@ -580,6 +966,76 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 /* İlerleme göstergesi rengi */
 .gradio-container .progress-bar { background: var(--sv-grad) !important; }
 
+/* --- Ses kütüphanesi kartları ------------------------------------- */
+.sv-cards { gap: 12px !important; }
+.sv-group-title { display: flex; align-items: center; gap: 8px; margin: 2px 2px -4px; font-size: .74rem;
+  font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--sv-muted); }
+.sv-group-title span { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: 999px; background: var(--sv-soft); border: 1px solid var(--sv-line); font-size: .7rem;
+  letter-spacing: 0; color: var(--sv-ink-2); }
+.sv-empty { margin: 0; padding: 14px 16px; border-radius: 16px; border: 1px dashed var(--sv-line-2);
+  font-size: .85rem; line-height: 1.5; color: var(--sv-muted); background: var(--sv-soft); }
+.sv-vgrid { flex-wrap: wrap !important; gap: 10px !important; }
+.sv-panel .sv-vcard, .sv-vcard { flex: 1 1 200px !important; min-width: 180px !important; gap: 10px !important;
+  padding: 14px !important; border-radius: 18px !important; background: var(--sv-soft) !important;
+  border: 1px solid var(--sv-line) !important; transition: background .2s, border-color .2s, box-shadow .2s, transform .2s var(--sv-ease); }
+.sv-vcard:hover { background: #fff !important; transform: translateY(-1px); box-shadow: var(--sv-shadow-sm); }
+.sv-vcard.is-selected { background: #fff !important; border-color: var(--sv-ink) !important;
+  box-shadow: 0 0 0 1px var(--sv-ink), 0 14px 30px -20px rgba(23,19,15,.6) !important; }
+.sv-vmeta h4 { margin: 6px 0 2px; font-size: .98rem; font-weight: 650; letter-spacing: -0.01em; color: var(--sv-ink); }
+.sv-vmeta p { margin: 0; font-size: .8rem; line-height: 1.45; color: var(--sv-muted); }
+.sv-cat { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: .68rem; font-weight: 650;
+  letter-spacing: .02em; color: #B4432A; background: #FFF3EE; border: 1px solid rgba(242,92,59,.25); }
+.sv-vcard-actions, .sv-cand-actions, .sv-templates, .sv-confirm { flex-wrap: wrap !important; gap: 6px !important;
+  align-items: center !important; }
+.sv-btn.sv-mini { min-height: 34px; min-width: 0 !important; width: auto !important; flex: 0 0 auto !important;
+  padding: 0 13px !important; font-size: .82rem !important; color: var(--sv-ink) !important; background: #fff !important;
+  border: 1px solid var(--sv-line-2) !important; box-shadow: none !important; --ic: none; }
+.sv-btn.sv-mini::before { display: none; }
+.sv-btn.sv-mini:hover { border-color: var(--sv-ink) !important; transform: translateY(-1px); }
+.sv-btn.sv-mini-dark { background: var(--sv-ink) !important; color: #fff !important; border-color: var(--sv-ink) !important; }
+.sv-btn.sv-mini-danger:hover { border-color: #D8452A !important; color: #C23A20 !important; }
+.sv-confirm { padding: 10px 12px; border-radius: 14px; background: #FFF3EE; border: 1px solid rgba(242,92,59,.3); }
+.sv-confirm p { margin: 0 !important; font-size: .88rem !important; }
+.sv-fine-md p { margin: 0 !important; font-size: .82rem !important; line-height: 1.5 !important; color: var(--sv-muted) !important; }
+.sv-fine-md strong { color: var(--sv-ink-2); }
+.sv-card .block.sv-sample, .sv-panel .block.sv-sample { min-height: 0; }
+/* Duygu hapları dışındaki seçim grupları: renk noktası yok. */
+.sv-emotion.sv-plain .wrap label::before { display: none; }
+.sv-emotion.sv-plain .wrap label { padding: 7px 14px !important; font-size: .86rem !important; }
+
+/* --- Ses tasarımı -------------------------------------------------- */
+.sv-sliders { flex-wrap: wrap !important; gap: 14px !important; }
+.sv-sliders > * { flex: 1 1 200px !important; }
+.sv-panel .sv-sliders [data-testid="block-info"] + span, .sv-panel .sv-sliders .info,
+.sv-panel [data-testid="block-info"] ~ div[class*="info"] { font-size: .74rem !important; color: var(--sv-muted) !important; }
+.sv-warn p { margin: 0 !important; padding: 9px 13px; border-radius: 12px; background: #FFF8E6;
+  border: 1px solid rgba(214,158,20,.35); font-size: .84rem !important; line-height: 1.5 !important; color: #6B4E06 !important; }
+.sv-warn:empty, .sv-warn p:empty { display: none; }
+.sv-part { display: inline-block; margin: 0 6px 6px 0; padding: 4px 10px; border-radius: 999px; cursor: help;
+  background: #fff; border: 1px solid var(--sv-line-2); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem; color: var(--sv-ink-2); }
+.sv-part:hover { border-color: var(--sv-coral); color: var(--sv-ink); }
+.sv-acc { border: 1px solid var(--sv-line) !important; border-radius: 16px !important; background: var(--sv-soft) !important;
+  padding: 10px 14px !important; }
+.sv-acc > button, .sv-acc .label-wrap { font-size: .86rem !important; font-weight: 600 !important; color: var(--sv-ink-2) !important; }
+.sv-cgrid { flex-wrap: wrap !important; gap: 10px !important; }
+.sv-cand { flex: 1 1 calc(50% - 10px) !important; min-width: 170px !important; gap: 8px !important; padding: 10px !important;
+  border-radius: 16px !important; background: var(--sv-soft) !important; border: 1px solid var(--sv-line) !important; }
+.sv-cand-label p { margin: 0 !important; font-size: .8rem !important; font-weight: 600; color: var(--sv-ink-2) !important; }
+.sv-card .block.sv-cand-audio { min-height: 90px; padding: 6px !important; background: #fff !important; }
+.sv-cand .sv-btn.sv-mini { width: 100% !important; flex: 1 1 auto !important; }
+.sv-save { gap: 12px !important; padding: 16px !important; border-radius: 18px !important; background: #fff !important;
+  border: 1px solid var(--sv-ink) !important; }
+.sv-fx-row { flex-wrap: nowrap !important; align-items: center !important; gap: 10px !important; }
+.sv-fx .sv-acc { margin-bottom: 4px; }
+
+/* --- Dosya yükleme -------------------------------------------------- */
+.sv-panel .block.sv-file { min-height: 120px; padding: 10px !important; border-radius: 16px !important;
+  background: var(--sv-soft) !important; border: 1px dashed var(--sv-line-2) !important; }
+.sv-panel .block.sv-file:hover { border-color: rgba(242,92,59,.55) !important; background: #FFF9F6 !important; }
+.sv-consent label { font-size: .9rem !important; font-weight: 600 !important; color: var(--sv-ink) !important; }
+
 /* --- Mobil --------------------------------------------------------- */
 @media (max-width: 860px) {
   .sv-nav { margin-bottom: 30px; }
@@ -594,6 +1050,17 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   .sv-info { grid-template-columns: 1fr; }
   #sv-tabs [role="tab"] { padding: 9px 13px 9px 11px !important; font-size: .86rem !important; gap: 6px; }
   #sv-tabs [role="tab"]::before { width: 15px; height: 15px; }
+  .sv-cand { flex: 1 1 100% !important; }
+  .sv-fx-row { flex-wrap: wrap !important; }
+  .sv-vcard { flex: 1 1 100% !important; }
+}
+@media (max-width: 480px) {
+  #sv-tabs > .tab-wrapper { max-width: 100%; min-width: 0; }
+  #sv-tabs .tab-container[role="tablist"] { max-width: 100%; min-width: 0; flex-wrap: wrap; justify-content: center;
+    gap: 2px; padding: 4px; }
+  #sv-tabs > .tab-wrapper [role="tab"] { padding: 8px 10px !important; font-size: .78rem !important; flex: none; }
+  /* Üç sekme 390 px'te tek satıra sığsın: dar ekranda ikonlar gizlenir (sığmazsa alt satıra geçer). */
+  #sv-tabs > .tab-wrapper [role="tab"]::before { display: none !important; }
 }
 """
 
@@ -634,59 +1101,369 @@ _JS = """() => {
 }"""
 
 
+def _frame_bar(chips):
+    inner = "".join(f'<span class="sv-chip">{c}</span>' for c in chips)
+    return _html(f'<div class="sv-frame-bar"><div class="sv-chips">{inner}</div>'
+                 f'<span class="sv-chip sv-chip-dark">{_svg(_IC_LOCK)}Yerel</span></div>')
+
+
+def _card_html(voice):
+    return (f'<div class="sv-vmeta"><span class="sv-cat">{escape(voice["kategori"] or "Genel")}</span>'
+            f'<h4>{escape(voice["ad"])}</h4><p>{escape(voice["aciklama"] or "")}</p></div>')
+
+
+def _library_tab(demo):
+    """Ses Kütüphanesi: kartlar (Hazır sesler | Seslerim), üretim ve efektler."""
+    with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
+        with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
+            _frame_bar([f"{_svg(_IC_LIB)}Ses kütüphanesi", "Türkçe"])
+            with gr.Column(elem_classes=["sv-panel"]):
+                voices = gr.State(_voice_list())
+                selected = gr.State(RANDOM_VOICE)
+                pending = gr.State(None)
+                _head(None, "Bir ses seçin",
+                      "Kayıtlı bir sesle her üretimde aynı kişi konuşur. ▶ ile 3 saniyelik örneği dinleyin.", step="1")
+                cards_slot = gr.Column(elem_classes=["sv-cards"])
+                lib_msg = gr.Markdown("", elem_classes=["sv-fine-md"])
+                with gr.Row(visible=False, elem_classes=["sv-confirm"]) as confirm_row:
+                    confirm_md = gr.Markdown()
+                    confirm_yes = gr.Button("Evet, sil", size="sm", scale=0,
+                                            elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
+                    confirm_no = gr.Button("Vazgeç", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                sample = gr.Audio(label="Örnek dinleme (3 sn)", type="filepath", interactive=False, autoplay=True,
+                                  elem_classes=["sv-audio", "sv-sample"])
+                _html('<div class="sv-divider"></div>')
+                _head(None, "Metninizi yazın",
+                      "Kayıtlı seste duygu seçmeyin: ses “Devam” kipinde en yüksek benzerlikle sürer.", step="2")
+                text = gr.Textbox(label="Metin", lines=5, max_length=500, value=_SAMPLE_TEXT,
+                                  placeholder="Seslendirilecek metni buraya yazın…")
+                quality = gr.Radio(choices=list(QUALITY), value="Dengeli", label="Kalite",
+                                   elem_classes=["sv-emotion", "sv-plain"])
+                emotion = gr.Radio(choices=list(EMOTIONS.keys()), value="Nötr", label="Duygu / ton (isteğe bağlı)",
+                                   elem_classes=["sv-emotion"])
+                mode_md = gr.Markdown(elem_id="preview-box")
+                with gr.Row(elem_classes=["sv-actionbar"]):
+                    _html('<div class="sv-hint"><b>En fazla 500 karakter.</b><br>'
+                          'Hızlı daha çabuk, En İyi daha temiz sonuç verir.</div>')
+                    button = gr.Button("Üret", variant="primary", scale=0, min_width=170,
+                                       elem_classes=["sv-btn", "sv-btn-primary"])
+        with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
+            with gr.Column(elem_classes=["sv-card"]):
+                _head(*_RESULT_HEAD)
+                status = gr.Markdown("Hazır. Bir ses seçip metninizi yazın ve Üret'e basın.",
+                                     elem_classes=["sv-status"])
+                audio = gr.Audio(label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False,
+                                 elem_classes=["sv-audio"])
+                download = gr.DownloadButton("⬇ WAV indir", variant="secondary",
+                                             elem_classes=["sv-btn", "sv-btn-ghost"])
+                _html(_RESULT_NOTE)
+            with gr.Column(elem_classes=["sv-card", "sv-fx"]):
+                _head(_IC_FX, "Efektler",
+                      "Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.")
+                with gr.Accordion("Efekt ayarları", open=False, elem_classes=["sv-acc"]):
+                    fx_controls = []
+                    room = None
+                    for key, label in fx.EFFECTS.items():
+                        with gr.Row(elem_classes=["sv-fx-row"]):
+                            on = gr.Checkbox(label=label, value=False, scale=2, min_width=150)
+                            level = gr.Slider(0, 100, value=50, step=5, label="Yoğunluk", scale=3, min_width=160)
+                        fx_controls += [on, level]
+                        if key == "oda":
+                            room = gr.Radio(choices=[(v[0], k) for k, v in fx.ROOM_PRESETS.items()], value="salon",
+                                            label="Oda ön ayarı", elem_classes=["sv-emotion", "sv-plain"])
+                    fx_controls.append(room)
+                    fx_preset = gr.Button("Bu sese ön ayar olarak kaydet", size="sm",
+                                          elem_classes=["sv-btn", "sv-mini"])
+                fx_status = gr.Markdown("Efekt kapalı; ham ses olduğu gibi kullanılıyor.", elem_classes=["sv-status"])
+                fx_audio = gr.Audio(label="Efektli ses — AI ile üretildi", type="filepath", interactive=False,
+                                    elem_classes=["sv-audio"])
+                fx_download = gr.DownloadButton("⬇ Efektli WAV indir", variant="secondary",
+                                                elem_classes=["sv-btn", "sv-btn-ghost"])
+
+    select_outputs = [selected, mode_md, *fx_controls]
+
+    with cards_slot:
+        @gr.render(inputs=[voices, selected])
+        def _cards(items, current):
+            hazir = [_RANDOM_CARD] + [v for v in items if v["hazir"]]
+            mine = [v for v in items if not v["hazir"]]
+            for title, group in (("Hazır sesler", hazir), ("Seslerim", mine)):
+                _html(f'<div class="sv-group-title">{title}<span>{len(group)}</span></div>')
+                if not group:
+                    _html('<p class="sv-empty">Henüz kayıtlı sesiniz yok. “Ses Oluştur” sekmesinden seçimlerle '
+                          'tarif edin ya da kendi kaydınızı yükleyin.</p>')
+                    continue
+                with gr.Row(elem_classes=["sv-vgrid"]):
+                    for v in group:
+                        is_sel = v["id"] == current
+                        with gr.Column(min_width=180, elem_classes=["sv-vcard"] + (["is-selected"] if is_sel else [])):
+                            _html(_card_html(v))
+                            with gr.Row(elem_classes=["sv-vcard-actions"]):
+                                pick = gr.Button("✓ Seçili" if is_sel else "Seç", size="sm", scale=0,
+                                                 elem_classes=["sv-btn", "sv-mini"] + (["sv-mini-dark"] if is_sel else []))
+                                pick.click(select_voice_ui, inputs=[gr.State(v["id"]), emotion, text],
+                                           outputs=select_outputs, show_progress="hidden")
+                                if v["ornek"]:
+                                    play = gr.Button("▶ Örnek", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                                    play.click(lambda p=v["ornek"]: p, outputs=[sample], queue=False)
+                                if v["id"] != RANDOM_VOICE:
+                                    copy = gr.Button("Kopyala", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                                    copy.click(copy_voice_ui, inputs=[gr.State(v["id"])],
+                                               outputs=[voices, selected, lib_msg]).then(
+                                        select_voice_ui, inputs=[selected, emotion, text], outputs=select_outputs)
+                                if not v["hazir"]:
+                                    remove = gr.Button("Sil", size="sm", scale=0,
+                                                       elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
+                                    remove.click(
+                                        lambda vid=v["id"], ad=v["ad"]: (
+                                            vid, gr.update(visible=True),
+                                            f"**{escape(ad)}** silinsin mi? Bu işlem geri alınamaz."),
+                                        outputs=[pending, confirm_row, confirm_md], queue=False)
+
+    confirm_yes.click(delete_voice_ui, inputs=[pending, selected],
+                      outputs=[voices, selected, lib_msg, pending, confirm_row]).then(
+        select_voice_ui, inputs=[selected, emotion, text], outputs=select_outputs)
+    confirm_no.click(lambda: (None, gr.update(visible=False)), outputs=[pending, confirm_row], queue=False)
+
+    for trigger in (text.change, emotion.change):
+        trigger(_mode_info, inputs=[selected, emotion, text], outputs=mode_md, queue=False)
+    demo.load(_mode_info, inputs=[selected, emotion, text], outputs=mode_md)
+
+    generation = button.click(
+        library_generate, inputs=[text, emotion, quality, selected], outputs=[audio, download, status],
+        concurrency_limit=1, api_name="generate_audio", show_progress="full",
+    )
+    fx_inputs = [audio, *fx_controls]
+    fx_outputs = [fx_audio, fx_download, fx_status]
+    generation.then(apply_effects_ui, inputs=fx_inputs, outputs=fx_outputs)
+    for control in fx_controls:
+        event = control.release if isinstance(control, gr.Slider) else control.change
+        event(apply_effects_ui, inputs=fx_inputs, outputs=fx_outputs, show_progress="hidden")
+    fx_preset.click(save_fx_preset_ui, inputs=[selected, *fx_controls], outputs=fx_status)
+    return SimpleNamespace(voices=voices, selected=selected, emotion=emotion, text=text,
+                           select_outputs=select_outputs)
+
+
+def _design_subtab(lib, tabs):
+    """Ses Oluştur → Seçimlerle tarif et (kurallı birleştirici, 4 aday)."""
+    groups = _DMAP["gruplar"]
+
+    def choice(group, **kw):
+        return gr.Radio(choices=vdes.group_choices(_DMAP, group), value=_DMAP.get("bos_secenek"),
+                        label=groups[group]["etiket"], elem_classes=["sv-emotion", "sv-plain"], **kw)
+
+    def scale(group):
+        labels = _slider_labels(group)
+        return gr.Slider(1, len(labels), value=_slider_default(group), step=1, label=groups[group]["etiket"],
+                         info=" · ".join(f"{i + 1} {lab}" for i, lab in enumerate(labels)), min_width=220)
+
+    with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
+        with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
+            _frame_bar([f"{_svg(_IC_SPARK)}Ses tasarımı", "Seçimlerle, LLM'siz"])
+            with gr.Column(elem_classes=["sv-panel"]):
+                _head(None, "Şablonla başlayın", "İsteğe bağlı: bir şablon seçimleri doldurur, sonra değiştirebilirsiniz.",
+                      step="1")
+                with gr.Row(elem_classes=["sv-templates"]):
+                    template_buttons = [(name, gr.Button(name, size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"]))
+                                        for name in _DMAP["sablonlar"]]
+                _html('<div class="sv-divider"></div>')
+                _head(None, "Sesi tarif edin", "Her seçim İngilizce bir parçaya dönüşür; tarif otomatik kurulur.",
+                      step="2")
+                cins = choice("cinsiyet")
+                yas = choice("yas")
+                kullanim = choice("kullanim")
+                ton = choice("ton")
+                doku = gr.CheckboxGroup(choices=list(groups["doku"]["secenekler"]), value=[],
+                                        label=groups["doku"]["etiket"], elem_classes=["sv-emotion", "sv-plain"])
+                with gr.Row(elem_classes=["sv-sliders"]):
+                    perde = scale("perde")
+                    hiz = scale("hiz")
+                    enerji = scale("enerji")
+                warn_md = gr.Markdown("", elem_classes=["sv-warn"])
+                manual = gr.State(False)
+                with gr.Accordion("Gelişmiş: oluşan İngilizce tarif", open=False, elem_classes=["sv-acc"]):
+                    parts = _html("")
+                    tarif = gr.Textbox(label="Tarif (İngilizce, elle düzenlenebilir)", lines=2, value="a voice")
+                    rebuild = gr.Button("Seçimlerden yeniden kur", size="sm", elem_classes=["sv-btn", "sv-mini"])
+                _html('<div class="sv-divider"></div>')
+                _head(None, "Örnek cümle",
+                      "Adaylar bu cümleyi okur. Süreyi kaydırıcıyla seçin; metni dilediğiniz gibi değiştirin.",
+                      step="3")
+                with gr.Row(elem_classes=["sv-sliders"]):
+                    category = gr.Radio(choices=_SAMPLE_CATEGORIES, value="masal", label="Örnek metin türü",
+                                        elem_classes=["sv-emotion", "sv-plain"], min_width=220)
+                    seconds = gr.Slider(4, 20, value=_DEFAULT_SAMPLE_SECONDS, step=1,
+                                        label="Örnek ses süresi (sn)", min_width=220)
+                first_text = vdes.sample_text("masal", _DEFAULT_SAMPLE_SECONDS, _DMAP)
+                sample = gr.Textbox(label="Örnek cümle", lines=3, max_length=500, value=first_text)
+                estimate = gr.Markdown(sample_estimate_md(first_text), elem_classes=["sv-fine-md"])
+                quality = gr.Radio(choices=list(QUALITY), value="Dengeli", label="Kalite",
+                                   elem_classes=["sv-emotion", "sv-plain"])
+                with gr.Row(elem_classes=["sv-actionbar"]):
+                    _html('<div class="sv-hint"><b>4 aday sırayla üretilir.</b><br>'
+                          'Her biri hazır olunca dinlenebilir; uzun cümle daha uzun sürer.</div>')
+                    try_button = gr.Button("Sesleri Dene", variant="primary", scale=0, min_width=190,
+                                           elem_classes=["sv-btn", "sv-btn-primary"])
+        with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
+            with gr.Column(elem_classes=["sv-card"]):
+                _head(_IC_PLAY, "Adaylar", "Aynı tarif ve cümle, farklı seed. Dinleyin, birini seçin.")
+                d_status = gr.Markdown("Henüz aday yok. Seçimleri yapıp “Sesleri Dene”ye basın.",
+                                       elem_classes=["sv-status"])
+                cand_audio, cand_label, cand_pick = [], [], []
+                with gr.Row(elem_classes=["sv-cgrid"]):
+                    for i in range(4):
+                        with gr.Column(min_width=180, elem_classes=["sv-cand"]):
+                            cand_label.append(gr.Markdown(f"Aday {i + 1} · seed {11 * (i + 1)}",
+                                                          elem_classes=["sv-cand-label"]))
+                            cand_audio.append(gr.Audio(label=f"Aday {i + 1}", show_label=False, type="filepath",
+                                                       interactive=False, elem_classes=["sv-audio", "sv-cand-audio"]))
+                            cand_pick.append(gr.Button("Bunu seç", size="sm", elem_classes=["sv-btn", "sv-mini"]))
+                with gr.Row(elem_classes=["sv-cand-actions"]):
+                    stop = gr.Button("Durdur", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
+                    more = gr.Button("4 aday daha", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                    change = gr.Button("Seçimleri değiştir", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                with gr.Column(visible=False, elem_classes=["sv-save"]) as save_group:
+                    picked_md = gr.Markdown("")
+                    name = gr.Textbox(label="Ses adı", placeholder="Örn. Gece Anlatıcısı", max_length=60)
+                    aciklama = gr.Textbox(label="Kısa açıklama (isteğe bağlı)", max_length=160)
+                    kategori = gr.Textbox(label="Kategori", value="Masal", max_length=40)
+                    save = gr.Button("Kaydet", variant="primary", elem_classes=["sv-btn", "sv-btn-primary"])
+                save_md = gr.Markdown("", elem_classes=["sv-fine-md"])
+
+    batch = gr.State(0)
+    cands = gr.State({})
+    meta = gr.State(None)
+    picked = gr.State(None)
+    selections = [cins, yas, kullanim, perde, ton, doku, hiz, enerji]
+    rebuild_args = dict(fn=rebuild_description_ui, inputs=[*selections, manual, tarif],
+                        outputs=[tarif, parts, warn_md], queue=False)
+    for control in selections:
+        control.change(**rebuild_args)
+
+    def limit_texture(values):
+        if len(values or []) > 2:
+            gr.Warning("Ses dokusu için en fazla 2 seçim yapılabilir.")
+            return values[:2]
+        return gr.update()
+
+    def tarif_changed(*values):
+        # Kutu seçimlerden kurulandan farklıysa kullanıcı elle yazmıştır.
+        sel, current = values[:8], values[8]
+        built = vdes.build_description(design_selections(*sel), _DMAP)[0]
+        is_manual = (current or "").strip() != built
+        _tarif, parts_html, warn = rebuild_description_ui(*sel, is_manual, current)
+        return is_manual, parts_html, warn
+
+    doku.input(limit_texture, inputs=doku, outputs=doku, queue=False)
+    tarif.change(tarif_changed, inputs=[*selections, tarif], outputs=[manual, parts, warn_md], queue=False)
+    rebuild.click(lambda *v: (False, *rebuild_description_ui(*v[:-1], False, v[-1])),
+                  inputs=[*selections, tarif], outputs=[manual, tarif, parts, warn_md], queue=False)
+    def template_click(name, secs):
+        values = apply_template_ui(name, secs)
+        return (*values, *rebuild_description_ui(*values[:8], False, ""))
+
+    for tname, tbutton in template_buttons:
+        tbutton.click(lambda s, n=tname: template_click(n, s), inputs=[seconds],
+                      outputs=[*selections, category, sample, manual, tarif, parts, warn_md], queue=False)
+    for trigger in (category.change, seconds.change):
+        trigger(lambda k, s: vdes.sample_text(k, s, _DMAP), inputs=[category, seconds], outputs=sample, queue=False)
+    sample.change(sample_estimate_md, inputs=sample, outputs=estimate, queue=False)
+
+    run_args = dict(fn=design_candidates, inputs=[tarif, sample, quality, batch, cands, *selections],
+                    outputs=[*cand_audio, *cand_label, d_status, cands, meta, save_group, picked],
+                    concurrency_limit=1, show_progress="full", show_progress_on=[d_status])
+    first_run = try_button.click(lambda: 0, outputs=batch, queue=False).then(**run_args)
+    more_run = more.click(lambda b: int(b or 0) + 1, inputs=batch, outputs=batch, queue=False).then(**run_args)
+    stop.click(lambda: "Durduruldu. Çalışmakta olan aday bitene kadar model meşgul kalabilir.",
+               outputs=d_status, cancels=[first_run, more_run], queue=False)
+    change.click(lambda: (gr.update(visible=False), None, "Seçimleri soldan değiştirip yeniden “Sesleri Dene”ye basın."),
+                 outputs=[save_group, picked, d_status], queue=False)
+    for i, pbutton in enumerate(cand_pick):
+        pbutton.click(lambda b, c, i=i: pick_candidate_ui(i, b, c), inputs=[batch, cands],
+                      outputs=[picked, save_group, picked_md], queue=False)
+    save.click(save_designed_ui, inputs=[name, aciklama, kategori, picked, cands, meta],
+               outputs=[lib.voices, lib.selected, tabs, save_md]).then(
+        select_voice_ui, inputs=[lib.selected, lib.emotion, lib.text], outputs=lib.select_outputs)
+    return rebuild_args
+
+
+def _upload_subtab(lib, tabs):
+    """Ses Oluştur → Dosya yükle (çözme, kırpma, kontroller, Whisper, izin)."""
+    with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
+        with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
+            _frame_bar([f"{_svg(_IC_MIC)}Kendi kaydınız", "WAV · MP3 · M4A"])
+            with gr.Column(elem_classes=["sv-panel"]):
+                _head(None, "Kaydı yükleyin",
+                      "8–20 saniyelik, tek kişinin konuştuğu temiz bir kayıt. Dosya mono, 16-bit WAV'a çevrilir; "
+                      "baştaki ve sondaki sessizlik kırpılır.", step="1")
+                u_file = gr.File(label="Ses dosyası (WAV, MP3, M4A)", file_types=[".wav", ".mp3", ".m4a"],
+                                 type="filepath", elem_classes=["sv-upload", "sv-file"])
+                u_info = gr.Markdown(audio_prep.CLEAN_NOTE, elem_classes=["sv-fine-md"])
+                with gr.Row(visible=False, elem_classes=["sv-sliders"]) as u_range:
+                    u_start = gr.Slider(0, 20, value=0, step=0.1, label="Başlangıç (sn)", min_width=200)
+                    u_end = gr.Slider(0, 20, value=20, step=0.1, label="Bitiş (sn)", min_width=200)
+                u_range_md = gr.Markdown("", elem_classes=["sv-fine-md"])
+                u_preview = gr.Audio(label="Hazırlanan kayıt (mono, 16-bit)", type="filepath", interactive=False,
+                                     elem_classes=["sv-audio"])
+                _html('<div class="sv-divider"></div>')
+                _head(None, "Kaydın metni",
+                      "Yerel Whisper ile çıkarılır; kayıtla birebir aynı olacak şekilde düzeltin. Boş bırakılamaz.",
+                      step="2")
+                with gr.Row(elem_classes=["sv-transcribe-row"]):
+                    u_text = gr.Textbox(label="Kaydın metni (gerekli)", lines=3, scale=4,
+                                        placeholder="Kayıtta tam olarak ne söylendiği…")
+                    u_transcribe = gr.Button("Otomatik yazıya dök", scale=1, min_width=200,
+                                             elem_classes=["sv-btn", "sv-btn-soft"])
+                u_transcribe_md = gr.Markdown("", elem_classes=["sv-fine-md"])
+                _html('<div class="sv-divider"></div>')
+                _head(None, "Kaydedin", "Kaydedilen ses yalnız bu bilgisayarda, Seslerim'de durur.", step="3")
+                u_name = gr.Textbox(label="Ses adı", max_length=60)
+                u_desc = gr.Textbox(label="Kısa açıklama (isteğe bağlı)", max_length=160)
+                u_cat = gr.Textbox(label="Kategori", value="Kişisel", max_length=40)
+                u_consent = gr.Checkbox(label="Bu ses bana ait ya da sahibinden açık izin aldım.", value=False,
+                                        elem_classes=["sv-consent"])
+                with gr.Row(elem_classes=["sv-actionbar"]):
+                    _html('<div class="sv-hint"><b>İzin kutucuğu zorunlu.</b><br>'
+                          'İşaretlenmeden kaydedilemez.</div>')
+                    u_save = gr.Button("Kaydet", variant="primary", interactive=False, scale=0, min_width=170,
+                                       elem_classes=["sv-btn", "sv-btn-primary"])
+                u_msg = gr.Markdown("", elem_classes=["sv-fine-md"])
+        with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
+            with gr.Column(elem_classes=["sv-card"]):
+                _html(_ETHICS)
+
+    u_full = gr.State(None)
+    u_prepared = gr.State(None)
+    analyze_outputs = [u_full, u_prepared, u_preview, u_info, u_range, u_start, u_end, u_text]
+    u_file.upload(upload_analyze_ui, inputs=u_file, outputs=analyze_outputs)
+    u_file.clear(lambda: upload_analyze_ui(None), outputs=analyze_outputs, queue=False)
+    for slider in (u_start, u_end):
+        slider.release(upload_cut_ui, inputs=[u_full, u_start, u_end], outputs=[u_prepared, u_preview, u_range_md])
+    u_transcribe.click(upload_transcribe_ui, inputs=u_prepared, outputs=[u_text, u_transcribe_md],
+                       concurrency_limit=1, show_progress="full")
+    u_consent.change(lambda v: gr.update(interactive=bool(v)), inputs=u_consent, outputs=u_save, queue=False)
+    u_save.click(save_uploaded_ui, inputs=[u_prepared, u_text, u_name, u_desc, u_cat, u_consent],
+                 outputs=[lib.voices, lib.selected, tabs, u_msg]).then(
+        select_voice_ui, inputs=[lib.selected, lib.emotion, lib.text], outputs=lib.select_outputs)
+
+
 def build_app():
     with gr.Blocks(title="SesVer — Türkçe yerel ses üretimi", analytics_enabled=False) as demo:
         _html(_HERO)
 
-        with gr.Tabs(elem_id="sv-tabs"):
-            with gr.Tab("Normal Ses Üretimi"):
-                with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
-                    with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
-                        _html(
-                            f'<div class="sv-frame-bar"><div class="sv-chips">'
-                            f'<span class="sv-chip">{_svg(_IC_TEXT)}Metinden sese</span>'
-                            f'<span class="sv-chip">Türkçe</span></div>'
-                            f'<span class="sv-chip sv-chip-dark">{_svg(_IC_LOCK)}Yerel</span></div>'
-                        )
-                        with gr.Column(elem_classes=["sv-panel"]):
-                            _head(None, "Metninizi yazın",
-                                  "Bir ton seçmek isteğe bağlıdır; seçmezseniz doğal, nötr bir ses üretilir.", step="1")
-                            n_text = gr.Textbox(
-                                label="Metin", lines=5, max_length=500, value=_SAMPLE_TEXT,
-                                placeholder="Seslendirilecek metni buraya yazın…",
-                            )
-                            n_emotion = gr.Radio(
-                                choices=list(EMOTIONS.keys()), value="Nötr", label="Duygu / ton (isteğe bağlı)",
-                                elem_classes=["sv-emotion"],
-                            )
-                            n_preview = gr.Markdown(elem_id="preview-box")
-                            with gr.Row(elem_classes=["sv-actionbar"]):
-                                _html('<div class="sv-hint"><b>En fazla 500 karakter.</b><br>'
-                                      'Uzun metinleri parçalara bölün.</div>')
-                                n_button = gr.Button(
-                                    "Üret", variant="primary", scale=0, min_width=170,
-                                    elem_classes=["sv-btn", "sv-btn-primary"],
-                                )
-                    with gr.Column(scale=5, min_width=300, elem_classes=["sv-card"]):
-                        _head(*_RESULT_HEAD)
-                        n_status = gr.Markdown("Hazır. Metninizi yazıp Üret'e basın.", elem_classes=["sv-status"])
-                        n_audio = gr.Audio(
-                            label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False,
-                            elem_classes=["sv-audio"],
-                        )
-                        n_download = gr.DownloadButton(
-                            "⬇ WAV indir", variant="secondary", elem_classes=["sv-btn", "sv-btn-ghost"],
-                        )
-                        _html(_RESULT_NOTE)
-                for trigger in (n_text.change, n_emotion.change):
-                    trigger(lambda t, e: f"Üretilecek: _{_preview_text(t, e)}_", inputs=[n_text, n_emotion], outputs=n_preview)
-                n_button.click(
-                    _normal_generate, inputs=[n_text, n_emotion], outputs=[n_audio, n_download, n_status],
-                    concurrency_limit=1, api_name="generate_audio", show_progress="full",
-                )
-                demo.load(lambda t, e: f"Üretilecek: _{_preview_text(t, e)}_", inputs=[n_text, n_emotion], outputs=n_preview)
+        with gr.Tabs(elem_id="sv-tabs", selected="lib", overflow_behavior="wrap") as tabs:
+            with gr.Tab("Ses Kütüphanesi", id="lib"):
+                lib = _library_tab(demo)
 
-            with gr.Tab("Ses Klonlama"):
+            with gr.Tab("Ses Oluştur", id="olustur"):
+                with gr.Tabs(elem_id="sv-subtabs", overflow_behavior="wrap"):
+                    with gr.Tab("Seçimlerle tarif et", id="tarif"):
+                        rebuild_args = _design_subtab(lib, tabs)
+                    with gr.Tab("Dosya yükle", id="yukle"):
+                        _upload_subtab(lib, tabs)
+                demo.load(**rebuild_args)
+
+            with gr.Tab("Ses Klonlama", id="klon"):
                 with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
                     with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
                         _html(
@@ -770,8 +1547,20 @@ def build_app():
     return demo.queue(default_concurrency_limit=1, max_size=8)
 
 
+def _setup_logging():
+    """Yalnız SesVer'in tek satırlık istek loglarını terminale yazar."""
+    if not log.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(asctime)s [sesver] %(message)s", "%H:%M:%S"))
+        log.addHandler(handler)
+    log.setLevel(logging.INFO)
+    log.propagate = False
+
+
 if __name__ == "__main__":
+    _setup_logging()
     build_app().launch(
         server_name="127.0.0.1", server_port=7860, share=False, inbrowser=False,
         css=_CSS, theme=_THEME, js=_JS, footer_links=[],
+        allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
     )
