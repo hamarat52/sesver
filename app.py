@@ -6,7 +6,7 @@ os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock, Thread
 from time import perf_counter
 from uuid import uuid4
 
@@ -85,15 +85,20 @@ def auto_transcribe(reference_audio):
     return text
 
 
-def generate_audio(text, reference_audio, instruction=None, prompt_text=None):
+def generate_audio(text, reference_audio, instruction=None, prompt_text=None, progress=gr.Progress()):
     """Durumu hemen göster; aynı modelde üretimleri sıraya koy.
 
     prompt_text verilmişse VoxCPM2'nin "devam kipi" kullanılır: model referans
     sesin gerçek içeriğini bilerek devam eder, yalnız izole klonlamadan (ses
     rengini kopyalama) çok daha sadık bir taklit üretir. prompt_text yoksa
     (varsayılan) eski izole klonlama davranışı değişmeden kalır.
+
+    progress: tahmini süreye göre 0.2→0.93 arası yumuşakça ilerleyen bir arka
+    plan iş parçacığıyla beslenir (gerçek tqdm adımlarını değil, temiz Türkçe
+    açıklamalı bir tahmini ilerleme gösterir — ham kütüphane çıktısı sızmaz).
     """
     # Eski çıktı, yeni istek başarısız olsa bile yeni ses sanılmasın.
+    progress(0, desc="İstek kontrol ediliyor…")
     yield None, None, "İstek kontrol ediliyor…"
     text = (text or "").strip()
     prompt_text = (prompt_text or "").strip() or None
@@ -112,14 +117,16 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None):
             raise gr.Error("Referans ses okunamadı. 1–30 saniyelik geçerli bir WAV yükleyin.") from exc
     final_text = f"({instruction}){text}" if instruction else text
     started = perf_counter()
+    progress(0.05, desc="İlk kullanımda model indiriliyor/yükleniyor…")
     yield None, None, "İşleniyor… İlk kullanımda model indiriliyor/yükleniyor (internet ve birkaç dakika gerekebilir)."
     try:
         with _model_lock:
             model = get_model()
-            # Kaba tahmin: M1'de karakter başına ~3-6 sn; uzun metin ve aynı anda
+            # Kaba tahmin: karakter başına ~3-6 sn; uzun metin ve aynı anda
             # çalışan başka ağır uygulamalar süreyi belirgin artırabilir.
             est_min = max(1, round(len(text) * 3 / 60))
             est_max = max(est_min + 1, round(len(text) * 6 / 60))
+            progress(0.2, desc="Ses üretiliyor…")
             yield None, None, (
                 f"Ses üretiliyor… Metninizin uzunluğuna göre tahmini {est_min}-{est_max} dakika "
                 "sürebilir (başka ağır uygulamalar açıksa daha uzun sürer). "
@@ -134,7 +141,26 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None):
                 generate_kwargs["reference_wav_path"] = reference_audio
             else:
                 generate_kwargs["reference_wav_path"] = reference_audio or None
-            wav = model.generate(**generate_kwargs)
+            # Model.generate() tek bloklayıcı çağrı; gerçek adım bilgisi vermez.
+            # Tahmini sürenin ortasına göre yumuşakça 0.2→0.93 arası ilerleyen
+            # bir arka plan iş parçacığı, ilerlemeyi donuk göstermez.
+            stop_ticking = Event()
+
+            def _tick():
+                est_seconds = max(10.0, (est_min + est_max) / 2 * 60)
+                t0 = perf_counter()
+                while not stop_ticking.wait(0.4):
+                    frac = 0.2 + 0.73 * min(1.0, (perf_counter() - t0) / est_seconds)
+                    progress(frac, desc="Ses üretiliyor…")
+
+            ticker = Thread(target=_tick, daemon=True)
+            ticker.start()
+            try:
+                wav = model.generate(**generate_kwargs)
+            finally:
+                stop_ticking.set()
+                ticker.join(timeout=2)
+            progress(0.95, desc="Ses dosyası kaydediliyor…")
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             output = str(OUTPUT_DIR / f"ai-ile-uretildi-{uuid4().hex}.wav")
             sf.write(output, wav, model.tts_model.sample_rate)
@@ -147,15 +173,16 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None):
             "Ayrıntı terminalde; bellek hatasında uygulamayı yeniden başlatın."
         )
         return
+    progress(1.0, desc="Tamamlandı")
     yield output, output, f"Tamamlandı: {perf_counter() - started:.1f} saniye. AI ile üretildi."
 
 
-def _normal_generate(text, emotion_label):
-    yield from generate_audio(text, None, EMOTIONS.get(emotion_label))
+def _normal_generate(text, emotion_label, progress=gr.Progress(track_tqdm=True)):
+    yield from generate_audio(text, None, EMOTIONS.get(emotion_label), progress=progress)
 
 
-def _clone_generate(text, reference_audio, emotion_label, prompt_text):
-    yield from generate_audio(text, reference_audio, EMOTIONS.get(emotion_label), prompt_text)
+def _clone_generate(text, reference_audio, emotion_label, prompt_text, progress=gr.Progress(track_tqdm=True)):
+    yield from generate_audio(text, reference_audio, EMOTIONS.get(emotion_label), prompt_text, progress=progress)
 
 
 
@@ -586,7 +613,25 @@ _THEME = gr.themes.Base(
 )
 
 # Tasarım açık renk için kurgulandı; sistem karanlık modda olsa da açık kalsın.
-_JS = "() => { document.querySelectorAll('.dark').forEach((el) => el.classList.remove('dark')); }"
+# Ayrıca VoxCPM/huggingface_hub'un dahili tqdm çıktısı bazen Gradio'nun genel
+# ilerleme katmanına "Downloading bytes… / 0/N steps" gibi ham, teknik metin
+# olarak sızabiliyor; bunu kendi temiz Türkçe durum metnimizle çakışmadan,
+# hangi sınıfı kullanırsa kullansın sürekli tarayıp gizliyoruz.
+_JS = """() => {
+    document.querySelectorAll('.dark').forEach((el) => el.classList.remove('dark'));
+    const raw = /Downloading bytes|Reconstructing|\\/\\s*\\d+\\s*steps/;
+    function sweep() {
+        document.querySelectorAll('body *').forEach((el) => {
+            const t = el.textContent || '';
+            if (t.length < 300 && raw.test(t)) {
+                const childMatch = [...el.children].some((c) => raw.test(c.textContent || ''));
+                if (!childMatch) el.style.display = 'none';
+            }
+        });
+    }
+    new MutationObserver(sweep).observe(document.body, { childList: true, subtree: true, characterData: true });
+    setInterval(sweep, 150);
+}"""
 
 
 def build_app():
