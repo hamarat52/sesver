@@ -18,6 +18,10 @@ if [ ! -d ".venv" ]; then
   echo "İlk kurulum yapılıyor (bu sadece bir kere çalışır)..."
   "$PY" -m venv .venv
   ./.venv/bin/python -m pip install --upgrade pip --quiet
+  # --no-deps: voxcpm'in gereksiz ağır bağımlılıklarını (funasr, matplotlib,
+  # modelscope, datasets, spaces, argbind — hiçbiri kodda kullanılmıyor)
+  # atlayıp yalnız requirements.txt'teki gerçekten gerekli paketleri kurar.
+  ./.venv/bin/pip install --no-deps voxcpm==2.0.3
   ./.venv/bin/pip install -r requirements.txt
   echo "Kurulum tamamlandı."
 fi

@@ -18,6 +18,31 @@ MODEL_ID = "openbmb/VoxCPM2"
 _model = None
 _model_lock = Lock()
 
+# --- Duygu/ton seçici -------------------------------------------------------
+# VoxCPM2'nin stil talimatı ayrı bir API parametresi değildir; metnin başına
+# "(energetic)" gibi parantezli bir talimat eklenerek verilir (resmi demo ile
+# aynı sözleşme — İngilizce anahtar kelime, Türkçe buton etiketi).
+EMOTIONS = {
+    "Nötr": None,
+    "Sakin": "calm",
+    "Enerjik": "energetic",
+    "Neşeli": "cheerful",
+    "Ciddi": "serious",
+    "Heyecanlı": "excited",
+    "Üzgün": "sad",
+}
+
+
+def _preview_text(text, emotion_label):
+    instruction = EMOTIONS.get(emotion_label)
+    text = (text or "").strip()
+    if not instruction or not text:
+        return text or "(metin boş)"
+    return f"({instruction}){text}"
+
+
+# --- Üretim -------------------------------------------------------------
+
 
 def get_model():
     """Yalnız üretim kilidi içinden çağrılır; arayüz açılırken model yüklenmez."""
@@ -30,7 +55,7 @@ def get_model():
     return _model
 
 
-def generate_audio(text, reference_audio):
+def generate_audio(text, reference_audio, instruction=None):
     """Durumu hemen göster; aynı modelde üretimleri sıraya koy."""
     # Eski çıktı, yeni istek başarısız olsa bile yeni ses sanılmasın.
     yield None, None, "İstek kontrol ediliyor…"
@@ -46,6 +71,7 @@ def generate_audio(text, reference_audio):
                 raise ValueError("Süre 1–30 saniye olmalı.")
         except (OSError, RuntimeError, ValueError) as exc:
             raise gr.Error("Referans ses okunamadı. 1–30 saniyelik geçerli bir WAV yükleyin.") from exc
+    final_text = f"({instruction}){text}" if instruction else text
     started = perf_counter()
     yield None, None, "İşleniyor… İlk kullanımda model indiriliyor/yükleniyor."
     try:
@@ -53,7 +79,7 @@ def generate_audio(text, reference_audio):
             model = get_model()
             yield None, None, "Ses üretiliyor… M1'de 10 saniyelik ses yaklaşık 70–80 saniye sürebilir."
             wav = model.generate(
-                text=text, reference_wav_path=reference_audio or None,
+                text=final_text, reference_wav_path=reference_audio or None,
                 cfg_value=2.0, inference_timesteps=10,
             )
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -71,39 +97,133 @@ def generate_audio(text, reference_audio):
     yield output, output, f"Tamamlandı: {perf_counter() - started:.1f} saniye. AI ile üretildi."
 
 
+def _normal_generate(text, emotion_label):
+    yield from generate_audio(text, None, EMOTIONS.get(emotion_label))
+
+
+def _clone_generate(text, reference_audio, emotion_label):
+    yield from generate_audio(text, reference_audio, EMOTIONS.get(emotion_label))
+
+
+# --- Görünüm --------------------------------------------------------------
+# Referanslar: Dribbble "Futuristic AI Voice Generator Website" (Fahema Yesmin)
+# — krem zemin, kalın başlık + mercan vurgu, metni saran gradient kart, siyah
+# hap buton — ve "Voice Aura" tarzı sade/profesyonel SaaS görünümü.
+_CSS = """
+.gradio-container { background: #F9F8F8 !important; }
+#hero-title h1 { font-weight: 800; font-size: 2.1rem; margin-bottom: 0.25rem; }
+#hero-title .accent { color: #ED271E; }
+#hero-sub { color: #685E59; margin-bottom: 1rem; }
+.gradient-card {
+    background: linear-gradient(135deg, #D5AFB3 0%, #CA8978 55%, #ED271E 100%);
+    border-radius: 28px !important;
+    padding: 24px !important;
+    border: none !important;
+}
+.gradient-card .gr-box, .gradient-card textarea, .gradient-card input {
+    border-radius: 18px !important;
+    border: none !important;
+}
+.pill-btn button, button.pill-btn, .pill-btn.secondary button {
+    border-radius: 999px !important;
+    font-weight: 600;
+    border: none !important;
+}
+button.primary.pill-btn, button.pill-btn.primary {
+    background: #0B0C0B !important;
+    background-color: #0B0C0B !important;
+    color: #F9F8F8 !important;
+}
+button.primary.pill-btn:hover, button.pill-btn.primary:hover {
+    background: #2a2a2a !important;
+    background-color: #2a2a2a !important;
+}
+button.secondary.pill-btn, button.pill-btn.secondary {
+    background: #FFFFFF !important;
+    background-color: #FFFFFF !important;
+    color: #0B0C0B !important;
+    border: 1.5px solid #0B0C0B !important;
+}
+.emotion-row .wrap label {
+    border-radius: 999px !important;
+    border: 1.5px solid #0B0C0B !important;
+    padding: 4px 14px !important;
+    margin: 2px !important;
+}
+.emotion-row .wrap label.selected {
+    background: #0B0C0B !important;
+    color: #F9F8F8 !important;
+}
+#preview-box { font-family: monospace; font-size: 0.85rem; color: #562E24; }
+"""
+
+
 def build_app():
     with gr.Blocks(title="SesVer", analytics_enabled=False) as demo:
-        gr.Markdown(
-            "# SesVer\nÜcretsiz, yerel ve açık kaynak Türkçe ses üretimi + klonlama.\n\n"
-            "**16 GB+ RAM önerilir.** M1'de gerçek zamanlı değildir: 10 saniyelik ses "
-            "yaklaşık 70–80 saniye sürebilir. İlk üretimde ~5 GB model indirilir; "
-            "indirme ve yükleme ayrıca zaman alır."
+        gr.HTML(
+            '<div id="hero-title"><h1>Sesinizi <span class="accent">Keşfedin</span>.</h1></div>'
+            '<div id="hero-sub">Ücretsiz, yerel ve açık kaynak Türkçe ses üretimi + klonlama. '
+            '16 GB+ RAM önerilir; M1\'de gerçek zamanlı değildir (10 sn ses ≈ 70–80 sn). '
+            'İlk üretimde ~5 GB model indirilir.</div>'
         )
-        text = gr.Textbox(
-            label="Metin", lines=4, max_length=500,
-            value="Merhaba! Bu ses, bilgisayarımda çalışan açık kaynak bir yapay zekâ ile üretildi.",
-        )
-        reference = gr.Audio(
-            label="Referans ses (isteğe bağlı)", sources=["upload"], type="filepath",
-        )
-        gr.Markdown(
-            "Referans olmadan yeni bir ses üretilir. Klonlama için tek kişinin konuştuğu, "
-            "müziksiz ve temiz **3–15 saniyelik WAV** önerilir (kabul: 1–30 saniye). "
-            "Referansın metnini yazmanız gerekmez.\n\n"
-            "Yalnız kendi sesinizi veya açık izin aldığınız sesleri kullanın. "
-            "Paylaşırken **‘AI ile üretildi’** etiketi ekleyin; otomatik filigran yoktur. "
-            "Taklit yoluyla yanıltma ve dolandırıcılık için kullanmayın."
-        )
-        button = gr.Button("Üret", variant="primary")
-        status = gr.Markdown("Hazır. Metninizi yazıp Üret'e basın.")
-        audio = gr.Audio(label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False)
-        download = gr.File(label="WAV indir", interactive=False)
-        button.click(
-            generate_audio, inputs=[text, reference], outputs=[audio, download, status],
-            concurrency_limit=1, api_name="generate_audio", show_progress="full",
-        )
+
+        with gr.Tabs():
+            with gr.Tab("Normal Ses Üretimi"):
+                with gr.Group(elem_classes=["gradient-card"]):
+                    gr.Markdown("Metni yazın, isterseniz bir **duygu** seçin, **Üret**'e basın.")
+                    n_text = gr.Textbox(
+                        label="Metin", lines=4, max_length=500,
+                        value="Merhaba! Bu ses, bilgisayarımda çalışan açık kaynak bir yapay zekâ ile üretildi.",
+                    )
+                    n_emotion = gr.Radio(
+                        choices=list(EMOTIONS.keys()), value="Nötr", label="Duygu/Ton (isteğe bağlı)",
+                        elem_classes=["emotion-row"],
+                    )
+                    n_preview = gr.Markdown(elem_id="preview-box")
+                    n_button = gr.Button("Üret", variant="primary", elem_classes=["pill-btn"])
+                n_status = gr.Markdown("Hazır. Metninizi yazıp Üret'e basın.")
+                n_audio = gr.Audio(label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False)
+                n_download = gr.DownloadButton("⬇ WAV indir", variant="secondary", elem_classes=["pill-btn"])
+                for trigger in (n_text.change, n_emotion.change):
+                    trigger(lambda t, e: f"Üretilecek: _{_preview_text(t, e)}_", inputs=[n_text, n_emotion], outputs=n_preview)
+                n_button.click(
+                    _normal_generate, inputs=[n_text, n_emotion], outputs=[n_audio, n_download, n_status],
+                    concurrency_limit=1, api_name="generate_audio", show_progress="full",
+                )
+                demo.load(lambda t, e: f"Üretilecek: _{_preview_text(t, e)}_", inputs=[n_text, n_emotion], outputs=n_preview)
+
+            with gr.Tab("Ses Klonlama"):
+                with gr.Group(elem_classes=["gradient-card"]):
+                    gr.Markdown(
+                        "Tek kişinin konuştuğu, müziksiz ve temiz **3–15 saniyelik WAV** önerilir "
+                        "(kabul: 1–30 saniye). Referansın metnini yazmanız gerekmez.\n\n"
+                        "Yalnız kendi sesinizi veya açık izin aldığınız sesleri kullanın. "
+                        "Paylaşırken **'AI ile üretildi'** etiketi ekleyin; otomatik filigran yoktur. "
+                        "Taklit yoluyla yanıltma ve dolandırıcılık için kullanmayın.\n\n"
+                        "**Not:** Bir duygu seçmek klonlanan sesin orijinaline benzerliğini azaltabilir "
+                        "(ses kimliği ile stil arasında bilinen bir ödünleşim)."
+                    )
+                    c_text = gr.Textbox(
+                        label="Metin", lines=4, max_length=500,
+                        value="Merhaba! Bu ses, bilgisayarımda çalışan açık kaynak bir yapay zekâ ile üretildi.",
+                    )
+                    c_reference = gr.Audio(
+                        label="Referans ses (gerekli)", sources=["upload"], type="filepath",
+                    )
+                    c_emotion = gr.Radio(
+                        choices=list(EMOTIONS.keys()), value="Nötr", label="Duygu/Ton (isteğe bağlı, varsayılan: nötr)",
+                        elem_classes=["emotion-row"],
+                    )
+                    c_button = gr.Button("Klonla ve Üret", variant="primary", elem_classes=["pill-btn"])
+                c_status = gr.Markdown("Hazır. Metin ve referans ses yükleyip Klonla ve Üret'e basın.")
+                c_audio = gr.Audio(label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False)
+                c_download = gr.DownloadButton("⬇ WAV indir", variant="secondary", elem_classes=["pill-btn"])
+                c_button.click(
+                    _clone_generate, inputs=[c_text, c_reference, c_emotion], outputs=[c_audio, c_download, c_status],
+                    concurrency_limit=1, api_name="clone_audio", show_progress="full",
+                )
     return demo.queue(default_concurrency_limit=1, max_size=8)
 
 
 if __name__ == "__main__":
-    build_app().launch(server_name="127.0.0.1", server_port=7860, share=False, inbrowser=False)
+    build_app().launch(server_name="127.0.0.1", server_port=7860, share=False, inbrowser=False, css=_CSS)

@@ -14,6 +14,10 @@ if not exist ".venv" (
     echo Ilk kurulum yapiliyor (bu sadece bir kere calisir)...
     py -3.11 -m venv .venv || py -m venv .venv
     .\.venv\Scripts\python.exe -m pip install --upgrade pip --quiet
+    REM --no-deps: voxcpm'in gereksiz agir bagimliliklarini (funasr, matplotlib,
+    REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor)
+    REM atlayip yalniz requirements.txt'teki gercekten gerekli paketleri kurar.
+    .\.venv\Scripts\python.exe -m pip install --no-deps voxcpm==2.0.3
     .\.venv\Scripts\python.exe -m pip install -r requirements.txt
     echo Kurulum tamamlandi.
 )

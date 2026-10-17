@@ -88,8 +88,59 @@ class AppTests(unittest.TestCase):
         self.assertEqual(demo._queue.default_concurrency_limit, 1)
         labels = [c.get("props", {}).get("label") for c in demo.config["components"]]
         self.assertIn("Metin", labels)
-        self.assertIn("Referans ses (isteğe bağlı)", labels)
-        self.assertIn("WAV indir", labels)
+        self.assertIn("Referans ses (gerekli)", labels)
+        self.assertIn("⬇ WAV indir", labels)
+
+    def test_instruction_is_prepended_to_text(self):
+        import app
+        from unittest.mock import Mock
+        model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                generate=Mock(return_value=np.zeros(4800)))
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(app, "OUTPUT_DIR", Path(directory)), \
+                patch.object(app, "get_model", return_value=model):
+            list(app.generate_audio("Merhaba.", None, instruction="energetic, playful"))
+            self.assertEqual(model.generate.call_args.kwargs.get("text"), "(energetic, playful)Merhaba.")
+
+    def test_pad_quadrants_map_to_expected_instruction(self):
+        import app
+        self.assertIsNone(app.EMOTIONS["Nötr"])
+        self.assertEqual(app.EMOTIONS["Enerjik"], "energetic")
+        self.assertEqual(app.EMOTIONS["Sakin"], "calm")
+        self.assertEqual(app.EMOTIONS["Neşeli"], "cheerful")
+        self.assertEqual(app.EMOTIONS["Ciddi"], "serious")
+
+    def test_emotion_preview_shows_bracketed_instruction(self):
+        import app
+        self.assertEqual(app._preview_text("Merhaba.", "Enerjik"), "(energetic)Merhaba.")
+        self.assertEqual(app._preview_text("Merhaba.", "Nötr"), "Merhaba.")
+        self.assertEqual(app._preview_text("", "Enerjik"), "(metin boş)")
+
+    def test_normal_generate_applies_selected_emotion(self):
+        import app
+        from unittest.mock import Mock
+        model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                generate=Mock(return_value=np.zeros(4800)))
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(app, "OUTPUT_DIR", Path(directory)), \
+                patch.object(app, "get_model", return_value=model):
+            list(app._normal_generate("Merhaba.", "Üzgün"))
+            self.assertEqual(model.generate.call_args.kwargs.get("text"), "(sad)Merhaba.")
+            self.assertIsNone(model.generate.call_args.kwargs.get("reference_wav_path"))
+
+    def test_clone_generate_applies_selected_emotion_and_reference(self):
+        import app
+        from unittest.mock import Mock
+        model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                generate=Mock(return_value=np.zeros(4800)))
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(app, "OUTPUT_DIR", Path(directory)), \
+                patch.object(app, "get_model", return_value=model):
+            reference = str(Path(directory) / "reference.wav")
+            sf.write(reference, np.zeros(48000), 16000)
+            list(app._clone_generate("Merhaba.", reference, "Neşeli"))
+            self.assertEqual(model.generate.call_args.kwargs.get("text"), "(cheerful)Merhaba.")
+            self.assertEqual(model.generate.call_args.kwargs.get("reference_wav_path"), reference)
 
 
 if __name__ == "__main__":

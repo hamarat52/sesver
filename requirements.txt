@@ -1,3 +1,22 @@
-voxcpm==2.0.3
+# voxcpm==2.0.3'ü --no-deps ile kurun (bkz. baslat.command / baslat.bat);
+# pip normal şekilde bu dosyayı kurarsa funasr/matplotlib/modelscope/datasets/
+# spaces/argbind gibi SesVer'in hiç kullanmadığı ~1GB'lık ağır paketleri de
+# çeker (kodda hiçbir yerde import edilmiyorlar — yalnız voxcpm'in eğitim/
+# demo betiklerinde kullanılıyorlar). Burada yalnız gerçekten çalışması için
+# gereken paketler listeleniyor; M1/16GB üzerinde uçtan uca test edildi.
+torch>=2.5.0
+torchaudio>=2.5.0
+torchcodec
+transformers>=4.36.2
+einops
 gradio==6.30.0
+inflect
+addict
+huggingface-hub
+pydantic
+tqdm
+simplejson
+sortedcontainers
 soundfile==0.14.0
+librosa
+safetensors

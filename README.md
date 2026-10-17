@@ -32,15 +32,19 @@ Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi 
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
+pip install --no-deps voxcpm==2.0.3
 pip install -r requirements.txt
 python app.py
 ```
+
+`--no-deps`: `voxcpm` paketi varsayılan kurulumda `funasr`, `matplotlib`, `modelscope`, `datasets`, `spaces`, `argbind` gibi bu arayüzün **hiç kullanmadığı** (kodda hiçbir yerde import edilmeyen, yalnız `voxcpm`'in kendi eğitim/demo betiklerine ait) ağır paketleri de kurar — bunları atlamak kurulumu ~400 MB küçültür. `requirements.txt` yalnız gerçekten çalışması için gereken paketleri listeler.
 
 #### Windows (PowerShell)
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install --no-deps voxcpm==2.0.3
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe app.py
 ```
@@ -54,10 +58,10 @@ Arayüz hemen açılır. Model, ilk **Üret** tıklamasında Hugging Face'den in
 ## Kullanım
 
 1. Örnek metni değiştirin. İlk denemede kısa bir cümle kullanın; istek başına en fazla **500 karakter** kabul edilir.
-2. **Düz üretim:** Referans alanını boş bırakın. Model bir ses üretir; sabit bir konuşmacı garantisi yoktur.
-3. **Klonlama:** Yalnız kendi sesinizi veya açık izin aldığınız bir sesi yükleyin. Tek kişinin konuştuğu, müziksiz ve temiz **3–15 saniyelik WAV** önerilir; kabul edilen süre **1–30 saniye**. Referans kaydın metnini yazmak gerekmez.
+2. **Düz üretim:** Referans alanını boş bırakın. İsterseniz **Duygu/Ton** seçeneklerinden birini işaretleyin (Sakin, Enerjik, Neşeli, Ciddi, Heyecanlı, Üzgün) — seçilen duygu, metnin başına otomatik olarak parantezli bir talimat (örn. `(energetic)`) eklenerek üretime yansır; önizleme kutusunda ne gönderileceğini görürsünüz. Model bir ses üretir; sabit bir konuşmacı garantisi yoktur.
+3. **Klonlama:** Yalnız kendi sesinizi veya açık izin aldığınız bir sesi yükleyin. Tek kişinin konuştuğu, müziksiz ve temiz **3–15 saniyelik WAV** önerilir; kabul edilen süre **1–30 saniye**. Referans kaydın metnini yazmak gerekmez. Burada da bir duygu seçebilirsiniz, ancak **duygu seçmek klonlanan sesin orijinaline benzerliğini azaltabilir** (ses kimliği ile stil arasında bilinen bir ödünleşim) — en sadık klon için "Nötr" bırakın.
 4. **Üret** düğmesine basıp durum mesajını bekleyin. İstekler sırayla işlenir; tekrar tekrar basmayın.
-5. Sesi dinleyin, **WAV indir** alanından dosyayı kaydedin. Dosyalar ayrıca `outputs/` klasöründedir.
+5. Sesi dinleyin, **⬇ WAV indir** düğmesiyle dosyayı kaydedin. Dosyalar ayrıca `outputs/` klasöründedir.
 
 Telaffuz, ses benzerliği ve kalite değişebilir. Uzun metni cümlelere bölün; kısaltmaları okunuşuyla yazmak yardımcı olabilir. Bu sürümde ek gürültü temizleme modeli yüklenmez; temiz referans kullanın.
 
