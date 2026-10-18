@@ -598,7 +598,7 @@ def save_uploaded_ui(prepared, text, name, aciklama, kategori, consent):
 # siyah hap buton). Yazı tipleri sistemden gelir: arayüz dış sunucudan
 # font/görsel çekmez, her şey yerelde kalır.
 
-_SAMPLE_TEXT = "Merhaba! Bu ses, bilgisayarımda çalışan açık kaynak bir yapay zekâ ile üretildi."
+_SAMPLE_TEXT = "Merhaba! Bu ses, bilgisayarımda yerel olarak çalışan bir yapay zekâ ile üretildi."
 
 
 def _svg(paths, cls="sv-ic"):
@@ -658,7 +658,7 @@ _HERO = f"""
       <span class="sv-brand-text"><span>SesVer</span>{BRAND_SIGNATURE_HTML}</span></div>
     <div class="sv-nav-tags">
       <span class="sv-tag"><span class="sv-live"></span>Bilgisayarınızda çalışır</span>
-      <span class="sv-tag sv-hide-sm">Açık kaynak · Ücretsiz</span>
+      <span class="sv-tag sv-hide-sm">Kaynağı görünür · Ticari olmayan kullanımda ücretsiz</span>
     </div>
   </nav>
   <div class="sv-hero-body">

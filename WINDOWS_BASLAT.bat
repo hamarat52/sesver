@@ -111,7 +111,9 @@ echo tamam>"%MARK%"
 echo Kurulum tamamlandi.
 
 :baslat
-echo SesVer baslatiliyor... Tarayicinizda http://127.0.0.1:7860 acilacak.
+set "SV_PORT=%GRADIO_SERVER_PORT%"
+if "%SV_PORT%"=="" set "SV_PORT=7860"
+echo SesVer aciliyor, birkac saniye surebilir. Bir pencere acilmazsa tarayicinizda http://127.0.0.1:%SV_PORT% adresini deneyin (port doluysa asagida yazilan adresi).
 echo Durdurmak icin bu pencerede Ctrl+C kullanin.
 "%PYEXE%" desktop.py
 set "CIKIS=%errorlevel%"

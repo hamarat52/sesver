@@ -43,3 +43,10 @@ voices/**/*yusuf*
 voices/**/*akif*
 voices/**/*Yusuf*
 voices/**/*Akif*
+
+# Başlatıcıların indirdiği gömülü Python ve ara dosyaları (asla commit edilmez).
+python-embed/
+python-embed.indiriliyor/
+pbs_*
+# Yerel ajan görev notları (iç talimat ve yerel yollar içerir).
+.webdev-task-*.md

@@ -15,6 +15,11 @@
 # bitince yazılır.
 set -e
 cd "$(dirname "$0")"
+# Sistemde kurulu başka bir Python'un ayarları bu ortamı bozmasın
+# (WINDOWS_BASLAT.bat ile aynı izolasyon):
+export PYTHONNOUSERSITE=1
+unset PYTHONHOME
+unset PYTHONPATH
 chmod +x "$(basename "$0")" 2>/dev/null || true
 echo "[SesVer başlatıcı çalışıyor]"
 
@@ -182,6 +187,6 @@ if [ ! -x "$RUN_PY" ] || [ ! -f "$MARKER" ]; then
   echo "Kurulum tamamlandı."
 fi
 
-echo "SesVer başlatılıyor... Tarayıcınızda http://127.0.0.1:${GRADIO_SERVER_PORT:-7860} adresini açın."
+echo "SesVer açılıyor, birkaç saniye sürebilir. Bir pencere açılmazsa tarayıcınızda http://127.0.0.1:${GRADIO_SERVER_PORT:-7860} adresini deneyin (port doluysa aşağıda yazılan adresi)."
 echo "Durdurmak için bu pencerede Ctrl+C kullanın."
 "$RUN_PY" desktop.py
