@@ -2,73 +2,66 @@
 
 HamaratLabs tarafından geliştirilmiştir.
 
-**Ücretsiz, yerel ve açık kaynak Türkçe ses üretimi + ses klonlama.**
+**Ücretsiz, yerel ve açık kaynak Türkçe ses üretimi + ses klonlama.** Metninizi yazın, **Üret**'e basın, sonucu dinleyip WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
 
-Metninizi yazın, isterseniz bir referans ses yükleyin, **Üret** düğmesine basın. Sonucu dinleyin ve WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
+**İçindekiler:** [Windows Kurulum](#-windows-kurulum) · [Mac Kurulum](#-mac-kurulum) · [Yapay Zeka Destekli Kurulum](#-yapay-zeka-destekli-kurulum) · [Özellikler](#özellikler) · [Sorun giderme](#sorun-giderme) · [Lisans](#lisans-atıf-ve-sorumlu-kullanım) · [Teknik Detaylar](#teknik-detaylar-ileri-seviye)
 
-[OpenBMB VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) kullanır: 2 milyar parametre, Türkçe dahil 30 dil, 48 kHz ses çıktısı. Arayüz yalnız Türkçedir. Gradio arayüzü basittir; **altındaki model küçük/hafif değildir.** GPU zorunlu değildir; donanımınıza göre beklemeniz gerekebilir.
+## 🪟 Windows Kurulum
 
-## İçindekiler
+**Önce (yalnız bir kere):** [python.org/downloads](https://www.python.org/downloads/) adresinden **Python 3.11** indirip kurun; kurulumun ilk ekranındaki **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin. En az **20 GB boş alan** ve **internet** gerekir.
 
-- [Hızlı Kurulum](#hızlı-kurulum) — teknik bilgi gerekmez
-- [Yapay zeka asistanıyla kurulum](#yapay-zeka-asistanıyla-kurulum)
-- [Kullanım](#kullanım)
-- [Sorun giderme](#sorun-giderme)
-- [Teknik Detaylar](#teknik-detaylar) — elle kurulum, donanım, gizlilik
-- [Lisans, atıf ve sorumlu kullanım](#lisans-atıf-ve-sorumlu-kullanım)
+1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
+2. **Çıkarın:** ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla**. ZIP'in içinden çalıştırmayın.
+3. **Başlatın:** Çıkardığınız klasördeki **`WINDOWS_BASLAT.bat`** dosyasına çift tıklayın.
+4. **Bekleyin:** Siyah pencere gerekenleri kendisi kurar (ilk sefer birkaç dakika). `Running on local URL: http://127.0.0.1:7860` yazınca hazırdır. Bu pencereyi **kapatmayın**.
+5. **Açın:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresine gidin.
 
-## Hızlı Kurulum
+## 🍎 Mac Kurulum
 
-Teknik bilgi gerekmez. Bilgisayarınızda en az **20 GB boş alan** ve **internet** olsun.
+**Önce (yalnız bir kere):** [python.org/downloads](https://www.python.org/downloads/) adresinden **Python 3.11** indirip kurun. En az **20 GB boş alan** ve **internet** gerekir.
 
-**0. Python'u kurun (yalnız bir kere).** Python, SesVer'in çalışması için gereken ücretsiz bir programdır. [python.org/downloads](https://www.python.org/downloads/) adresinden **Python 3.11** indirip kurun.
-- Windows'ta kurulumun ilk ekranındaki **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin.
+1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
+2. **Çıkarın:** İndirilen ZIP dosyasına çift tıklayın.
+3. **Başlatın:** Çıkan klasördeki **`MACOS_BASLAT.command`** dosyasına çift tıklayın.
+   - Mac "Apple doğrulayamadı" / "bilinmeyen geliştirici" derse: dosyaya sağ tık → **Aç**. Bu seçenek yoksa **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç**.
+4. **Bekleyin:** Terminal penceresi gerekenleri kendisi kurar (ilk sefer birkaç dakika). `Running on local URL: http://127.0.0.1:7860` yazınca hazırdır. Bu pencereyi **kapatmayın**.
+5. **Açın:** Tarayıcınızda (Safari, Chrome) **http://127.0.0.1:7860** adresine gidin.
 
-**1. SesVer'i indirin.** Bu sayfanın üstündeki yeşil **Code** düğmesine basın → **Download ZIP**.
-- Depo herkese açıktır: indirmek için GitHub hesabı gerekmez.
+## 🤖 Yapay Zeka Destekli Kurulum
 
-**2. ZIP'i çıkarın.** İndirilen ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla** (Mac'te çift tıklamak yeterli). Dosyaları ZIP'in içinden çalıştırmayın, önce çıkarın.
+Kurulumu yapay zeka asistanınızla adım adım yapabilirsiniz:
 
-**3. Başlatıcıya çift tıklayın.** Çıkardığınız klasörün içinde:
-- **Windows:** `WINDOWS_BASLAT.bat`
-- **Mac:** `MACOS_BASLAT.command` (Mac "Apple doğrulayamadı" derse: sağ tık → **Aç**. Bu seçenek yoksa **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç**.)
+1. [AI_KURULUM.md](https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md) dosyasını GitHub'da açın (repoyu indirmenize gerek yok).
+2. Dosyanın sağ üst köşesindeki **kopyala simgesine** (iki üst üste kare) basın; tüm metin kopyalanır.
+3. Kendi yapay zeka sohbetinize (ChatGPT, Claude, Gemini, Copilot…) yapıştırın ve Windows mu Mac mi kullandığınızı söyleyin.
 
-**4. Bekleyin.** Siyah bir pencere açılır ve gerekenleri kendisi kurar. İlk seferde birkaç dakika sürer. Pencerede `Running on local URL: http://127.0.0.1:7860` yazısını görünce kurulum bitmiştir. Bu pencereyi **kapatmayın**; SesVer o açıkken çalışır.
+Asistan sizi adım adım yönlendirir ve hata mesajlarını çözmenize yardım eder.
 
-**5. Tarayıcıda açın.** Tarayıcınızın (Chrome, Edge, Safari) adres çubuğuna **http://127.0.0.1:7860** yazın. Metninizi yazıp **Üret**'e basın.
+## ✅ Kurulum başarılı mı?
 
 Bu sayfayı görüyorsanız kurulum başarılı:
 
 ![SesVer çalışırken: Ses Kütüphanesi sekmesi açık ana ekran](docs/screenshots/kurulum-basarili.png)
 
-Notlar:
-- İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir. Bu ilk seferde uzun sürebilir; sonraki üretimler daha hızlıdır.
-- Sonraki kullanımlarda yalnız 3. ve 5. adımı yapın. Kurulum tekrarlanmaz.
+- İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir; ilk seferde uzun sürebilir, sonrakiler daha hızlıdır.
+- Sonraki kullanımlarda yalnız başlatıcıya çift tıklayıp tarayıcıda adresi açın; kurulum tekrarlanmaz.
 - Kapatmak için siyah pencerede **Ctrl+C** basın veya pencereyi kapatın.
+- Sorun mu çıktı? [Sorun giderme](#sorun-giderme) bölümüne bakın veya [yapay zeka destekli kurulumu](#-yapay-zeka-destekli-kurulum) kullanın.
 
-**Bir sorun mu çıktı?** Aşağıdaki [Sorun giderme](#sorun-giderme) bölümüne bakın ya da kurulumu yapay zeka asistanınızla yapın (hemen aşağıda).
+## Özellikler
 
-### Yapay zeka asistanıyla kurulum
+SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modelini kullanır. Arayüz Türkçedir ve her şey kendi bilgisayarınızda çalışır.
 
-Yapay zeka asistanınla kurmak ister misin? [AI_KURULUM.md](AI_KURULUM.md) dosyasını aç, **tamamını kopyala** ve kendi yapay zeka sohbetine (ChatGPT, Claude, Gemini, Copilot…) yapıştır. Sonra Windows mu Mac mi kullandığını söyle; asistan seni adım adım yönlendirir ve hata mesajlarını çözmene yardım eder.
+- **📚 Ses Kütüphanesi (açılış sekmesi):** Bir ses kartı seçip metninizi o sesle okutun. **Hazır sesler** (Yaşlı Masalcı, Belgesel Anlatıcı, Heyecanlı Sunucu) tarifle tasarlanmış sentetik seslerdir, gerçek kişi değildir; **Kopyala** ile kendi düzenlenebilir kopyanız **Seslerim**'e eklenir. ▶ **Örnek** 3 saniyelik örneği çalar. Kayıtlı bir sesle her üretimde aynı kişi konuşur. Duygu seçebilirsiniz, ancak bu sesin benzerliğini biraz azaltır. **Kalite:** Hızlı / Dengeli / En İyi.
+- **🎲 Rastgele ses:** Referans olmadan üretim; duygu serbestçe seçilir, ancak her seferinde aynı konuşmacı garanti edilmez.
+- **🎨 Ses Oluştur → Seçimlerle tarif et:** Yaş, cinsiyet, ton, doku, hız gibi seçimlerle yeni bir ses tasarlayın. **Sesleri Dene** 4 aday üretir; beğendiğinize ad verip **Kaydet**'e basın, ses Seslerim'e eklenir.
+- **📁 Ses Oluştur → Dosya yükle:** 8–20 saniyelik bir kayıttan (WAV/MP3/M4A) kalıcı bir ses oluşturun. Konuşulan metin otomatik çıkarılır, düzeltebilirsiniz. **İzin kutucuğu** işaretlenmeden kaydedilemez.
+- **🎙️ Klonlama:** Yalnız kendi sesinizi veya açık izin aldığınız bir sesi yükleyin. Tek kişinin konuştuğu, müziksiz, temiz **3–15 saniyelik WAV** önerilir (kabul edilen: 1–30 sn). Referans sesin metnini de girerseniz klon kalitesi belirgin artar; **🎙️ Otomatik yazıya dök** bunu sizin yerinize yazar. Duygu seçmek benzerliği azaltabilir; en sadık klon için "Nötr" bırakın.
+- **🎛️ Efektler:** Cızırtı, Lo-fi, Telefon, Telsiz, Oda/yankı, Megafon. Ham ses korunur, efektli kopya ayrı kaydedilir. Ayarlar kayıtlı bir sese ön ayar olarak kaydedilebilir.
+- **⬇ İndirme:** Sonucu dinleyip **⬇ WAV indir** ile kaydedin. Dosyalar ayrıca `outputs/` klasöründedir.
+- **🔒 Yerel ve gizli:** Metniniz ve sesleriniz bulut servisine gönderilmez. Kişisel sesleriniz Git'e girmez.
 
-**Repoyu indirmeden kopyalamak için:** Dosyayı GitHub'da aç: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md — dosyanın sağ üst köşesindeki **kopyala simgesine** (iki üst üste kare) bas; tüm metin kopyalanır, kendi yapay zekana yapıştır.
-
-## Kullanım
-
-1. Örnek metni değiştirin. İlk denemede kısa bir cümle kullanın; istek başına en fazla **500 karakter** kabul edilir.
-2. **Ses Kütüphanesi (açılış sekmesi):** Bir ses kartı seçin. **Hazır sesler** (Yaşlı Masalcı, Belgesel Anlatıcı, Heyecanlı Sunucu; tarifle tasarlanmış sentetik sesler, gerçek kişi değil) repoyla gelir ve silinemez; **Kopyala** ile düzenlenebilir bir kopyası **Seslerim**'e eklenir. ▶ **Örnek** 3 saniyelik örneği çalar. Kayıtlı bir sesle üretim **Devam kipinde** yapılır (sesin `ref.wav` + `ref.txt` dosyası modele verilir, tarif/duygu eklenmez) ve her üretimde aynı kişi konuşur. Kayıtlı seste bir duygu seçerseniz kip **Kontrollü Klon**'a geçer ve “Duygu seçmek sesin benzerliğini biraz azaltır” notu görünür. **Kalite:** Hızlı / Dengeli / En İyi (`inference_timesteps` 6 / 10 / 16).
-3. **🎲 Rastgele ses** kartı eski düz üretimdir: referans yoktur, duygu seçici serbestçe kullanılır (metnin başına `(energetic)` gibi parantezli talimat eklenir). Sabit bir konuşmacı garantisi yoktur.
-4. **Ses Oluştur → Seçimlerle tarif et:** Yaş, cinsiyet, ton, doku, hız… seçimleri kurallı bir birleştiriciyle (LLM yok) İngilizce bir tarife çevrilir; kelimeler `voice_design_map.json` içindedir. **Gelişmiş** alanında tarif görünür ve elle düzenlenebilir; parçaların üstüne gelince Türkçe karşılığı çıkar. Örnek cümle süresi kaydırıcıyla 4–20 sn arasında seçilir. **Sesleri Dene** aynı tarif ve cümleyle seed 11/22/33/44 ile 4 aday üretir (sırayla; ilk aday hazır olunca dinlenebilir). Birini seçip ad verin ve **Kaydet**'e basın; ses Seslerim'e eklenir.
-5. **Ses Oluştur → Dosya yükle:** WAV/MP3/M4A, 8–20 sn. Dosya mono 16-bit WAV'a çevrilir, baştaki/sondaki sessizlik kırpılır, kırpılma ve düşük seviye için uyarı verilir; uzunsa aralık seçilir. Metin yerel Whisper ile çıkarılır, düzeltilebilir ve boş bırakılamaz. **İzin kutucuğu** işaretlenmeden kaydedilemez.
-6. **Efektler:** Cızırtı, Lo-fi, Telefon, Telsiz, Oda/yankı, Megafon üretimden **sonra** numpy/scipy ile uygulanır (modele yazılmaz); ham ses değişmez, efektli kopya `-fx-….wav` olarak yazılır ve -16 LUFS / ≤ -1 dBTP'ye eşitlenir. Ayarlar kayıtlı bir sese ön ayar olarak kaydedilebilir.
-7. **Klonlama sekmesi** önceki gibi çalışır: Yalnız kendi sesinizi veya açık izin aldığınız bir sesi yükleyin. Tek kişinin konuştuğu, müziksiz ve temiz **3–15 saniyelik WAV** önerilir; kabul edilen süre **1–30 saniye**. **Referans sesin metnini de girerseniz** ("devam kipi") model referansı gerçekten anlayarak devam eder ve klon kalitesi belirgin artar — **🎙️ Otomatik yazıya dök** düğmesiyle bunu Whisper'a otomatik yazdırabilir, gerekirse düzeltebilirsiniz. Boş bırakılırsa eski davranış (yalnız ses rengi kopyalama) geçerli olur. Burada da bir duygu seçebilirsiniz, ancak **duygu seçmek klonlanan sesin orijinaline benzerliğini azaltabilir** (ses kimliği ile stil arasında bilinen bir ödünleşim) — en sadık klon için "Nötr" bırakın.
-8. **Üret** düğmesine basıp durum mesajını bekleyin. İstekler sırayla işlenir; tekrar tekrar basmayın.
-9. Sesi dinleyin, **⬇ WAV indir** düğmesiyle dosyayı kaydedin. Dosyalar ayrıca `outputs/` klasöründedir.
-
-**Kişisel sesler git'e girmez:** `voices/seslerim/` `.gitignore`'dadır; ayrıca `voice_library.py` gerçek kişi klonu adlarını (`PROTECTED_NAMES`) ya da “yüklendi” kaynağını taşıyan hiçbir sesi `voices/hazir/` altına yazmaz.
-
-Telaffuz, ses benzerliği ve kalite değişebilir. Uzun metni cümlelere bölün; kısaltmaları okunuşuyla yazmak yardımcı olabilir. Bu sürümde ek gürültü temizleme modeli yüklenmez; temiz referans kullanın.
+**İpuçları:** İstek başına en fazla **500 karakter** kabul edilir; ilk denemede kısa bir cümle kullanın. **Üret**'e bastıktan sonra durum mesajını bekleyin, tekrar tekrar basmayın. Telaffuz, ses benzerliği ve kalite değişebilir: uzun metni cümlelere bölün, kısaltmaları okunuşuyla yazın. Bu sürümde gürültü temizleme yoktur; temiz referans kullanın.
 
 ## Sorun giderme
 
@@ -85,11 +78,27 @@ Telaffuz, ses benzerliği ve kalite değişebilir. Uzun metni cümlelere bölün
 
 Çözemediyseniz [AI_KURULUM.md](AI_KURULUM.md) dosyasını yapay zeka asistanınıza verin ya da [issue açın](https://github.com/hamarat52/sesver/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın.
 
+## Lisans, atıf ve sorumlu kullanım
+
+**SesVer'un kendi kodu (bu arayüz, `app.py`, testler) [PolyForm Noncommercial 1.0.0](LICENSE) lisanslıdır.** Kişisel kullanım, inceleme, eğitim, araştırma ve değiştirme serbesttir; **ticari kullanım ve yeniden satış izinli değildir** — SesVer'u indirip başka birine satamaz veya ticari bir ürüne/servise dahil edemezsiniz. Ticari kullanım için lisans sahibinden ayrıca izin gerekir.
+
+Bu arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini (pip) kullanır; VoiceStudio kodu veya bağımlılığı içermez. Sizin kendi bilgisayarınıza kurduğunuz **[VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu ise ayrı bir bağımlılıktır ve kendi Apache-2.0 lisansı altındadır** (ticari kullanıma izin veren farklı bir lisans) — SesVer'un lisansı o bağımlılığı kısıtlamaz, sadece bu depodaki arayüz koduna uygulanır. OpenBMB ekibine teşekkürler.
+
+### Sorumluluk reddi
+
+Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/katkıda bulunanlar, yazılımın kullanımından doğan hiçbir zarardan sorumlu değildir (LICENSE dosyasındaki "No Liability" maddesi). **Üretilen içerikten ve bu aracın nasıl kullanıldığından tamamen kullanıcı sorumludur.**
+
+**Üretilen içeriği paylaşırken “AI ile üretildi” diye açıkça etiketlemek zorunludur.** Bu, model kartındaki kullanım uyarısıdır; uygulama sese otomatik bir filigran eklemez. Bu lisans başka kişilerin sesini izinsiz kullanma hakkı vermez. Sadece kendi sesinizi veya açık izin aldığınız bir sesi klonlayın; kimliğe bürünme, dolandırıcılık veya yanıltıcı/yasadışı içerik üretmek için kullanmayın. Bu araçla üretilen içerikle yapılan kimliğe bürünme, dolandırıcılık veya herhangi bir yasadışı eylemden tamamen kullanıcı sorumludur; proje sahibi/katkıda bulunanlar sorumlu tutulamaz.
+
 ---
 
-## Teknik Detaylar
+## Teknik Detaylar (ileri seviye)
 
-Bu bölüm terminale (komut satırına) aşina kullanıcılar içindir. Hızlı Kurulum'u yaptıysanız burayı okumanız gerekmez.
+**Çoğu kullanıcının buraya bakmasına gerek yok.** Bu bölüm terminale (komut satırına) aşina kullanıcılar içindir; yukarıdaki Windows/Mac kurulumunu yaptıysanız burayı okumanız gerekmez.
+
+### Model
+
+[OpenBMB VoxCPM2](https://huggingface.co/openbmb/VoxCPM2): 2 milyar parametre, Türkçe dahil 30 dil, 48 kHz ses çıktısı. Arayüz yalnız Türkçedir. Gradio arayüzü basittir; **altındaki model küçük/hafif değildir.** GPU zorunlu değildir; donanımınıza göre beklemeniz gerekebilir.
 
 ### Gereksinimler
 
@@ -141,6 +150,16 @@ Arayüz hemen açılır. Model, ilk **Üret** tıklamasında Hugging Face'den in
 
 **NVIDIA GPU:** PyTorch'un CUDA destekli kurulumunu [resmî kurulum seçicisinden](https://pytorch.org/get-started/locally/) işletim sisteminize göre yapın. CUDA'sız PyTorch kuruluysa NVIDIA GPU otomatik kullanılamaz. Model uygun cihazı CUDA → Apple MPS → CPU sırasıyla seçer. CUDA şart değildir.
 
+### Özelliklerin teknik ayrıntıları
+
+- **Kayıtlı sesle üretim** **Devam kipinde** yapılır: sesin `ref.wav` + `ref.txt` dosyası modele verilir, tarif/duygu eklenmez. Kayıtlı seste bir duygu seçilirse kip **Kontrollü Klon**'a geçer ve “Duygu seçmek sesin benzerliğini biraz azaltır” notu görünür. Kalite seçenekleri Hızlı / Dengeli / En İyi = `inference_timesteps` 6 / 10 / 16.
+- **🎲 Rastgele ses** eski düz üretimdir: duygu, metnin başına `(energetic)` gibi parantezli talimat olarak eklenir.
+- **Seçimlerle tarif et:** Seçimler kurallı bir birleştiriciyle (LLM yok) İngilizce bir tarife çevrilir; kelimeler `voice_design_map.json` içindedir. **Gelişmiş** alanında tarif görünür ve elle düzenlenebilir; parçaların üstüne gelince Türkçe karşılığı çıkar. Örnek cümle süresi kaydırıcıyla 4–20 sn arasında seçilir. **Sesleri Dene** aynı tarif ve cümleyle seed 11/22/33/44 ile 4 aday üretir (sırayla; ilk aday hazır olunca dinlenebilir).
+- **Dosya yükle:** Dosya mono 16-bit WAV'a çevrilir, baştaki/sondaki sessizlik kırpılır, kırpılma ve düşük seviye için uyarı verilir; uzunsa aralık seçilir. Metin yerel Whisper ile çıkarılır ve boş bırakılamaz.
+- **Klonlama:** Referans metni girilirse ("devam kipi") model referansı gerçekten anlayarak devam eder; metin Whisper ile otomatik çıkarılabilir. Boş bırakılırsa eski davranış (yalnız ses rengi kopyalama) geçerlidir. Duygu seçiminin benzerliği azaltması, ses kimliği ile stil arasındaki bilinen bir ödünleşimdir.
+- **Efektler** üretimden **sonra** numpy/scipy ile uygulanır (modele yazılmaz); ham ses değişmez, efektli kopya `-fx-….wav` olarak yazılır ve -16 LUFS / ≤ -1 dBTP'ye eşitlenir.
+- **Kişisel sesler git'e girmez:** `voices/seslerim/` `.gitignore`'dadır; ayrıca `voice_library.py` gerçek kişi klonu adlarını (`PROTECTED_NAMES`) ya da “yüklendi” kaynağını taşıyan hiçbir sesi `voices/hazir/` altına yazmaz.
+
 ### Donanım ve gerçekçi beklenti
 
 **16 GB+ RAM önerilir. M1'de gerçek zamanlı değildir.** RTF, üretim süresinin ses uzunluğuna oranıdır: RTF 8, 10 saniyelik ses için yaklaşık 80 saniye beklemek demektir.
@@ -186,15 +205,3 @@ python -m unittest discover -s tests -v
 Testler pahalı model çağrısını taklit eder; gerçek WAV yazımı, referans parametresi, giriş doğrulaması, hata durumu ve arayüz bağlantılarını sınar. Gerçek ses kalitesini birim testleri doğrulamaz.
 
 Hata ve öneriler için [issue açabilirsiniz](https://github.com/hamarat52/sesver/issues). Küçük, odaklı katkılar kabul edilir.
-
-## Lisans, atıf ve sorumlu kullanım
-
-**SesVer'un kendi kodu (bu arayüz, `app.py`, testler) [PolyForm Noncommercial 1.0.0](LICENSE) lisanslıdır.** Kişisel kullanım, inceleme, eğitim, araştırma ve değiştirme serbesttir; **ticari kullanım ve yeniden satış izinli değildir** — SesVer'u indirip başka birine satamaz veya ticari bir ürüne/servise dahil edemezsiniz. Ticari kullanım için lisans sahibinden ayrıca izin gerekir.
-
-Bu arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini (pip) kullanır; VoiceStudio kodu veya bağımlılığı içermez. Sizin kendi bilgisayarınıza kurduğunuz **[VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu ise ayrı bir bağımlılıktır ve kendi Apache-2.0 lisansı altındadır** (ticari kullanıma izin veren farklı bir lisans) — SesVer'un lisansı o bağımlılığı kısıtlamaz, sadece bu depodaki arayüz koduna uygulanır. OpenBMB ekibine teşekkürler.
-
-### Sorumluluk reddi
-
-Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/katkıda bulunanlar, yazılımın kullanımından doğan hiçbir zarardan sorumlu değildir (LICENSE dosyasındaki "No Liability" maddesi). **Üretilen içerikten ve bu aracın nasıl kullanıldığından tamamen kullanıcı sorumludur.**
-
-**Üretilen içeriği paylaşırken “AI ile üretildi” diye açıkça etiketlemek zorunludur.** Bu, model kartındaki kullanım uyarısıdır; uygulama sese otomatik bir filigran eklemez. Bu lisans başka kişilerin sesini izinsiz kullanma hakkı vermez. Sadece kendi sesinizi veya açık izin aldığınız bir sesi klonlayın; kimliğe bürünme, dolandırıcılık veya yanıltıcı/yasadışı içerik üretmek için kullanmayın. Bu araçla üretilen içerikle yapılan kimliğe bürünme, dolandırıcılık veya herhangi bir yasadışı eylemden tamamen kullanıcı sorumludur; proje sahibi/katkıda bulunanlar sorumlu tutulamaz.
