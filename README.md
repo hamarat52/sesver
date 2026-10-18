@@ -1,5 +1,7 @@
 # SesVer
 
+> Kurulumu bir yapay zekâ asistanıyla yapmak ister misiniz? [KURULUM.md](KURULUM.md) dosyasını sohbete yapıştırın.
+
 HamaratLabs tarafından geliştirilmiştir.
 
 **Ücretsiz, yerel ve açık kaynak Türkçe ses üretimi + ses klonlama.**
