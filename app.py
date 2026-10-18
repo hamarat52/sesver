@@ -385,7 +385,15 @@ def select_voice_ui(voice_id, emotion_label, text):
 # --- Ses oluştur: seçimlerle tarif -------------------------------------------
 _DMAP = vdes.load_map()
 _SAMPLE_CATEGORIES = [(label, key) for key, label in _DMAP["kategori_etiketleri"].items()]
-_DEFAULT_SAMPLE_SECONDS = 8
+# Kısa referans (4-8 sn) devam kipinde kimlik kaymasına yol açıyor; varsayılan ve alt sınır buna göre.
+_DEFAULT_SAMPLE_SECONDS = 14
+_MIN_SAMPLE_SECONDS = 10
+_MAX_SAMPLE_SECONDS = 20
+_SHORT_SAMPLE_SECONDS = 8
+_FRAGILE_TEXTURES = ("Nefesli", "Pürüzlü")
+SHORT_SAMPLE_WARNING = ("Kısa örnek: bu sesle yapılan sonraki üretimlerde benzerlik düşebilir. "
+                        "Daha uzun bir örnek cümleyle yeniden tasarlamanı öneririz.")
+TEXTURE_WARNING = "Bu doku sonraki üretimlerde zayıflayabilir."
 
 
 def _slider_labels(group):
@@ -466,11 +474,29 @@ def design_candidates(tarif, text, quality, batch, cands, cins, yas, kullanim, p
         yield pack(f"Aday {i + 1}/4 hazır." + (" Sıradaki üretiliyor…" if i < 3 else " Birini seçip kaydedin."))
 
 
-def pick_candidate_ui(index, batch, cands):
+def candidate_warnings(path, meta=None):
+    """Kaydı engellemeyen uyarılar: kısa örnek ve sonradan zayıflayabilen doku."""
+    out = []
+    try:
+        if sf.info(path).duration < _SHORT_SAMPLE_SECONDS:
+            out.append(SHORT_SAMPLE_WARNING)
+    except (RuntimeError, TypeError, OSError):
+        pass
+    doku = ((meta or {}).get("secimler") or {}).get("doku") or []
+    if any(d in _FRAGILE_TEXTURES for d in doku):
+        out.append(TEXTURE_WARNING)
+    return out
+
+
+def pick_candidate_ui(index, batch, cands, meta=None):
     seed = vdes.candidate_seeds(batch)[index]
     if str(seed) not in (cands or {}):
         raise gr.Error("Bu aday henüz üretilmedi.")
-    return seed, gr.update(visible=True), f"Seçilen: **Aday {index + 1}** (seed {seed}). Ad verip kaydedin."
+    msg = f"Seçilen: **Aday {index + 1}** (seed {seed}). Ad verip kaydedin."
+    warns = candidate_warnings(cands[str(seed)], meta)
+    if warns:
+        msg += "\n\n" + "  \n".join(f"⚠️ {escape(w)}" for w in warns)
+    return seed, gr.update(visible=True), msg
 
 
 def save_designed_ui(name, aciklama, kategori, picked, cands, meta):
@@ -1327,7 +1353,7 @@ def _design_subtab(lib, tabs):
                 with gr.Row(elem_classes=["sv-sliders"]):
                     category = gr.Radio(choices=_SAMPLE_CATEGORIES, value="masal", label="Örnek metin türü",
                                         elem_classes=["sv-emotion", "sv-plain"], min_width=220)
-                    seconds = gr.Slider(4, 20, value=_DEFAULT_SAMPLE_SECONDS, step=1,
+                    seconds = gr.Slider(_MIN_SAMPLE_SECONDS, _MAX_SAMPLE_SECONDS, value=_DEFAULT_SAMPLE_SECONDS, step=1,
                                         label="Örnek ses süresi (sn)", min_width=220)
                 first_text = vdes.sample_text("masal", _DEFAULT_SAMPLE_SECONDS, _DMAP)
                 sample = gr.Textbox(label="Örnek cümle", lines=3, max_length=500, value=first_text)
@@ -1414,7 +1440,7 @@ def _design_subtab(lib, tabs):
     change.click(lambda: (gr.update(visible=False), None, "Seçimleri soldan değiştirip yeniden “Sesleri Dene”ye basın."),
                  outputs=[save_group, picked, d_status], queue=False)
     for i, pbutton in enumerate(cand_pick):
-        pbutton.click(lambda b, c, i=i: pick_candidate_ui(i, b, c), inputs=[batch, cands],
+        pbutton.click(lambda b, c, m, i=i: pick_candidate_ui(i, b, c, m), inputs=[batch, cands, meta],
                       outputs=[picked, save_group, picked_md], queue=False)
     save.click(save_designed_ui, inputs=[name, aciklama, kategori, picked, cands, meta],
                outputs=[lib.voices, lib.selected, tabs, save_md]).then(

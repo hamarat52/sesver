@@ -177,7 +177,38 @@ class ModeTests(unittest.TestCase):
         self.assertIn("generate_audio", apis)
         self.assertIn("clone_audio", apis)
         sliders = [c["props"] for c in demo.config["components"] if c["props"].get("label") == "Örnek ses süresi (sn)"]
-        self.assertEqual((sliders[0]["minimum"], sliders[0]["maximum"], sliders[0]["value"]), (4, 20, 8))
+        self.assertEqual((sliders[0]["minimum"], sliders[0]["maximum"], sliders[0]["value"]), (10, 20, 14))
+
+    def test_default_sample_text_is_long_enough(self):
+        # Varsayılan cümle ~14 sn; kısa referans eşiğinin (8 sn) belirgin üstünde.
+        text = app.vdes.sample_text("masal", app._DEFAULT_SAMPLE_SECONDS, app._DMAP)
+        self.assertGreaterEqual(app.vdes.estimate_seconds(text, app._DMAP), 10)
+        self.assertGreaterEqual(app._MIN_SAMPLE_SECONDS, 10)
+
+    def _cand(self, seconds, seed=11):
+        path = self.tmp / f"aday-{seed}.wav"
+        sf.write(path, np.zeros(int(16000 * seconds), dtype=np.float32), 16000)
+        return {str(seed): str(path)}
+
+    def test_short_candidate_warns_but_does_not_block_save(self):
+        cands = self._cand(6)
+        meta = {"tarif": "a voice", "text": "Kısa.", "secimler": {"doku": ["Berrak"]}}
+        seed, _vis, md = app.pick_candidate_ui(0, 0, cands, meta)
+        self.assertIn(app.SHORT_SAMPLE_WARNING, md)
+        self.assertNotIn(app.TEXTURE_WARNING, md)
+        _voices, new_id, _tabs, _msg = app.save_designed_ui("Kısa Ses", "", "Masal", seed, cands, meta)
+        self.assertTrue((self.voices / "seslerim" / new_id / "ref.wav").is_file())
+
+    def test_long_candidate_has_no_short_warning(self):
+        seed, _vis, md = app.pick_candidate_ui(0, 0, self._cand(12), {"secimler": {"doku": []}})
+        self.assertEqual(seed, 11)
+        self.assertNotIn("⚠️", md)
+
+    def test_fragile_texture_warns(self):
+        for doku in (["Nefesli"], ["Tok", "Pürüzlü"]):
+            _seed, _vis, md = app.pick_candidate_ui(0, 0, self._cand(12), {"secimler": {"doku": doku}})
+            self.assertIn(app.TEXTURE_WARNING, md)
+            self.assertNotIn(app.SHORT_SAMPLE_WARNING, md)
 
 
 if __name__ == "__main__":
