@@ -1,0 +1,150 @@
+# SesVer Windows kurulum programını (Inno Setup) gerçek Windows'ta derler,
+# sessiz kurulum/kaldırma ile duman testi yapar ve .exe'yi artifact olarak yükler.
+name: Windows installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Kurulum programı sürümü (ör. 1.0.0)"
+        required: false
+        default: "1.0.0"
+  push:
+    branches:
+      - "ci/windows-installer*"
+    paths:
+      - "windows/**"
+      - ".github/workflows/windows-installer.yml"
+      - "*.py"
+      - "WINDOWS_BASLAT.bat"
+      - "requirements.txt"
+      - "voices/hazir/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      APP_VERSION: ${{ github.event.inputs.version || '1.0.0' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Inno Setup kur (chocolatey)
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          if ($LASTEXITCODE -ne 0) { throw "choco install innosetup başarısız: $LASTEXITCODE" }
+          $iscc = Get-ChildItem -Path "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe bulunamadı" }
+          Write-Host "ISCC: $($iscc.FullName)"
+          "ISCC=$($iscc.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Kurulum programını derle
+        shell: pwsh
+        run: |
+          & $env:ISCC "/DAppVersion=$env:APP_VERSION" "windows\SesVer.iss"
+          if ($LASTEXITCODE -ne 0) { throw "ISCC derleme hatası: $LASTEXITCODE" }
+          $exe = "windows\Output\SesVer-Kurulum-$env:APP_VERSION.exe"
+          if (-not (Test-Path $exe)) { throw "Beklenen çıktı yok: $exe" }
+          $f = Get-Item $exe
+          Write-Host ("Üretildi: {0} ({1:N0} bayt)" -f $f.FullName, $f.Length)
+          Get-FileHash -Algorithm SHA256 $exe | Format-List
+          "INSTALLER=$($f.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Duman testi — sessiz kurulum, kısayollar, kaldırma
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\SesVer'
+          $log = Join-Path $env:RUNNER_TEMP 'sesver-kurulum.log'
+          $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon',"/LOG=$log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content $log -ErrorAction SilentlyContinue; throw "Kurulum çıkış kodu: $($p.ExitCode)" }
+
+          $beklenen = @('app.py','desktop.py','hata_rehberi.py','voice_library.py','voice_designer.py',
+                        'voice_design_map.json','requirements.txt','WINDOWS_BASLAT.bat','LICENSE',
+                        'README.md','AI_KURULUM.md','SesVer.ico','voices\hazir\belgesel\ses.json','voices\hazir\masalci\ref.wav')
+          foreach ($b in $beklenen) {
+            if (-not (Test-Path (Join-Path $app $b))) { throw "Kurulumda eksik: $b" }
+          }
+          $kaynakPy = (Get-ChildItem -Path . -Filter *.py -File).Count
+          $kurulanPy = (Get-ChildItem -Path $app -Filter *.py -File).Count
+          Write-Host "Kökteki .py: $kaynakPy, kurulan .py: $kurulanPy"
+          if ($kaynakPy -ne $kurulanPy) { throw ".py sayısı tutmuyor" }
+          if (-not (Test-Path (Join-Path $app 'voices\seslerim'))) { throw 'voices\seslerim oluşturulmadı' }
+
+          # Ortam henüz kurulmadı (python-embed yok) → kısayollar WINDOWS_BASLAT.bat'ı göstermeli.
+          $sh = New-Object -ComObject WScript.Shell
+          $baslat = Join-Path ([Environment]::GetFolderPath('Programs')) 'SesVer.lnk'
+          $masa = Join-Path ([Environment]::GetFolderPath('Desktop')) 'SesVer.lnk'
+          foreach ($l in @($baslat, $masa)) {
+            if (-not (Test-Path $l)) { throw "Kısayol yok: $l" }
+            $t = $sh.CreateShortcut($l)
+            Write-Host "$l -> $($t.TargetPath) $($t.Arguments) [$($t.WorkingDirectory)] ikon=$($t.IconLocation)"
+            if ($t.IconLocation -notlike '*\SesVer.ico*') { throw "Kısayol ikonu SesVer.ico olmalı: $($t.IconLocation)" }
+            if ($t.TargetPath -notlike '*\WINDOWS_BASLAT.bat') { throw "İlk kurulumda kısayol .bat'ı göstermeli: $($t.TargetPath)" }
+          }
+
+          # Ortam hazırmış gibi yap (python-embed + kurulum işareti), yeniden kur →
+          # WebView2 varsa kısayollar doğrudan pythonw.exe desktop.py olmalı.
+          New-Item -ItemType Directory -Force (Join-Path $app 'python-embed') | Out-Null
+          Copy-Item "$env:SystemRoot\System32\cmd.exe" (Join-Path $app 'python-embed\pythonw.exe')
+          Set-Content (Join-Path $app 'python-embed\sesver_kurulum_tamam.txt') 'ok'
+          # Kullanıcı verisi kaldırmadan sağ çıkmalı:
+          Set-Content (Join-Path $app 'voices\seslerim\kisisel.txt') 'kullanici verisi'
+          New-Item -ItemType Directory -Force (Join-Path $app 'outputs') | Out-Null
+          Set-Content (Join-Path $app 'outputs\uretim.wav') 'x'
+
+          $wv = @('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}') |
+                ForEach-Object { (Get-ItemProperty -Path $_ -Name pv -ErrorAction SilentlyContinue).pv } |
+                Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          Write-Host "WebView2 Runtime: $(if ($wv) { $wv } else { 'YOK' })"
+
+          $log2 = Join-Path $env:RUNNER_TEMP 'sesver-kurulum2.log'
+          $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon',"/LOG=$log2" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Yeniden kurulum çıkış kodu: $($p.ExitCode)" }
+          foreach ($l in @($baslat, $masa)) {
+            $t = $sh.CreateShortcut($l)
+            Write-Host "$l -> $($t.TargetPath) $($t.Arguments) ikon=$($t.IconLocation)"
+            if ($t.IconLocation -notlike '*\SesVer.ico*') { throw "Kısayol ikonu SesVer.ico olmalı: $($t.IconLocation)" }
+            if ($wv) {
+              if ($t.TargetPath -notlike '*\python-embed\pythonw.exe') { throw "Ortam hazırken kısayol pythonw.exe olmalı: $($t.TargetPath)" }
+              if ($t.Arguments -notlike '*desktop.py*') { throw "Kısayol argümanı desktop.py içermeli: $($t.Arguments)" }
+            } else {
+              if ($t.TargetPath -notlike '*\WINDOWS_BASLAT.bat') { throw "WebView2 yokken kısayol .bat olmalı: $($t.TargetPath)" }
+            }
+          }
+
+          # Sessiz kaldırma
+          $un = Join-Path $app 'unins000.exe'
+          if (-not (Test-Path $un)) { throw 'unins000.exe yok' }
+          $p = Start-Process -FilePath $un -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Kaldırma çıkış kodu: $($p.ExitCode)" }
+          # Kaldırıcı kendini kopyadan çalıştırır; dosyaların silinmesini bekle.
+          for ($i = 0; $i -lt 30 -and (Test-Path (Join-Path $app 'app.py')); $i++) { Start-Sleep -Seconds 1 }
+          foreach ($g in @('app.py','desktop.py','WINDOWS_BASLAT.bat','python-embed','voices\hazir')) {
+            if (Test-Path (Join-Path $app $g)) { throw "Kaldırmadan sonra kaldı: $g" }
+          }
+          foreach ($l in @($baslat, $masa)) { if (Test-Path $l) { throw "Kaldırmadan sonra kısayol kaldı: $l" } }
+          foreach ($k in @('voices\seslerim\kisisel.txt','outputs\uretim.wav')) {
+            if (-not (Test-Path (Join-Path $app $k))) { throw "Kullanıcı verisi silindi: $k" }
+          }
+          Write-Host 'Duman testi BAŞARILI: kurulum, kısayol seçimi, kaldırma ve kullanıcı verisinin korunması doğrulandı.'
+
+      - name: Kurulum günlükleri
+        if: always()
+        shell: pwsh
+        run: Get-ChildItem $env:RUNNER_TEMP -Filter 'sesver-kurulum*.log' | ForEach-Object { Write-Host "===== $($_.Name)"; Get-Content $_.FullName -Tail 60 }
+
+      - name: Artifact yükle
+        uses: actions/upload-artifact@v7
+        with:
+          name: SesVer-Kurulum-${{ env.APP_VERSION }}
+          path: windows/Output/SesVer-Kurulum-*.exe
+          if-no-files-found: error
+          retention-days: 14
