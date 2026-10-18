@@ -102,9 +102,9 @@ class SynthesisTests(ElevenLabsTestCase):
         eng.synthesize("Merhaba.", voice="v", quality="Hızlı", use_cache=False)
         body = json.loads([c for c in self.transport.calls if c.method == "POST"][-1].body)
         self.assertEqual((body["model_id"], body["language_code"]), ("eleven_flash_v2_5", "tr"))
-        self.assertEqual(eng.model_for("En İyi"), "eleven_v4")
-        forced = self.engine({}, env={"ELEVENLABS_API_KEY": FAKE_KEY, "SESVER_ELEVENLABS_MODEL": "eleven_v3"})
-        self.assertEqual(forced.model_for("Hızlı"), "eleven_v3")
+        self.assertEqual(eng.model_for("En İyi"), "eleven_v3")
+        forced = self.engine({}, env={"ELEVENLABS_API_KEY": FAKE_KEY, "SESVER_ELEVENLABS_MODEL": "eleven_v4"})
+        self.assertEqual(forced.model_for("Hızlı"), "eleven_v4")
 
     def test_wav_conversion_resamples_pcm_and_wav(self):
         sr_in = 22050

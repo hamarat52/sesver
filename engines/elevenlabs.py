@@ -61,15 +61,17 @@ DEFAULT_OUTPUT_DIR = REPO_ROOT / "outputs"
 TARGET_SAMPLE_RATE = 48000  # VoxCPM2 çıktısıyla aynı (config.json: out_sample_rate=48000)
 
 # Kalite modu → model. Ortam değişkeniyle ezilebilir (SESVER_ELEVENLABS_MODEL tek modele sabitler).
-# eleven_multilingual_v2: API'nin varsayılanı, Türkçe ("tr") listede açıkça var.
-# eleven_flash_v2_5: multilingual_v2 dilleri + hu/no/vi; API'de 0,5–1 kredi/karakter.
-# eleven_v4: 90+ dil (Türkçe dahil). TTS uç noktasında kullanımı resmî hata
-#   sayfasındaki SDK örneğinde görülüyor ama model sayfası "Text to Dialogue API
-#   üzerinden" diyor → Faz 2 duman testinde doğrulanacak (PLAN, Açık Sorular).
-QUALITY_MODELS = {"Hızlı": "eleven_flash_v2_5", "Dengeli": "eleven_multilingual_v2", "En İyi": "eleven_v4"}
+# eleven_flash_v2_5: multilingual_v2 dilleri (tr dahil) + hu/no/vi; 40.000 karakter; self-serve 0,5 kredi/karakter.
+# eleven_multilingual_v2: API'nin varsayılanı, "tr" listede açıkça var; 10.000 karakter; 1 kredi/karakter.
+# eleven_v3: 70+ dil (Turkish dahil), 5.000 karakter; "Text to Speech API ile de kullanılabilir" (model sayfası).
+# eleven_v4 BİLEREK varsayılan değil: model sayfası "Text to Dialogue API üzerinden" diyor; TTS uç
+#   noktasında çalıştığı Faz 2 duman testinde görülürse SESVER_ELEVENLABS_MODEL=eleven_v4 ile açılır.
+#   https://elevenlabs.io/docs/overview/models
+QUALITY_MODELS = {"Hızlı": "eleven_flash_v2_5", "Dengeli": "eleven_multilingual_v2", "En İyi": "eleven_v3"}
 MODEL_CHAR_LIMITS = {"eleven_v4": 10_000, "eleven_v3": 5_000, "eleven_flash_v2_5": 40_000,
                      "eleven_flash_v2": 30_000, "eleven_multilingual_v2": 10_000}
-# Muhafazakâr kredi/karakter: belgelenen üst sınır kullanılır (flash 0,5–1 → 1).
+# Kota koruyucu için MUHAFAZAKÂR kredi/karakter: Flash API'de "0,5–1" (pricing SSS) → 1 alınır.
+# Gerçek harcama Faz 2'de usage() farkıyla ölçülecek. https://elevenlabs.io/pricing
 CREDITS_PER_CHAR = {"eleven_flash_v2_5": 1.0, "eleven_multilingual_v2": 1.0, "eleven_v4": 1.0,
                     "eleven_v3": 1.0}
 # language_code multilingual_v2 için desteklenmiyor (doküman); diğerlerinde "tr" gönderilir.
@@ -555,7 +557,9 @@ class ElevenLabsEngine(Engine):
 # --- Hata eşlemesi -----------------------------------------------------------
 _QUOTA_CODES = {"quota_exceeded", "insufficient_credits", "payment_required"}
 _PLAN_CODES = {"feature_not_available", "subscription_required", "can_not_use_instant_voice_cloning"}
-_RATE_CODES = {"rate_limit_exceeded", "concurrent_limit_exceeded", "system_busy", "too_many_concurrent_requests"}
+_RATE_CODES = {"rate_limit_exceeded", "concurrent_limit_exceeded", "system_busy", "too_many_concurrent_requests",
+               "rate_limit_error"}
+_AUTH_CODES = {"invalid_api_key", "missing_api_key", "authentication_error", "unauthorized"}
 
 
 def _detail(resp: HttpResponse) -> dict:
@@ -581,11 +585,14 @@ def map_error(resp: HttpResponse, retries: int = 0) -> EngineError:
     if codes & _QUOTA_CODES or resp.status == 402:
         err = QuotaError("ElevenLabs kotanız/krediniz bu istek için yetmiyor. Kotanın yenilenmesini bekleyin, "
                          "metni kısaltın ya da yerel motora (VoxCPM2) dönün." + suffix)
-    elif resp.status == 401 or codes & {"invalid_api_key", "authentication_error", "unauthorized"}:
+    elif resp.status == 401 or codes & _AUTH_CODES:
         err = AuthError("ElevenLabs API anahtarı geçersiz ya da eksik. Anahtarı kendi terminalinizde "
                         f"{API_KEY_ENV} olarak yeniden tanımlayın." + suffix)
-    elif codes & _PLAN_CODES or resp.status == 403:
+    elif codes & _PLAN_CODES:
         err = PlanFeatureError("Bu özellik mevcut ElevenLabs planınızda kapalı." + suffix)
+    elif resp.status == 403:
+        err = PlanFeatureError("Bu işlem için yetkiniz yok ya da özellik planınızda kapalı (ses/model erişimi)."
+                               + suffix)
     elif resp.status == 429 or codes & _RATE_CODES:
         err = RateLimitError(f"ElevenLabs şu an çok yoğun ya da istek sınırına ulaşıldı; {retries} yeniden "
                              "denemeden sonra da olmadı. Biraz bekleyip tekrar deneyin." + suffix)
