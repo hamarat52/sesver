@@ -1,0 +1,91 @@
+{
+ "ebur128": {
+  "a": {
+   "I_LUFS": -24.9,
+   "LRA_LU": 1.2,
+   "TP_dBFS": -7.4
+  },
+  "b_sayilar": {
+   "I_LUFS": -25.1,
+   "LRA_LU": 2.1,
+   "TP_dBFS": -7.2
+  },
+  "c_belgesel": {
+   "I_LUFS": -24.4,
+   "LRA_LU": 3.0,
+   "TP_dBFS": -3.5
+  },
+  "seed1": {
+   "I_LUFS": -24.9,
+   "LRA_LU": 1.2,
+   "TP_dBFS": -7.4
+  },
+  "seed2": {
+   "I_LUFS": -25.1,
+   "LRA_LU": 1.3,
+   "TP_dBFS": -7.1
+  },
+  "seed3": {
+   "I_LUFS": -25.6,
+   "LRA_LU": 1.1,
+   "TP_dBFS": -8.4
+  },
+  "hiz_0.9": {
+   "I_LUFS": -22.9,
+   "LRA_LU": 1.0,
+   "TP_dBFS": -5.3
+  },
+  "hiz_1.0": {
+   "I_LUFS": -22.5,
+   "LRA_LU": 1.0,
+   "TP_dBFS": -3.0
+  },
+  "hiz_1.15": {
+   "I_LUFS": -23.7,
+   "LRA_LU": 0.7,
+   "TP_dBFS": -5.9
+  }
+ },
+ "voxcpm2_ref": {
+  "n_aday": 64,
+  "n_satir": 14,
+  "gen_s_toplam": 2661.9,
+  "gen_s_ort": 41.6,
+  "gen_s_medyan": 46.4,
+  "gen_s_min": 16.9,
+  "gen_s_max": 82.1,
+  "dur_toplam": 356.96,
+  "dur_ort": 5.58,
+  "rtf_ses_bolu_uretim_medyan": 0.137,
+  "rtf_ses_bolu_uretim_ort": 0.134,
+  "sn_uretim_per_sn_ses": 7.46,
+  "l01": [
+   {
+    "file": "l01_c11.wav",
+    "seed": 11,
+    "gen_s": 35.3,
+    "dur": 4.96
+   },
+   {
+    "file": "l01_c22.wav",
+    "seed": 22,
+    "gen_s": 35.1,
+    "dur": 4.96
+   },
+   {
+    "file": "l01_c33.wav",
+    "seed": 33,
+    "gen_s": 38.5,
+    "dur": 5.44
+   },
+   {
+    "file": "l01_c44.wav",
+    "seed": 44,
+    "gen_s": 39.5,
+    "dur": 5.28
+   }
+  ],
+  "asr_wer_ort": 0.0385,
+  "asr_wer0_orani": 0.781
+ }
+}

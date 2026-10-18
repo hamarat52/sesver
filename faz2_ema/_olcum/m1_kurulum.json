@@ -1,0 +1,508 @@
+{
+ "install_s": 5.12,
+ "verify_s": 0.02,
+ "second_install_s": 0.04,
+ "weights_downloaded_bytes": 56676051,
+ "status_before": {
+  "package_installed": false,
+  "package_version": null,
+  "normalizer_version": null,
+  "dependencies_ok": true,
+  "missing_dependencies": [],
+  "weights_dir": "/Users/hamaratbey/Desktop/Projeler/sesver-elevenlabs/models/ema-lightning",
+  "weights_present": false,
+  "files": {
+   "config.json": {
+    "present": false,
+    "size": 0,
+    "expected": 342
+   },
+   "ema.pt": {
+    "present": false,
+    "size": 0,
+    "expected": 22285878
+   },
+   "decoder.pt": {
+    "present": false,
+    "size": 0,
+    "expected": 12103269
+   }
+  },
+  "weights_bytes": 0,
+  "download_bytes": 34389489,
+  "package_download_bytes": 1298611,
+  "revision": "7a6ba1ad216bb2f1da9863f80ac8770a6a807632",
+  "verified": false,
+  "ready": false,
+  "total_download_bytes": 35688100,
+  "download_label": "~35,7 MB",
+  "weights_label": "0 B"
+ },
+ "status_after": {
+  "package_installed": true,
+  "package_version": "1.0.3",
+  "normalizer_version": "0.4.0",
+  "dependencies_ok": true,
+  "missing_dependencies": [],
+  "weights_dir": "/Users/hamaratbey/Desktop/Projeler/sesver-elevenlabs/models/ema-lightning",
+  "weights_present": true,
+  "files": {
+   "config.json": {
+    "present": true,
+    "size": 342,
+    "expected": 342
+   },
+   "ema.pt": {
+    "present": true,
+    "size": 22285878,
+    "expected": 22285878
+   },
+   "decoder.pt": {
+    "present": true,
+    "size": 12103269,
+    "expected": 12103269
+   }
+  },
+  "weights_bytes": 34389489,
+  "download_bytes": 0,
+  "package_download_bytes": 0,
+  "revision": "7a6ba1ad216bb2f1da9863f80ac8770a6a807632",
+  "verified": false,
+  "ready": true,
+  "total_download_bytes": 0,
+  "download_label": "~0 B",
+  "weights_label": "34,4 MB"
+ },
+ "status_after_verify": {
+  "package_installed": true,
+  "package_version": "1.0.3",
+  "normalizer_version": "0.4.0",
+  "dependencies_ok": true,
+  "missing_dependencies": [],
+  "weights_dir": "/Users/hamaratbey/Desktop/Projeler/sesver-elevenlabs/models/ema-lightning",
+  "weights_present": true,
+  "files": {
+   "config.json": {
+    "present": true,
+    "size": 342,
+    "expected": 342
+   },
+   "ema.pt": {
+    "present": true,
+    "size": 22285878,
+    "expected": 22285878
+   },
+   "decoder.pt": {
+    "present": true,
+    "size": 12103269,
+    "expected": 12103269
+   }
+  },
+  "weights_bytes": 34389489,
+  "download_bytes": 0,
+  "package_download_bytes": 0,
+  "revision": "7a6ba1ad216bb2f1da9863f80ac8770a6a807632",
+  "verified": true,
+  "ready": true,
+  "total_download_bytes": 0,
+  "download_label": "~0 B",
+  "weights_label": "34,4 MB"
+ },
+ "status_second_install": {
+  "package_installed": true,
+  "package_version": "1.0.3",
+  "normalizer_version": "0.4.0",
+  "dependencies_ok": true,
+  "missing_dependencies": [],
+  "weights_dir": "/Users/hamaratbey/Desktop/Projeler/sesver-elevenlabs/models/ema-lightning",
+  "weights_present": true,
+  "files": {
+   "config.json": {
+    "present": true,
+    "size": 342,
+    "expected": 342
+   },
+   "ema.pt": {
+    "present": true,
+    "size": 22285878,
+    "expected": 22285878
+   },
+   "decoder.pt": {
+    "present": true,
+    "size": 12103269,
+    "expected": 12103269
+   }
+  },
+  "weights_bytes": 34389489,
+  "download_bytes": 0,
+  "package_download_bytes": 0,
+  "revision": "7a6ba1ad216bb2f1da9863f80ac8770a6a807632",
+  "verified": true,
+  "ready": true,
+  "total_download_bytes": 0,
+  "download_label": "~0 B",
+  "weights_label": "34,4 MB"
+ },
+ "events": [
+  {
+   "t": 0.0,
+   "stage": "kontrol",
+   "fraction": 0.0,
+   "message": "Kurulum denetleniyor…",
+   "file": null,
+   "done_bytes": 0,
+   "total_bytes": 0
+  },
+  {
+   "t": 0.001,
+   "stage": "paket",
+   "fraction": 0.01,
+   "message": "ema-lightning 1.0.3 kuruluyor…",
+   "file": null,
+   "done_bytes": 0,
+   "total_bytes": 0
+  },
+  {
+   "t": 1.168,
+   "stage": "paket",
+   "fraction": 0.05,
+   "message": "Paket kuruldu.",
+   "file": null,
+   "done_bytes": 0,
+   "total_bytes": 0
+  },
+  {
+   "t": 1.455,
+   "stage": "indirme",
+   "fraction": 0.050009258701110684,
+   "message": "config.json indiriliyor…",
+   "file": "config.json",
+   "done_bytes": 342,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 2.791,
+   "stage": "indirme",
+   "fraction": 0.07839654459535586,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 1048918,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 2.863,
+   "stage": "indirme",
+   "fraction": 0.10678383048960105,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 2097494,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 2.905,
+   "stage": "indirme",
+   "fraction": 0.13517111638384624,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 3146070,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 2.932,
+   "stage": "indirme",
+   "fraction": 0.16355840227809143,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 4194646,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 2.957,
+   "stage": "indirme",
+   "fraction": 0.1919456881723366,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 5243222,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 2.985,
+   "stage": "indirme",
+   "fraction": 0.22033297406658175,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 6291798,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.012,
+   "stage": "indirme",
+   "fraction": 0.24872025996082697,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 7340374,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.035,
+   "stage": "indirme",
+   "fraction": 0.27710754585507213,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 8388950,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.059,
+   "stage": "indirme",
+   "fraction": 0.30549483174931735,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 9437526,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.082,
+   "stage": "indirme",
+   "fraction": 0.3338821176435625,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 10486102,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.109,
+   "stage": "indirme",
+   "fraction": 0.3622694035378077,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 11534678,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.132,
+   "stage": "indirme",
+   "fraction": 0.3906566894320529,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 12583254,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.156,
+   "stage": "indirme",
+   "fraction": 0.41904397532629806,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 13631830,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.184,
+   "stage": "indirme",
+   "fraction": 0.4474312612205433,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 14680406,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.205,
+   "stage": "indirme",
+   "fraction": 0.47581854711478844,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 15728982,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.228,
+   "stage": "indirme",
+   "fraction": 0.5042058330090337,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 16777558,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.252,
+   "stage": "indirme",
+   "fraction": 0.5325931189032789,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 17826134,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.272,
+   "stage": "indirme",
+   "fraction": 0.560980404797524,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 18874710,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.295,
+   "stage": "indirme",
+   "fraction": 0.5893676906917692,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 19923286,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.323,
+   "stage": "indirme",
+   "fraction": 0.6177549765860144,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 20971862,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.343,
+   "stage": "indirme",
+   "fraction": 0.6461422624802595,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 22020438,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 3.408,
+   "stage": "indirme",
+   "fraction": 0.6533375727100802,
+   "message": "ema.pt indiriliyor…",
+   "file": "ema.pt",
+   "done_bytes": 22286220,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.635,
+   "stage": "indirme",
+   "fraction": 0.6817248586043253,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 23334796,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.708,
+   "stage": "indirme",
+   "fraction": 0.7101121444985705,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 24383372,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.816,
+   "stage": "indirme",
+   "fraction": 0.7384994303928157,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 25431948,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.818,
+   "stage": "indirme",
+   "fraction": 0.7668867162870608,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 26480524,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.819,
+   "stage": "indirme",
+   "fraction": 0.7952740021813061,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 27529100,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.838,
+   "stage": "indirme",
+   "fraction": 0.8236612880755513,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 28577676,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.887,
+   "stage": "indirme",
+   "fraction": 0.8520485739697965,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 29626252,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.907,
+   "stage": "indirme",
+   "fraction": 0.8804358598640416,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 30674828,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.93,
+   "stage": "indirme",
+   "fraction": 0.9088231457582868,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 31723404,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 4.952,
+   "stage": "indirme",
+   "fraction": 0.937210431652532,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 32771980,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 5.004,
+   "stage": "indirme",
+   "fraction": 0.9655977175467771,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 33820556,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 5.082,
+   "stage": "indirme",
+   "fraction": 0.981,
+   "message": "decoder.pt indiriliyor…",
+   "file": "decoder.pt",
+   "done_bytes": 34389489,
+   "total_bytes": 34389489
+  },
+  {
+   "t": 5.095,
+   "stage": "dogrulama",
+   "fraction": 0.99,
+   "message": "Kurulum doğrulanıyor…",
+   "file": null,
+   "done_bytes": 0,
+   "total_bytes": 0
+  },
+  {
+   "t": 5.121,
+   "stage": "tamam",
+   "fraction": 1.0,
+   "message": "EMA hazır (34,4 MB).",
+   "file": null,
+   "done_bytes": 0,
+   "total_bytes": 0
+  }
+ ]
+}

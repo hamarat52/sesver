@@ -1,0 +1,11 @@
+1
+00:00:00,000 --> 00:00:01,840
+merhaba, bugün yapay zekanın ses
+
+2
+00:00:01,840 --> 00:00:03,320
+üretiminde neler yapabildiğini
+
+3
+00:00:03,320 --> 00:00:04,000
+deneyeceğiz.

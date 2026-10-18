@@ -1,0 +1,837 @@
+[
+{
+"text": "titanik'in",
+"start": 0.0,
+"end": 0.52
+},
+{
+"text": "batması",
+"start": 0.52,
+"end": 1.0
+},
+{
+"text": "iki",
+"start": 1.0,
+"end": 1.2
+},
+{
+"text": "saat",
+"start": 1.2,
+"end": 1.48
+},
+{
+"text": "kırk",
+"start": 1.48,
+"end": 1.68
+},
+{
+"text": "dakika",
+"start": 1.68,
+"end": 2.08
+},
+{
+"text": "sürdü.",
+"start": 2.08,
+"end": 2.64
+},
+{
+"text": "işte",
+"start": 2.64,
+"end": 2.92
+},
+{
+"text": "o",
+"start": 2.92,
+"end": 3.0
+},
+{
+"text": "gece,",
+"start": 3.0,
+"end": 3.48
+},
+{
+"text": "saat",
+"start": 3.48,
+"end": 3.8
+},
+{
+"text": "saat.",
+"start": 3.8,
+"end": 4.36
+},
+{
+"text": "yirmi",
+"start": 4.36,
+"end": 4.64
+},
+{
+"text": "üç",
+"start": 4.64,
+"end": 4.8
+},
+{
+"text": "kırk.",
+"start": 4.8,
+"end": 5.28
+},
+{
+"text": "gözcü",
+"start": 5.28,
+"end": 5.6
+},
+{
+"text": "bağırıyor:",
+"start": 5.6,
+"end": 6.24
+},
+{
+"text": "tam",
+"start": 6.24,
+"end": 6.44
+},
+{
+"text": "önümüzde",
+"start": 6.44,
+"end": 6.88
+},
+{
+"text": "buzdağı!",
+"start": 6.88,
+"end": 7.36
+},
+{
+"text": "gemi",
+"start": 7.36,
+"end": 7.6
+},
+{
+"text": "sağ",
+"start": 7.6,
+"end": 7.8
+},
+{
+"text": "yanından",
+"start": 7.8,
+"end": 8.24
+},
+{
+"text": "sürtünerek",
+"start": 8.24,
+"end": 8.8
+},
+{
+"text": "çarpıyor.",
+"start": 8.8,
+"end": 9.52
+},
+{
+"text": "gece",
+"start": 9.52,
+"end": 9.76
+},
+{
+"text": "yarısı.",
+"start": 9.76,
+"end": 10.24
+},
+{
+"text": "geminin",
+"start": 10.49,
+"end": 10.85
+},
+{
+"text": "tasarımcısı",
+"start": 10.85,
+"end": 11.45
+},
+{
+"text": "tamıs",
+"start": 11.45,
+"end": 11.77
+},
+{
+"text": "endruz",
+"start": 11.77,
+"end": 12.13
+},
+{
+"text": "hesabı",
+"start": 12.13,
+"end": 12.53
+},
+{
+"text": "yapıyor:",
+"start": 12.53,
+"end": 13.09
+},
+{
+"text": "gemi",
+"start": 13.09,
+"end": 13.33
+},
+{
+"text": "batacak.",
+"start": 13.33,
+"end": 14.05
+},
+{
+"text": "bir,",
+"start": 14.05,
+"end": 14.41
+},
+{
+"text": "bilemedin",
+"start": 14.41,
+"end": 14.89
+},
+{
+"text": "bir",
+"start": 14.89,
+"end": 15.05
+},
+{
+"text": "buçuk",
+"start": 15.05,
+"end": 15.33
+},
+{
+"text": "saat.",
+"start": 15.33,
+"end": 15.93
+},
+{
+"text": "sıfır",
+"start": 15.93,
+"end": 16.25
+},
+{
+"text": "sıfır",
+"start": 16.25,
+"end": 16.57
+},
+{
+"text": "on",
+"start": 16.57,
+"end": 16.73
+},
+{
+"text": "beş.",
+"start": 16.73,
+"end": 17.21
+},
+{
+"text": "telsizden",
+"start": 17.21,
+"end": 17.81
+},
+{
+"text": "ilk",
+"start": 17.81,
+"end": 18.01
+},
+{
+"text": "imdat",
+"start": 18.01,
+"end": 18.33
+},
+{
+"text": "çağrısı",
+"start": 18.33,
+"end": 18.73
+},
+{
+"text": "gidiyor.",
+"start": 18.73,
+"end": 19.13
+},
+{
+"text": "ama",
+"start": 19.38,
+"end": 19.58
+},
+{
+"text": "yakındaki",
+"start": 19.58,
+"end": 20.06
+},
+{
+"text": "kaliforniyın",
+"start": 20.06,
+"end": 20.7
+},
+{
+"text": "gemisinin",
+"start": 20.7,
+"end": 21.18
+},
+{
+"text": "telsizcisi,",
+"start": 21.18,
+"end": 22.06
+},
+{
+"text": "çarpışmadan",
+"start": 22.06,
+"end": 22.82
+},
+{
+"text": "on",
+"start": 22.82,
+"end": 22.94
+},
+{
+"text": "dakika",
+"start": 22.94,
+"end": 23.34
+},
+{
+"text": "önce",
+"start": 23.34,
+"end": 23.58
+},
+{
+"text": "cihazını",
+"start": 23.58,
+"end": 24.02
+},
+{
+"text": "kapatıp",
+"start": 24.02,
+"end": 24.46
+},
+{
+"text": "yatmış.",
+"start": 24.46,
+"end": 25.14
+},
+{
+"text": "sıfır",
+"start": 25.14,
+"end": 25.46
+},
+{
+"text": "sıfır",
+"start": 25.46,
+"end": 25.78
+},
+{
+"text": "yirmi",
+"start": 25.78,
+"end": 26.06
+},
+{
+"text": "beş.",
+"start": 26.06,
+"end": 26.42
+},
+{
+"text": "yüz",
+"start": 26.67,
+"end": 26.87
+},
+{
+"text": "yedi",
+"start": 26.87,
+"end": 27.07
+},
+{
+"text": "kilometre",
+"start": 27.07,
+"end": 27.59
+},
+{
+"text": "ötedeki",
+"start": 27.59,
+"end": 28.03
+},
+{
+"text": "karpeyşa",
+"start": 28.03,
+"end": 28.59
+},
+{
+"text": "çağrıyı",
+"start": 28.59,
+"end": 29.03
+},
+{
+"text": "alıyor",
+"start": 29.03,
+"end": 29.47
+},
+{
+"text": "ve",
+"start": 29.47,
+"end": 29.59
+},
+{
+"text": "rotasını",
+"start": 29.59,
+"end": 30.07
+},
+{
+"text": "titanik'e",
+"start": 30.07,
+"end": 30.55
+},
+{
+"text": "çeviriyor.",
+"start": 30.55,
+"end": 31.31
+},
+{
+"text": "sıfır",
+"start": 31.31,
+"end": 31.63
+},
+{
+"text": "sıfır",
+"start": 31.63,
+"end": 31.95
+},
+{
+"text": "kırk",
+"start": 31.95,
+"end": 32.23
+},
+{
+"text": "beş.",
+"start": 32.23,
+"end": 32.75
+},
+{
+"text": "ilk",
+"start": 32.75,
+"end": 32.95
+},
+{
+"text": "filika",
+"start": 32.95,
+"end": 33.35
+},
+{
+"text": "suya",
+"start": 33.35,
+"end": 33.63
+},
+{
+"text": "iniyor.",
+"start": 33.63,
+"end": 34.03
+},
+{
+"text": "altmış",
+"start": 34.28,
+"end": 34.68
+},
+{
+"text": "beş",
+"start": 34.68,
+"end": 34.92
+},
+{
+"text": "kişilik,",
+"start": 34.92,
+"end": 35.48
+},
+{
+"text": "ama",
+"start": 35.48,
+"end": 35.68
+},
+{
+"text": "içinde",
+"start": 35.68,
+"end": 36.04
+},
+{
+"text": "sadece",
+"start": 36.04,
+"end": 36.48
+},
+{
+"text": "yirmi",
+"start": 36.48,
+"end": 36.76
+},
+{
+"text": "sekiz",
+"start": 36.76,
+"end": 37.08
+},
+{
+"text": "kişi",
+"start": 37.08,
+"end": 37.36
+},
+{
+"text": "var.",
+"start": 37.36,
+"end": 37.84
+},
+{
+"text": "aynı",
+"start": 37.84,
+"end": 38.08
+},
+{
+"text": "dakikalarda",
+"start": 38.08,
+"end": 38.84
+},
+{
+"text": "ilk",
+"start": 38.84,
+"end": 39.04
+},
+{
+"text": "işaret",
+"start": 39.04,
+"end": 39.48
+},
+{
+"text": "fişeği",
+"start": 39.48,
+"end": 39.84
+},
+{
+"text": "atılıyor.",
+"start": 39.84,
+"end": 40.52
+},
+{
+"text": "ufukta",
+"start": 40.52,
+"end": 40.88
+},
+{
+"text": "bir",
+"start": 40.88,
+"end": 41.04
+},
+{
+"text": "geminin",
+"start": 41.04,
+"end": 41.44
+},
+{
+"text": "ışığı",
+"start": 41.44,
+"end": 41.76
+},
+{
+"text": "görünüyor,",
+"start": 41.76,
+"end": 42.44
+},
+{
+"text": "ama",
+"start": 42.44,
+"end": 42.64
+},
+{
+"text": "cevap",
+"start": 42.64,
+"end": 42.96
+},
+{
+"text": "gelmiyor.",
+"start": 42.96,
+"end": 43.52
+},
+{
+"text": "gemide",
+"start": 43.77,
+"end": 44.17
+},
+{
+"text": "iki",
+"start": 44.17,
+"end": 44.37
+},
+{
+"text": "bin",
+"start": 44.37,
+"end": 44.53
+},
+{
+"text": "iki",
+"start": 44.53,
+"end": 44.73
+},
+{
+"text": "yüzden",
+"start": 44.73,
+"end": 45.05
+},
+{
+"text": "fazla",
+"start": 45.05,
+"end": 45.41
+},
+{
+"text": "insan",
+"start": 45.41,
+"end": 45.77
+},
+{
+"text": "var.",
+"start": 45.77,
+"end": 46.21
+},
+{
+"text": "filikalar",
+"start": 46.21,
+"end": 46.73
+},
+{
+"text": "ise",
+"start": 46.73,
+"end": 46.97
+},
+{
+"text": "yalnızca",
+"start": 46.97,
+"end": 47.45
+},
+{
+"text": "bin",
+"start": 47.45,
+"end": 47.65
+},
+{
+"text": "yüz",
+"start": 47.65,
+"end": 47.85
+},
+{
+"text": "yetmiş",
+"start": 47.85,
+"end": 48.21
+},
+{
+"text": "sekiz",
+"start": 48.21,
+"end": 48.53
+},
+{
+"text": "kişi",
+"start": 48.53,
+"end": 48.77
+},
+{
+"text": "alabiliyor.",
+"start": 48.77,
+"end": 49.53
+},
+{
+"text": "iki",
+"start": 49.53,
+"end": 49.77
+},
+{
+"text": "on",
+"start": 49.77,
+"end": 49.93
+},
+{
+"text": "sekiz.",
+"start": 49.93,
+"end": 50.57
+},
+{
+"text": "ışıklar",
+"start": 50.57,
+"end": 51.05
+},
+{
+"text": "sönüyor.",
+"start": 51.05,
+"end": 51.69
+},
+{
+"text": "iki",
+"start": 51.69,
+"end": 51.89
+},
+{
+"text": "yirmi.",
+"start": 51.89,
+"end": 52.45
+},
+{
+"text": "titanik",
+"start": 52.45,
+"end": 52.85
+},
+{
+"text": "kayboluyor.",
+"start": 52.85,
+"end": 53.49
+},
+{
+"text": "bin",
+"start": 53.74,
+"end": 53.94
+},
+{
+"text": "beş",
+"start": 53.94,
+"end": 54.14
+},
+{
+"text": "yüzden",
+"start": 54.14,
+"end": 54.46
+},
+{
+"text": "fazla",
+"start": 54.46,
+"end": 54.82
+},
+{
+"text": "insan,",
+"start": 54.82,
+"end": 55.34
+},
+{
+"text": "eksi",
+"start": 55.34,
+"end": 55.62
+},
+{
+"text": "iki",
+"start": 55.62,
+"end": 55.78
+},
+{
+"text": "derecelik",
+"start": 55.78,
+"end": 56.26
+},
+{
+"text": "suyun",
+"start": 56.26,
+"end": 56.54
+},
+{
+"text": "içinde.",
+"start": 56.54,
+"end": 57.22
+},
+{
+"text": "dört",
+"start": 57.22,
+"end": 57.54
+},
+{
+"text": "on.",
+"start": 57.54,
+"end": 57.9
+},
+{
+"text": "karpeyşa",
+"start": 57.9,
+"end": 58.5
+},
+{
+"text": "ilk",
+"start": 58.5,
+"end": 58.66
+},
+{
+"text": "filikaya",
+"start": 58.66,
+"end": 59.1
+},
+{
+"text": "ulaşıyor.",
+"start": 59.1,
+"end": 59.82
+},
+{
+"text": "o",
+"start": 59.82,
+"end": 59.9
+},
+{
+"text": "gece",
+"start": 59.9,
+"end": 60.18
+},
+{
+"text": "tek",
+"start": 60.18,
+"end": 60.38
+},
+{
+"text": "bir",
+"start": 60.38,
+"end": 60.5
+},
+{
+"text": "hata",
+"start": 60.5,
+"end": 60.82
+},
+{
+"text": "yoktu.",
+"start": 60.82,
+"end": 61.46
+},
+{
+"text": "bir",
+"start": 61.46,
+"end": 61.58
+},
+{
+"text": "hatalar",
+"start": 61.58,
+"end": 62.1
+},
+{
+"text": "zinciri",
+"start": 62.1,
+"end": 62.46
+},
+{
+"text": "vardı.",
+"start": 62.46,
+"end": 62.9
+},
+{
+"text": "sence",
+"start": 63.15,
+"end": 63.51
+},
+{
+"text": "bu",
+"start": 63.51,
+"end": 63.63
+},
+{
+"text": "zincirin",
+"start": 63.63,
+"end": 64.11
+},
+{
+"text": "en",
+"start": 64.11,
+"end": 64.27
+},
+{
+"text": "kritik",
+"start": 64.27,
+"end": 64.63
+},
+{
+"text": "halkası",
+"start": 64.63,
+"end": 65.07
+},
+{
+"text": "hangisiydi?",
+"start": 65.07,
+"end": 65.79
+}
+]

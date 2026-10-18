@@ -1,0 +1,15 @@
+[
+ {
+  "name": "seed1_surec2",
+  "text": "Merhaba, bugün yapay zekânın ses üretiminde neler yapabildiğini deneyeceğiz.",
+  "seed": 1,
+  "speed": 1.0,
+  "gen_s": 1.051,
+  "dur_s": 4.0,
+  "rtf_ses_bolu_uretim": 3.8,
+  "sr": 48000,
+  "chars": 76,
+  "n_words": 9,
+  "sha256": "9e6e016b82957ada16929070c801937260e473e64beddd8a12cbcb9b913a670b"
+ }
+]

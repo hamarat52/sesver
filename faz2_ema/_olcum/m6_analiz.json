@@ -1,0 +1,526 @@
+{
+ "wer_cer": {
+  "a": {
+   "hyp": "Merhaba, bugün yapay zekanın ses üretiminde neler yapabildiğini deneyeceğiz.",
+   "wer": 0.0,
+   "cer": 0.0,
+   "n_ref_words": 9,
+   "farklar": []
+  },
+  "b_sayilar": {
+   "hyp": "1453'te İstanbul'un fethi, 29 Mayıs günü sabah saat 6'da başladı. TBMM 23 Nisan 1920'de açıldı.",
+   "wer": 0.0,
+   "cer": 0.0,
+   "n_ref_words": 27,
+   "farklar": []
+  },
+  "c_belgesel": {
+   "hyp": "Titanik'in batması 2 saat 40 dakika sürdü. İşte o gece saat saat 23.40. Gözcü bağırıyor. Tam önümüzde buzdağı gemi sağ yanından sürtünerek çarpıyor. Gece yarısı. Geminin tasarımcısı Thomas Andrews hesabı yapıyor. Gemi batacak. 1. Bilemedin bir buçuk saat. 00.15 Telsizden ilk imdat çağrısı gidiyor. Ama yakındaki Kaliforniya'ın gemisinin telsizcisi çarpışmadan 10 dakika önce cihazını kapatıp yatmış. 00.25 107 kilometre ötedeki Carpeyse çağrıyı alıyor ve rotasını Titanic'e çeviriyor. 0045 İlk filika suya iniyor. 65 kişilik ama içinde sadece 28 kişi var. Aynı dakikalarda ilk işaret fişeye atılıyor. Ufukta bir geminin ışığı görünüyor ama cevap gelmiyor. Gemide 2200'den fazla insan var. Filikalar ise yalnızca 1178 kişi alabiliyor. 218 Işıklar sönüyor. 220 Titanic kayboluyor. 1500'den fazla insan eksi 2 derecelik suyun içinde. 410 Karpeyş'e ilk filika'ya ulaşıyor. O gece tek bir hata yoktu. Bir hatalar zinciri vardı. Sence bu zincirin en kritik halkası hangisiydi?",
+   "wer": 0.0838,
+   "cer": 0.0419,
+   "n_ref_words": 167,
+   "farklar": [
+    [
+     "replace",
+     "tamıs endruz",
+     "thomas andrews"
+    ],
+    [
+     "insert",
+     "",
+     "nokta"
+    ],
+    [
+     "replace",
+     "kaliforniyın",
+     "kaliforniyaın"
+    ],
+    [
+     "insert",
+     "",
+     "nokta"
+    ],
+    [
+     "replace",
+     "karpeyşa",
+     "carpeyse"
+    ],
+    [
+     "replace",
+     "titanike",
+     "titanice"
+    ],
+    [
+     "replace",
+     "kırk",
+     "dört"
+    ],
+    [
+     "replace",
+     "fişeği",
+     "fişeye"
+    ],
+    [
+     "insert",
+     "",
+     "yüz"
+    ],
+    [
+     "insert",
+     "",
+     "yüz"
+    ],
+    [
+     "replace",
+     "titanik",
+     "titanic"
+    ],
+    [
+     "insert",
+     "",
+     "yüz"
+    ],
+    [
+     "replace",
+     "karpeyşa",
+     "karpeyşe"
+    ]
+   ]
+  },
+  "hiz_0.9": {
+   "hyp": "Titanic'in batması 2 saat 40 dakika sürdü. İşte o gece saat saat...",
+   "wer": 0.0833,
+   "cer": 0.0182,
+   "n_ref_words": 12,
+   "farklar": [
+    [
+     "replace",
+     "titanikin",
+     "titanicin"
+    ]
+   ]
+  },
+  "hiz_1.0": {
+   "hyp": "Titanic'in batması 2 saat 40 dakika sürdü. İşte o gece saat saat.",
+   "wer": 0.0833,
+   "cer": 0.0182,
+   "n_ref_words": 12,
+   "farklar": [
+    [
+     "replace",
+     "titanikin",
+     "titanicin"
+    ]
+   ]
+  },
+  "hiz_1.15": {
+   "hyp": "Titanik'in batması 2 saat 40 dakika sürdü. İşte o gece saat saat...",
+   "wer": 0.0,
+   "cer": 0.0,
+   "n_ref_words": 12,
+   "farklar": []
+  }
+ },
+ "sayi_kontrolu_b": {
+  "1453'te": true,
+  "29 Mayıs": true,
+  "saat 6'da": true,
+  "TBMM": true,
+  "23 Nisan": true,
+  "1920'de": true
+ },
+ "c_whisper_tam": "Titanik'in batması 2 saat 40 dakika sürdü. İşte o gece saat saat 23.40. Gözcü bağırıyor. Tam önümüzde buzdağı gemi sağ yanından sürtünerek çarpıyor. Gece yarısı. Geminin tasarımcısı Thomas Andrews hesabı yapıyor. Gemi batacak. 1. Bilemedin bir buçuk saat. 00.15 Telsizden ilk imdat çağrısı gidiyor. Ama yakındaki Kaliforniya'ın gemisinin telsizcisi çarpışmadan 10 dakika önce cihazını kapatıp yatmış. 00.25 107 kilometre ötedeki Carpeyse çağrıyı alıyor ve rotasını Titanic'e çeviriyor. 0045 İlk filika suya iniyor. 65 kişilik ama içinde sadece 28 kişi var. Aynı dakikalarda ilk işaret fişeye atılıyor. Ufukta bir geminin ışığı görünüyor ama cevap gelmiyor. Gemide 2200'den fazla insan var. Filikalar ise yalnızca 1178 kişi alabiliyor. 218 Işıklar sönüyor. 220 Titanic kayboluyor. 1500'den fazla insan eksi 2 derecelik suyun içinde. 410 Karpeyş'e ilk filika'ya ulaşıyor. O gece tek bir hata yoktu. Bir hatalar zinciri vardı. Sence bu zincirin en kritik halkası hangisiydi?",
+ "srt": {
+  "motor_kelime": 167,
+  "whisper_jeton": 178,
+  "eslesen_kelime": 156,
+  "kapsama": 0.934,
+  "kip_sayisi": 42,
+  "kip_sayisi_kelime_toplami": 167,
+  "kelime_abs_d_medyan": 0.04,
+  "kelime_abs_d_p95": 0.19,
+  "kelime_abs_d_max": 0.57,
+  "kelime_d_ort_isaretli": -0.029,
+  "kip_bas_abs_d_medyan": 0.07,
+  "kip_bas_abs_d_p95": 0.23,
+  "kip_bas_abs_d_max": 0.57,
+  "kip_bas_200ms_ici": 0.923,
+  "kip_sure_min": 0.56,
+  "kip_1sn_alti": 9,
+  "kip_motor_ile_ayni_bas": true,
+  "kipler": [
+   {
+    "s": 0.0,
+    "e": 2.08,
+    "dur": 2.08,
+    "text": "titanik'in batması iki saat kırk dakika",
+    "srt_s_eq_motor": true,
+    "d_end": 0.02
+   },
+   {
+    "s": 2.08,
+    "e": 2.64,
+    "dur": 0.56,
+    "text": "sürdü.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.02,
+    "d_end": 0.04
+   },
+   {
+    "s": 2.64,
+    "e": 4.36,
+    "dur": 1.72,
+    "text": "işte o gece, saat saat.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.06,
+    "d_end": 0.06
+   },
+   {
+    "s": 4.36,
+    "e": 5.28,
+    "dur": 0.92,
+    "text": "yirmi üç kırk.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.06,
+    "d_end": 0.1
+   },
+   {
+    "s": 5.28,
+    "e": 7.36,
+    "dur": 2.08,
+    "text": "gözcü bağırıyor: tam önümüzde buzdağı!",
+    "srt_s_eq_motor": true,
+    "d_start": -0.04,
+    "d_end": 0.0
+   },
+   {
+    "s": 7.36,
+    "e": 9.52,
+    "dur": 2.16,
+    "text": "gemi sağ yanından sürtünerek çarpıyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.0,
+    "d_end": 0.14
+   },
+   {
+    "s": 9.52,
+    "e": 10.24,
+    "dur": 0.72,
+    "text": "gece yarısı.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.12,
+    "d_end": -0.16
+   },
+   {
+    "s": 10.49,
+    "e": 12.53,
+    "dur": 2.04,
+    "text": "geminin tasarımcısı tamıs endruz hesabı",
+    "srt_s_eq_motor": true,
+    "d_start": -0.09,
+    "d_end": -0.07
+   },
+   {
+    "s": 12.53,
+    "e": 14.05,
+    "dur": 1.52,
+    "text": "yapıyor: gemi batacak.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.07,
+    "d_end": 0.11
+   },
+   {
+    "s": 14.05,
+    "e": 15.93,
+    "dur": 1.88,
+    "text": "bir, bilemedin bir buçuk saat.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.11,
+    "d_end": 0.19
+   },
+   {
+    "s": 15.93,
+    "e": 17.21,
+    "dur": 1.28,
+    "text": "sıfır sıfır on beş.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.09,
+    "d_end": 0.23
+   },
+   {
+    "s": 17.21,
+    "e": 19.13,
+    "dur": 1.92,
+    "text": "telsizden ilk imdat çağrısı gidiyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.23,
+    "d_end": -0.15
+   },
+   {
+    "s": 19.38,
+    "e": 21.18,
+    "dur": 1.8,
+    "text": "ama yakındaki kaliforniyın gemisinin",
+    "srt_s_eq_motor": true,
+    "d_start": -0.14,
+    "d_end": -0.02
+   },
+   {
+    "s": 21.18,
+    "e": 23.58,
+    "dur": 2.4,
+    "text": "telsizcisi, çarpışmadan on dakika önce",
+    "srt_s_eq_motor": true,
+    "d_start": -0.02,
+    "d_end": 0.02
+   },
+   {
+    "s": 23.58,
+    "e": 25.14,
+    "dur": 1.56,
+    "text": "cihazını kapatıp yatmış.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.02,
+    "d_end": 0.24
+   },
+   {
+    "s": 25.14,
+    "e": 26.42,
+    "dur": 1.28,
+    "text": "sıfır sıfır yirmi beş.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.02,
+    "d_end": 0.0
+   },
+   {
+    "s": 26.67,
+    "e": 28.59,
+    "dur": 1.92,
+    "text": "yüz yedi kilometre ötedeki karpeyşa",
+    "srt_s_eq_motor": true,
+    "d_start": 0.25
+   },
+   {
+    "s": 28.59,
+    "e": 30.55,
+    "dur": 1.96,
+    "text": "çağrıyı alıyor ve rotasını titanik'e",
+    "srt_s_eq_motor": true,
+    "d_start": 0.01
+   },
+   {
+    "s": 30.55,
+    "e": 31.31,
+    "dur": 0.76,
+    "text": "çeviriyor.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.03,
+    "d_end": 0.05
+   },
+   {
+    "s": 31.31,
+    "e": 32.75,
+    "dur": 1.44,
+    "text": "sıfır sıfır kırk beş.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.57,
+    "d_end": 0.15
+   },
+   {
+    "s": 32.75,
+    "e": 34.03,
+    "dur": 1.28,
+    "text": "ilk filika suya iniyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.15,
+    "d_end": -0.17
+   },
+   {
+    "s": 34.28,
+    "e": 36.48,
+    "dur": 2.2,
+    "text": "altmış beş kişilik, ama içinde sadece",
+    "srt_s_eq_motor": true,
+    "d_start": -0.16,
+    "d_end": 0.0
+   },
+   {
+    "s": 36.48,
+    "e": 37.84,
+    "dur": 1.36,
+    "text": "yirmi sekiz kişi var.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.0,
+    "d_end": 0.2
+   },
+   {
+    "s": 37.84,
+    "e": 39.84,
+    "dur": 2.0,
+    "text": "aynı dakikalarda ilk işaret fişeği",
+    "srt_s_eq_motor": true,
+    "d_start": -0.1
+   },
+   {
+    "s": 39.84,
+    "e": 40.52,
+    "dur": 0.68,
+    "text": "atılıyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.02,
+    "d_end": 0.12
+   },
+   {
+    "s": 40.52,
+    "e": 42.64,
+    "dur": 2.12,
+    "text": "ufukta bir geminin ışığı görünüyor, ama",
+    "srt_s_eq_motor": true,
+    "d_start": -0.04,
+    "d_end": 0.0
+   },
+   {
+    "s": 42.64,
+    "e": 43.52,
+    "dur": 0.88,
+    "text": "cevap gelmiyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.0,
+    "d_end": -0.02
+   },
+   {
+    "s": 43.77,
+    "e": 46.21,
+    "dur": 2.44,
+    "text": "gemide iki bin iki yüzden fazla insan var.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.13,
+    "d_end": 0.21
+   },
+   {
+    "s": 46.21,
+    "e": 48.21,
+    "dur": 2.0,
+    "text": "filikalar ise yalnızca bin yüz yetmiş",
+    "srt_s_eq_motor": true,
+    "d_start": -0.07,
+    "d_end": 0.1
+   },
+   {
+    "s": 48.21,
+    "e": 49.53,
+    "dur": 1.32,
+    "text": "sekiz kişi alabiliyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.1,
+    "d_end": 0.25
+   },
+   {
+    "s": 49.53,
+    "e": 50.57,
+    "dur": 1.04,
+    "text": "iki on sekiz.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.19,
+    "d_end": 0.13
+   },
+   {
+    "s": 50.57,
+    "e": 51.69,
+    "dur": 1.12,
+    "text": "ışıklar sönüyor.",
+    "srt_s_eq_motor": true,
+    "d_start": 0.13,
+    "d_end": 0.17
+   },
+   {
+    "s": 51.69,
+    "e": 52.45,
+    "dur": 0.76,
+    "text": "iki yirmi.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.15,
+    "d_end": 0.13
+   },
+   {
+    "s": 52.45,
+    "e": 53.49,
+    "dur": 1.04,
+    "text": "titanik kayboluyor.",
+    "srt_s_eq_motor": true,
+    "d_end": -0.17
+   },
+   {
+    "s": 53.74,
+    "e": 55.78,
+    "dur": 2.04,
+    "text": "bin beş yüzden fazla insan, eksi iki",
+    "srt_s_eq_motor": true,
+    "d_start": -0.18,
+    "d_end": -0.06
+   },
+   {
+    "s": 55.78,
+    "e": 57.22,
+    "dur": 1.44,
+    "text": "derecelik suyun içinde.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.06,
+    "d_end": 0.26
+   },
+   {
+    "s": 57.22,
+    "e": 57.9,
+    "dur": 0.68,
+    "text": "dört on.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.12,
+    "d_end": 0.04
+   },
+   {
+    "s": 57.9,
+    "e": 59.82,
+    "dur": 1.92,
+    "text": "karpeyşa ilk filikaya ulaşıyor.",
+    "srt_s_eq_motor": true,
+    "d_end": 0.18
+   },
+   {
+    "s": 59.82,
+    "e": 61.46,
+    "dur": 1.64,
+    "text": "o gece tek bir hata yoktu.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.02,
+    "d_end": 0.16
+   },
+   {
+    "s": 61.46,
+    "e": 62.9,
+    "dur": 1.44,
+    "text": "bir hatalar zinciri vardı.",
+    "srt_s_eq_motor": true,
+    "d_start": -0.02,
+    "d_end": 0.06
+   },
+   {
+    "s": 63.15,
+    "e": 65.07,
+    "dur": 1.92,
+    "text": "sence bu zincirin en kritik halkası",
+    "srt_s_eq_motor": true,
+    "d_start": -0.09,
+    "d_end": -0.03
+   },
+   {
+    "s": 65.07,
+    "e": 65.79,
+    "dur": 0.72,
+    "text": "hangisiydi?",
+    "srt_s_eq_motor": true,
+    "d_start": -0.03,
+    "d_end": 0.05
+   }
+  ]
+ }
+}

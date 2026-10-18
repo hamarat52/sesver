@@ -1,0 +1,13 @@
+{
+ "rss_basla_mb": 14.0,
+ "import_torch_s": 1.0,
+ "rss_torch_sonrasi_mb": 190.2,
+ "sha_dogrulama_s": 0.02,
+ "model_yukleme_s_dogrulama_dahil": 0.8,
+ "rss_model_sonrasi_mb": 265.2,
+ "device": "cpu",
+ "ilk_kisa_uretim_s": 0.08,
+ "rss_ilk_uretim_sonrasi_mb": 290.9,
+ "toplam_soguk_baslangic_ilk_sese_s": 1.91,
+ "torch_threads": 4
+}
