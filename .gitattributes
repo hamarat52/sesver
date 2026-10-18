@@ -1,0 +1,5 @@
+# Windows betikleri her checkout'ta ve ZIP indirmesinde CRLF olsun.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# macOS/Linux betigi LF kalsin.
+*.command text eol=lf
