@@ -24,6 +24,8 @@ import time
 import urllib.error
 import urllib.request
 
+import hata_rehberi  # yalnız standart kütüphane: numpy/torch yüklenemese de çalışır
+
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sesver_log.txt")
 # pythonw.exe altında konsol yoktur ve sys.stdout/sys.stderr None olur.
 _NO_CONSOLE = sys.stdout is None or sys.stderr is None
@@ -91,6 +93,17 @@ def _report_exit_without_status():
         _report_status("hata")
 
 
+def _print_guide(error_text):
+    """Hata bilinen bir Windows engeline (Akıllı Uygulama Denetimi) benziyorsa adım adım
+    rehberi konsola/log'a yazar ve döndürür; değilse None. Log'un sonunda kalsın diye
+    asıl hatadan SONRA çağrılır (başlatıcı sesver_log.txt'nin son satırlarını gösterir)."""
+    guide = hata_rehberi.smart_app_control_rehberi(error_text)
+    if guide:
+        bar = "=" * 64
+        print(f"\n{bar}\nNE YAPMALIYIM?\n{bar}\n{guide}\n{bar}", file=sys.stderr, flush=True)
+    return guide
+
+
 def _setup_log_file():
     """stdout/stderr'i sesver_log.txt'ye de yönlendirir; yakalanmamış hatayı durum dosyasına bildirir."""
     try:
@@ -107,6 +120,12 @@ def _setup_log_file():
     def hook(exc_type, exc, tb):
         default_hook(exc_type, exc, tb)
         sys.stderr.flush()
+        # Ör. "import app" sırasında NumPy DLL'i engellenirse genel traceback yerine
+        # eyleme geçirilebilir rehber de gösterilir.
+        try:
+            _print_guide(f"{exc_type.__name__}: {exc}")
+        except Exception:  # noqa: BLE001 — rehber hatası durum bildirimini engellemesin
+            pass
         _report_status("hata")
 
     sys.excepthook = hook
@@ -140,7 +159,9 @@ pre{white-space:pre-wrap;color:#ff8a8a}</style></head><body>
 <h2>SesVer başlatılamadı</h2>
 <p>Ayrıntı için SesVer klasöründeki sesver_log.txt dosyasına bakın:</p>
 <pre style="color:#e6e6e6">{log}</pre>
-<pre>{msg}</pre></body></html>"""
+<pre>{msg}</pre>{guide}</body></html>"""
+
+_GUIDE_HTML = """<h3>Ne yapmalıyım?</h3><pre style="color:#e6e6e6">{guide}</pre>"""
 
 
 def _pick_port():
@@ -233,9 +254,11 @@ def _load_ui(window, server):
     else:
         print(f"[HATA] {server.error}", flush=True)
         print(f"Ayrıntı için: {LOG_PATH}", flush=True)
+        guide = _print_guide(server.error)
         window.load_html(
             _ERROR_HTML.replace("{log}", html.escape(LOG_PATH))
             .replace("{msg}", html.escape(server.error or "bilinmeyen hata"))
+            .replace("{guide}", _GUIDE_HTML.replace("{guide}", html.escape(guide)) if guide else "")
         )
 
 
@@ -259,6 +282,7 @@ def _run_browser(server):
     signal.signal(signal.SIGINT, signal.default_int_handler)  # block_thread Ctrl+C'yi düzgün kapatır
     if not server.wait_ready():
         print(f"[HATA] {server.error}", flush=True)
+        _print_guide(server.error)
         sys.exit(1)
     print(f"Pencere açılamadı, tarayıcıda açılıyor: {server.url}", flush=True)
     webbrowser.open(server.url)

@@ -186,6 +186,20 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 **12. "Referans okunmuyor" (ses klonlamada)**
 - Çözüm: 1–30 saniyelik geçerli bir WAV dosyası kullan. Tek kişinin konuştuğu, müziksiz, temiz 3–15 saniyelik kayıt en iyisidir.
 
+**13. `DLL load failed... Uygulama Denetimi ilkesi bu dosyayı engelledi` hatası (Windows 11)**
+- Tam hata metni genelde: `ImportError: DLL load failed while importing _multiarray_umath: Uygulama Denetimi ilkesi bu dosyayı engelledi.` (İngilizce Windows'ta: `An Application Control policy has blocked this file.`)
+- Sebep: Windows 11'in **Akıllı Uygulama Denetimi** (Smart App Control) güvenlik özelliği, imzasız bir kütüphane dosyasını (genelde NumPy'ın DLL'i) engelledi. SesVer'in kendi hatası değil. İmzasız dosyaların Microsoft'taki güven puanı her yeni kütüphane sürümünde sıfırdan başladığı için çok yeni sürümler daha sık engellenir (bkz. https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/smartscreen-reputation). SesVer bu yüzden NumPy/SciPy'ı daha köklü sürümlere sabitler; bu riski **azaltır, sıfırlamaz**.
+- Çözüm (güncel SesVer bu adımları hata ekranında da gösterir):
+  1. **Ayarlar**'ı aç (Windows tuşu + I).
+  2. **Gizlilik ve Güvenlik → Windows Güvenliği**'ne gir.
+  3. **Uygulama ve Tarayıcı Denetimi**'ni aç.
+  4. **Akıllı Uygulama Denetimi Ayarları**'na tıkla.
+  5. **Kapalı**'yı seç (izin sorulursa **Evet**).
+  6. SesVer'i tekrar başlat.
+- Not: Bu bir Windows güvenlik özelliğidir. Kalıcı olarak kapatmak istemiyorsan SesVer'i her kullanımdan önce geçici olarak kapatıp sonra tekrar açabilirsin; ya da SesVer güncellemelerini takip et, daha köklü kütüphane sürümleriyle bu riski azaltıyoruz. Dikkat: Özelliği **tekrar açabilmek** için Windows güncel olmalı (Nisan 2026 güncellemesi KB5083769 ve sonrası). Daha eski Windows'ta bir kez kapatılınca yeniden açmak için Windows'u sıfırlamak gerekir. Ekim 2026 güncellemesinden (KB5127648) sonra bazı bilgisayarlarda açma düğmesi gri kalabiliyor; Microsoft bunu bilinen sorun olarak listeliyor. Kullanıcıya bunu kapatmadan önce söyle.
+- Daha eski bir SesVer sürümünden güncelledi ve sabitlenmiş NumPy sürümünü almak istiyorsa: başlatıcı kurulumu yalnız ilk seferde yapar. `python-embed\sesver_kurulum_tamam.txt` dosyasını (eski yöntemde `.venv\sesver_kurulum_tamam.txt`) sil ve `WINDOWS_BASLAT.bat`'ı tekrar çalıştır; kurulum adımları yeniden çalışır ve NumPy sabit sürüme indirilir. Bu da engeli kesin olarak önlemez; engel sürerse yukarıdaki adımları uygula.
+- Hata metninde "Uygulama Denetimi" / "Application Control" geçmiyor, yalnız `DLL load failed ... belirtilen modül bulunamadı` yazıyorsa sorun başka bir eksik dosya olabilir; `sesver_log.txt` dosyasındaki tam hatayı iste ve incele.
+
 ---
 
 ## Elle kurulum (yalnız başlatıcı hiç çalışmazsa)

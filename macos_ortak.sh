@@ -257,9 +257,22 @@ Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası süre
     local kod=$?
     if [ "$kod" -ne 0 ]; then
       echo "[HATA] desktop.py $kod koduyla bitti."
-      sesver_dialog "SesVer beklenmedik şekilde kapandı (çıkış kodu $kod).
+      # Bilinen bir engel (ör. Windows Akıllı Uygulama Denetimi; bkz. AI_KURULUM.md #13)
+      # log'da görünüyorsa genel ileti yerine adım adım rehber gösterilir.
+      local rehber
+      rehber="$("$RUN_PY" hata_rehberi.py sesver_log.txt 2>/dev/null)" || rehber=""
+      if [ -n "$rehber" ]; then
+        echo "$rehber"
+        sesver_dialog "SesVer başlatılamadı.
+
+$rehber
 
 Ayrıntı: $PWD/sesver_log.txt" stop
+      else
+        sesver_dialog "SesVer beklenmedik şekilde kapandı (çıkış kodu $kod).
+
+Ayrıntı: $PWD/sesver_log.txt" stop
+      fi
     fi
     exit "$kod"
   fi

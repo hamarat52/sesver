@@ -23,8 +23,20 @@ safetensors
 faster-whisper
 # Ses kütüphanesi / efektler / dosya yükleme (zaten librosa ve faster-whisper
 # ile dolaylı geliyordu; doğrudan kullanıldıkları için açıkça yazıldı).
-numpy
-scipy
+# NumPy/SciPy: Windows Smart App Control uyumluluğu için köklü/eski bir sürüme
+# sabitlendi, bkz. AI_KURULUM.md #13. İmzasız DLL'lerin itibarı her yeni sürümde
+# sıfırdan başlar; çok yeni sürümler engellenmeye daha açıktır. Bu riski AZALTIR,
+# sıfırlamaz. Seçim: serinin son yama sürümü, bugünden en az 6 ay önce çıkmış.
+#   numpy 2.2.6  (2025-05-17) — scipy/numba/pandas/gradio sınırlarıyla uyumlu
+#   scipy 1.16.3 (2025-10-28) — numpy>=1.25.2,<2.6 ister; 2.2.6 ile uyumlu.
+#     macOS uyumluluğu + NumPy pini ile test edilmiş kombinasyon: 1.15.3 bu
+#     Mac'te (macOS 27, Apple Silicon, Python 3.11) import edilemedi; 1.16.3 +
+#     numpy 2.2.6 ile import ve tüm testler doğrulandı.
+#     scipy 1.16 Python >=3.11 ister; başlatıcıların desteklediği Python 3.10
+#     yedek yolu (sistem Python'u ile .venv) kırılmasın diye orada 1.15.3 kalır.
+numpy==2.2.6
+scipy==1.16.3; python_version >= "3.11"
+scipy==1.15.3; python_version < "3.11"
 av
 # Masaüstü penceresi (desktop.py): arayüz tarayıcı sekmesi yerine yerel pencerede açılır.
 # Windows'ta ayrıca Microsoft Edge WebView2 Runtime gerekir (sistem bileşeni, pip ile
