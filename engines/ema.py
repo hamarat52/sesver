@@ -12,7 +12,7 @@ EMA'nın verdiği imkânlar ve SesVer'deki karşılığı:
 
 * metin → ses (yalnız Türkçe, tek ses)        → ``synthesize``
 * ``speed`` 0.25–4                             → ``synthesize(speed=...)``
-* ``seed`` (aynı metinde farklı ses rengi)     → ``synthesize(seed=...)``
+* ``seed`` (okuma varyasyonu; aynı seed = aynı ses) → ``synthesize(seed=...)``
 * kelime zamanları                             → SRT doğrudan bunlardan (``engines.srt``)
 * akış (``EMA.stream``)                        → ``stream``
 
@@ -109,7 +109,7 @@ VOICE_ID = "ema"
 CHUNK_SIZE = 1 << 20
 
 NO_DESIGN_MSG = ("EMA Lightning (Hızlı Mod) motorunda ses tarifi yok: tek bir Türkçe ses var. "
-                 "Farklı ses rengi için seed değiştirin; tarifle ses için VoxCPM2 ya da ElevenLabs motorunu seçin.")
+                 "Seed yalnız aynı sesin farklı bir okumasını verir; tarifle ses için VoxCPM2 ya da ElevenLabs motorunu seçin.")
 NO_CLONE_MSG = ("EMA Lightning (Hızlı Mod) motorunda ses klonu yok: referans kayıt kabul etmez. "
                 "Kayıttan ses için VoxCPM2 motorunu seçin.")
 NO_INSTRUCTION_MSG = ("EMA Lightning (Hızlı Mod) motorunda duygu/stil talimatı yok. "
@@ -317,7 +317,8 @@ def default_pip_runner(args: list, is_cancelled: Callable[[], bool], poll: float
 
 
 def _pip_install_args(specs: list) -> list:
-    return ["install", "--no-deps", "--disable-pip-version-check", "--no-input", *specs]
+    # --only-binary: normalizer-tr Rust eklentisidir; tekerlek yoksa derlemeye düşmek yerine açık hata.
+    return ["install", "--no-deps", "--only-binary=:all:", "--disable-pip-version-check", "--no-input", *specs]
 
 
 class _Installer:
@@ -620,13 +621,13 @@ class EmaEngine(Engine):
     @property
     def capabilities(self) -> Capabilities:
         return Capabilities(
-            name=self.name, local=True, seed=True, seed_deterministic=False, continuation=False, instruction=False,
+            name=self.name, local=True, seed=True, seed_deterministic=True, continuation=False, instruction=False,
             description_design=False, clone=False, multi_candidate=False, default_candidates=1,
             candidates_per_design_call=0, quality_modes=(), max_text_chars=MAX_TEXT_CHARS, requires_api_key=False,
             metered=False, speed=True, word_timestamps=True, streaming=True, languages=("tr",),
             notes=("%100 yerel: metin ve ses bilgisayardan çıkmaz (yalnız ilk kurulumda ~34 MB ağırlık iner).",
                    "Yalnız Türkçe, tek ses: tarif, klon, referans kayıt ve duygu talimatı yok.",
-                   "seed aynı metinde farklı ses rengi verir; aynı seed = aynı ses Faz 2'de ölçülecek.",
+                   "seed okuma varyasyonu verir (ses kimliği tek); paket belgesine göre aynı seed = aynı ses, bu makinede Faz 2'de doğrulanacak.",
                    f"Hız {SPEED_RANGE[0]}–{SPEED_RANGE[1]}; kelime zamanları SRT'ye doğrudan yazılır."),
         )
 
@@ -705,7 +706,7 @@ class EmaEngine(Engine):
             raise EngineError("EMA boş ses üretti; metni kontrol edin.")
         rate = int(getattr(speech, "sample_rate", sample_rate) or sample_rate)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        stem = f"hizli-mod-{uuid4().hex}"
+        stem = f"ema-{uuid4().hex}"
         final = self.output_dir / f"{stem}.wav"
         tmp = self.output_dir / f".{stem}.tmp.wav"
         try:
@@ -722,7 +723,7 @@ class EmaEngine(Engine):
             Path(srt_path).write_text(srt_text, encoding="utf-8")
         used_seed = getattr(speech, "seed", seed)
         return SynthesisResult(path=str(final), sample_rate=rate, meta={
-            "engine": self.name, "mode": "hizli", "voice": VOICE_ID, "seed": used_seed, "speed": float(speed),
+            "engine": self.name, "mode": "ema", "voice": VOICE_ID, "seed": used_seed, "speed": float(speed),
             "quality": None, "duration": round(audio.size / rate, 3), "characters": len(text), "credits": 0.0,
             "words": words, "srt": srt_text, "srt_path": srt_path})
 
@@ -740,7 +741,7 @@ class EmaEngine(Engine):
 
     def list_voices(self) -> list:
         return [VoiceInfo(id=VOICE_ID, name="EMA (Türkçe)", category="Hızlı Mod",
-                          description="Tek yerel Türkçe ses; seed ile ses rengi değişir.", engine=self.name,
+                          description="Tek yerel Türkçe ses; seed ile okuma varyasyonu değişir.", engine=self.name,
                           extra={"license": LICENSE, "languages": ["tr"]})]
 
     def design_voice(self, description: str, preview_text: str, candidates: int = 1, **options: Any) -> list:

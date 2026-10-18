@@ -217,6 +217,7 @@ class InstallFlowTests(EmaInstallBase):
         args = self.pip.calls[0]
         self.assertEqual(args[0], "install")
         self.assertIn("--no-deps", args)
+        self.assertIn("--only-binary=:all:", args)
         self.assertIn("ema-lightning==1.0.3", args)
         self.assertIn("normalizer-tr==0.4.0", args)
         self.assertFalse(any(a.startswith("torch") for a in args))
@@ -491,6 +492,7 @@ class EmaEngineTests(unittest.TestCase):
         self.assertFalse(caps.clone)                # klon = yok
         self.assertFalse(caps.instruction)
         self.assertTrue(caps.seed)                  # seed = var
+        self.assertTrue(caps.seed_deterministic)    # paket belgesi: aynı seed = aynı ses
         self.assertTrue(caps.speed)                 # hız = var
         self.assertTrue(caps.word_timestamps)       # kelime zamanları = var
         self.assertTrue(caps.streaming)             # akış = var
@@ -519,7 +521,7 @@ class EmaEngineTests(unittest.TestCase):
         self.assertEqual(res.meta["engine"], "ema")
         self.assertEqual(res.meta["seed"], 42)
         self.assertEqual(res.meta["credits"], 0.0)
-        self.assertTrue(Path(res.path).name.startswith("hizli-mod-"))
+        self.assertTrue(Path(res.path).name.startswith("ema-"))
         self.assertEqual([p.name for p in self.out.iterdir() if p.name.startswith(".")], [])  # geçici dosya yok
         self.assertEqual(self.loads, [(Path(self.tmp.name) / "w", "cpu")])
         self.assertTrue(self.status_calls[0]["verify"])   # pickle yüklemeden önce hash doğrulaması

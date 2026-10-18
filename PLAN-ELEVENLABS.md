@@ -4,6 +4,9 @@ Durum: **Faz 1 (altyapı) tamam ✔**. Arayüz yok.
 Branch: `feature/elevenlabs-backend` (worktree: `~/Desktop/Projeler/sesver-elevenlabs`). Merge yapılmadı, push yapılmadı.
 Tarih: 2026-10-18. Hazırlayan: WebDev. Olgular aynı gün resmî dokümandan okundu.
 
+> Üç motorun (VoxCPM2 · ElevenLabs · EMA Lightning) karşılaştırması ve "⚡ Hızlı Mod"
+> planı: **`PLAN-MOTORLAR.md`**. Bu dosya yalnız ElevenLabs ayrıntılarını içerir.
+
 ---
 
 ## 1. Özet
