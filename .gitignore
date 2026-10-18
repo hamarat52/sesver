@@ -48,5 +48,8 @@ voices/**/*Akif*
 python-embed/
 python-embed.indiriliyor/
 pbs_*
+# desktop.py çalışma günlüğü ve Windows başlatıcısının durum dosyası.
+sesver_log.txt
+sesver_durum.tmp*
 # Yerel ajan görev notları (iç talimat ve yerel yollar içerir).
 .webdev-task-*.md

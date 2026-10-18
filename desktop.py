@@ -6,7 +6,15 @@ pywebview kullanılamazsa (kurulu değil, Windows'ta WebView2 Runtime yok vb.)
 eski davranışa dönülür: arayüz varsayılan tarayıcıda açılır.
 
 Elle çalıştırmak için: python desktop.py   (python app.py de hâlâ çalışır.)
+
+Tüm çıktı ayrıca sesver_log.txt dosyasına yazılır (her açılışta baştan). Windows
+başlatıcısı uygulamayı konsolsuz pythonw.exe ile açtığında hata takibi buradan yapılır.
+SESVER_DURUM_DOSYASI ortam değişkeni verilmişse (yalnız WINDOWS_BASLAT.bat verir)
+açılış sonucu o dosyaya yazılır: acildi / hata / pencere_yok.
 """
+import atexit
+import datetime
+import html
 import os
 import signal
 import socket
@@ -16,8 +24,102 @@ import time
 import urllib.error
 import urllib.request
 
-import app
-import voice_library as vlib
+LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sesver_log.txt")
+# pythonw.exe altında konsol yoktur ve sys.stdout/sys.stderr None olur.
+_NO_CONSOLE = sys.stdout is None or sys.stderr is None
+_STATUS_FILE = os.environ.get("SESVER_DURUM_DOSYASI", "")
+
+
+class _Tee:
+    """Yazılanı hem asıl akışa (varsa) hem log dosyasına yazar."""
+
+    def __init__(self, stream, log):
+        self._stream = stream
+        self._log = log
+
+    def write(self, s):
+        if self._stream is not None:
+            try:
+                self._stream.write(s)
+            except Exception:  # noqa: BLE001 — konsol hatası log yazımını engellemesin
+                pass
+        try:
+            self._log.write(s)
+        except Exception:  # noqa: BLE001
+            pass
+        return len(s)
+
+    def flush(self):
+        for f in (self._stream, self._log):
+            if f is not None:
+                try:
+                    f.flush()
+                except Exception:  # noqa: BLE001
+                    pass
+
+    def isatty(self):
+        return bool(self._stream is not None and self._stream.isatty())
+
+    def fileno(self):
+        return (self._stream if self._stream is not None else self._log).fileno()
+
+    def __getattr__(self, name):  # encoding, errors vb.
+        return getattr(self._stream if self._stream is not None else self._log, name)
+
+
+def _report_status(state):
+    """Başlatıcının beklediği durum dosyasını atomik olarak yazar."""
+    global _STATUS_REPORTED
+    if not _STATUS_FILE:
+        return
+    _STATUS_REPORTED = True
+    tmp = _STATUS_FILE + ".yaz"
+    try:
+        with open(tmp, "w", encoding="ascii") as f:
+            f.write(state)  # satır sonu yok: başlatıcı "set /p" ile okur
+        os.replace(tmp, _STATUS_FILE)
+    except OSError:
+        pass
+
+
+_STATUS_REPORTED = False
+
+
+def _report_exit_without_status():
+    """Süreç durum bildirmeden biterse (sys.exit vb.) başlatıcı 3 dk beklemesin."""
+    if not _STATUS_REPORTED:
+        _report_status("hata")
+
+
+def _setup_log_file():
+    """stdout/stderr'i sesver_log.txt'ye de yönlendirir; yakalanmamış hatayı durum dosyasına bildirir."""
+    try:
+        log = open(LOG_PATH, "w", encoding="utf-8", errors="replace", buffering=1)
+    except OSError:
+        log = open(os.devnull, "w", encoding="utf-8")
+    sys.stdout = _Tee(sys.stdout, log)
+    sys.stderr = _Tee(sys.stderr, log)
+    print(f"SesVer günlüğü {datetime.datetime.now():%Y-%m-%d %H:%M:%S} | "
+          f"Python {sys.version.split()[0]} | {sys.executable}", flush=True)
+
+    default_hook = sys.excepthook
+
+    def hook(exc_type, exc, tb):
+        default_hook(exc_type, exc, tb)
+        sys.stderr.flush()
+        _report_status("hata")
+
+    sys.excepthook = hook
+    atexit.register(_report_exit_without_status)
+
+
+# Log, app (torch, gradio...) içe aktarılmadan önce kurulur: içe aktarma hataları da
+# konsolsuz modda sesver_log.txt'ye düşsün.
+if __name__ == "__main__":
+    _setup_log_file()
+
+import app  # noqa: E402
+import voice_library as vlib  # noqa: E402
 
 HOST = "127.0.0.1"
 SERVER_TIMEOUT_S = 30  # launch() döndükten sonra HTTP 200 için en fazla bekleme
@@ -35,7 +137,9 @@ _ERROR_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
 body{margin:0;padding:40px;background:#0f1115;color:#e6e6e6;
 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 pre{white-space:pre-wrap;color:#ff8a8a}</style></head><body>
-<h2>SesVer başlatılamadı</h2><p>Ayrıntı için başlatıcı (terminal) penceresindeki mesajları okuyun.</p>
+<h2>SesVer başlatılamadı</h2>
+<p>Ayrıntı için SesVer klasöründeki sesver_log.txt dosyasına bakın:</p>
+<pre style="color:#e6e6e6">{log}</pre>
 <pre>{msg}</pre></body></html>"""
 
 
@@ -122,11 +226,17 @@ def _check_webview_backend(webview):
 
 def _load_ui(window, server):
     """pywebview GUI döngüsü başladıktan sonra ayrı thread'de çalışır."""
+    # Pencere ekranda (yükleniyor görünümü): başlatıcı konsolu artık kapanabilir.
+    _report_status("acildi")
     if server.wait_ready():
         window.load_url(server.url)
     else:
         print(f"[HATA] {server.error}", flush=True)
-        window.load_html(_ERROR_HTML.replace("{msg}", server.error or "bilinmeyen hata"))
+        print(f"Ayrıntı için: {LOG_PATH}", flush=True)
+        window.load_html(
+            _ERROR_HTML.replace("{log}", html.escape(LOG_PATH))
+            .replace("{msg}", html.escape(server.error or "bilinmeyen hata"))
+        )
 
 
 def _run_window(server):
@@ -169,6 +279,12 @@ def main():
         _run_window(server)
     except Exception as exc:  # noqa: BLE001 — her türlü pencere hatasında tarayıcıya dön
         print(f"[BILGI] Masaüstü penceresi kullanılamıyor: {type(exc).__name__}: {exc}", flush=True)
+        if _NO_CONSOLE:
+            # Konsolsuz (pythonw) çalışıyoruz: tarayıcı modu Ctrl+C için konsol ister.
+            # Başlatıcıya bildirip çık; o, uygulamayı konsollu python.exe ile yeniden açar.
+            sys.stdout.flush()
+            _report_status("pencere_yok")
+            os._exit(3)
         _run_browser(server)
         return
     # Pencere kapatıldı: arka plandaki Gradio sunucusu ve tüm thread'lerle birlikte çık.

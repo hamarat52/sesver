@@ -13,7 +13,7 @@ HamaratLabs tarafından geliştirilmiştir.
 1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
 2. **Çıkarın:** ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla**. ZIP'in içinden çalıştırmayın.
 3. **Başlatın:** Çıkardığınız klasördeki **`WINDOWS_BASLAT.bat`** dosyasına çift tıklayın.
-4. **Bekleyin:** Siyah pencere gerekenleri kendisi kurar (ilk sefer birkaç dakika). `Running on local URL: http://127.0.0.1:7860` yazınca hazırdır. Bu pencereyi **kapatmayın**.
+4. **Bekleyin:** Siyah pencere gerekenleri kendisi kurar (ilk sefer birkaç dakika), sonra SesVer penceresi açılır. Normalde kurulum penceresi SesVer açılınca kendiliğinden kapanır. Bir sorun olursa SesVer klasöründeki `sesver_log.txt` dosyasına bakın.
 5. **Açın:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresine gidin.
 
 ## 🍎 Mac Kurulum

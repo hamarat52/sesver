@@ -61,8 +61,8 @@ Python'u ayrıca kurmaya gerek yok; başlatıcı ilk çalıştırmada kendisi in
 
 **Adım W4 — Bekle.**
 1. İlk seferde Python ve paketler indirilir. Birkaç dakika sürer (internet hızına bağlı).
-2. Pencerede `Running on local URL: http://127.0.0.1:7860` yazısı görününce kurulum bitmiştir.
-3. Bu siyah pencereyi **kapatma**. SesVer o pencere açıkken çalışır.
+2. "SesVer" adlı uygulama penceresi açılınca kurulum bitmiştir.
+3. Normalde kurulum penceresi SesVer açılınca kendiliğinden kapanır. Bir sorun olursa SesVer klasöründeki `sesver_log.txt` dosyasına bakın (kullanıcıdan içeriğini iste).
 
 **Adım W5 — Tarayıcıda aç.** → Aşağıdaki **Ortak son adımlar**'a geç.
 

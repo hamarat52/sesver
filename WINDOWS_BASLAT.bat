@@ -113,11 +113,64 @@ echo Kurulum tamamlandi.
 :baslat
 set "SV_PORT=%GRADIO_SERVER_PORT%"
 if "%SV_PORT%"=="" set "SV_PORT=7860"
+REM Normal yol: konsolsuz pythonw.exe ile baslat; SesVer penceresi acilinca bu
+REM pencere kendiliginden kapanir. Ciktilar sesver_log.txt dosyasina yazilir.
+REM desktop.py acilis sonucunu SESVER_DURUM_DOSYASI'na yazar:
+REM   acildi      = pencere ekranda, bu konsol kapanir
+REM   pencere_yok = pywebview/WebView2 yok, asagidaki konsollu yonteme donulur
+REM   hata        = SesVer acilamadi, log gosterilir ve pencere acik kalir
+REM pythonw.exe, python.exe ile ayni klasordedir (python-embed ve .venv\Scripts).
+set "PYW=%PYEXE:python.exe=pythonw.exe%"
+if not exist "%PYW%" goto :baslat_konsollu
+set "SESVER_DURUM_DOSYASI=%CD%\sesver_durum.tmp"
+del /q "%SESVER_DURUM_DOSYASI%" >nul 2>nul
+echo SesVer aciliyor, birkac saniye surebilir. Pencere acilinca bu pencere kendiliginden kapanir.
+REM ver: errorlevel 0 yapar; basarili start errorlevel'i degistirmeyebilir.
+ver >nul
+start "" "%PYW%" desktop.py
+if errorlevel 1 goto :baslat_konsollu_temiz
+set /a SV_BEKLE=0
+:baslat_bekle
+if exist "%SESVER_DURUM_DOSYASI%" goto :baslat_durum
+if %SV_BEKLE% GEQ 180 goto :baslat_zaman_asimi
+ping -n 2 127.0.0.1 >nul
+set /a SV_BEKLE+=1
+goto :baslat_bekle
+
+:baslat_durum
+set "SV_DURUM="
+set /p SV_DURUM=<"%SESVER_DURUM_DOSYASI%"
+del /q "%SESVER_DURUM_DOSYASI%" >nul 2>nul
+if /i "%SV_DURUM%"=="acildi" exit /b 0
+if /i "%SV_DURUM%"=="pencere_yok" goto :baslat_konsollu_temiz
+echo.
+echo [HATA] SesVer acilamadi. sesver_log.txt dosyasinin son satirlari:
+echo ----------------------------------------------------------------
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath 'sesver_log.txt' -Tail 40 -Encoding UTF8" 2>nul || type "sesver_log.txt"
+echo ----------------------------------------------------------------
+echo Tum ayrinti: SesVer klasorundeki sesver_log.txt dosyasi.
+pause
+exit /b 1
+
+:baslat_zaman_asimi
+del /q "%SESVER_DURUM_DOSYASI%" >nul 2>nul
+echo.
+echo [UYARI] SesVer penceresi 3 dakika icinde acilmadi.
+echo Pencere biraz sonra acilabilir. Acilmazsa SesVer klasorundeki sesver_log.txt dosyasina bakin.
+pause
+exit /b 1
+
+:baslat_konsollu_temiz
+del /q "%SESVER_DURUM_DOSYASI%" >nul 2>nul
+set "SESVER_DURUM_DOSYASI="
+echo [BILGI] Konsolsuz baslatma kullanilamadi; SesVer bu pencereden calistiriliyor.
+:baslat_konsollu
+REM Yedek yol: eski davranis - python.exe ile bu konsolda calisir, konsol acik kalir.
 echo SesVer aciliyor, birkac saniye surebilir. Bir pencere acilmazsa tarayicinizda http://127.0.0.1:%SV_PORT% adresini deneyin (port doluysa asagida yazilan adresi).
 echo Durdurmak icin bu pencerede Ctrl+C kullanin.
 "%PYEXE%" desktop.py
 set "CIKIS=%errorlevel%"
-if not "%CIKIS%"=="0" echo [BILGI] SesVer durdu, cikis kodu %CIKIS%. Ctrl+C ile kapatmadiysaniz yukaridaki hata mesajini okuyun.
+if not "%CIKIS%"=="0" echo [BILGI] SesVer durdu, cikis kodu %CIKIS%. Ctrl+C ile kapatmadiysaniz yukaridaki hata mesajini okuyun. Ayrinti: sesver_log.txt
 pause
 exit /b 0
 
