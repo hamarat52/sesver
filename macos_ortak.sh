@@ -250,7 +250,10 @@ Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası süre
     # Pencere kapatılınca desktop.py 0 ile çıkar; başka bir kodla biterse
     # (ör. içe aktarma hatası) kullanıcı bunu bir pencerede görür.
     set +e
-    "$RUN_PY" desktop.py
+    # CFProcessPath: CoreFoundation ana bundle'ı bu yoldan belirler; böylece
+    # pencere süreci LaunchServices/Dock'ta "Python" değil SesVer.app olarak
+    # görünür (Dock'a sabitlenen ikonla eşleşir). Python ikilisi değişmez.
+    CFProcessPath="$SESVER_APP_EXE" "$RUN_PY" desktop.py
     local kod=$?
     if [ "$kod" -ne 0 ]; then
       echo "[HATA] desktop.py $kod koduyla bitti."

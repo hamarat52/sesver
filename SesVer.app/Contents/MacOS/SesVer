@@ -6,6 +6,8 @@
 #
 # Yol: $0 = <proje kökü>/SesVer.app/Contents/MacOS/SesVer
 #      ../../.. = <proje kökü>
+SESVER_APP_EXE="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+export SESVER_APP_EXE
 cd "$(dirname "$0")/../../.." 2>/dev/null || exit 1
 if [ ! -f "macos_ortak.sh" ] || [ ! -f "desktop.py" ]; then
   # Uygulama proje klasörünün dışına (ör. Uygulamalar'a) taşınmış olabilir.
