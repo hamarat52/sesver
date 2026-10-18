@@ -2,7 +2,7 @@
 
 > **Kullanıcı için:** Bu dosyanın TAMAMINI kopyalayıp kendi yapay zeka sohbet uygulamana (ChatGPT, Claude, Gemini, Copilot...) yapıştır. Ardından hangi işletim sistemini kullandığını (Windows/Mac) söyle, geri kalanını o yönetsin.
 >
-> Bu dosyayı GitHub'da açıp (bağlantı: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md) sağ üstteki kopyala simgesinden tüm metni kopyalayabilirsin, repoyu indirmen gerekmez. (Depo özel olduğu için GitHub hesabınla giriş yapmış olman gerekir.)
+> Bu dosyayı GitHub'da açıp (bağlantı: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md) sağ üstteki kopyala simgesinden tüm metni kopyalayabilirsin, repoyu indirmen gerekmez.
 
 ---
 
@@ -51,7 +51,7 @@ Python, SesVer'in çalışması için gereken ücretsiz bir programdır.
 
 **Adım W2 — SesVer'i indir.**
 1. https://github.com/hamarat52/sesver adresine git.
-2. Depo şu an **özeldir (private)**: sayfa görünmüyorsa ya da "404" yazıyorsa önce GitHub hesabıyla giriş yapması ve depoya erişim izni olması gerekir.
+2. Depo herkese açıktır (public), giriş yapmaya gerek yoktur.
 3. Yeşil **Code** düğmesine bas → **Download ZIP**.
 
 **Adım W3 — ZIP'i çıkar.**
@@ -81,7 +81,7 @@ Python, SesVer'in çalışması için gereken ücretsiz bir programdır.
 
 **Adım M2 — SesVer'i indir.**
 1. https://github.com/hamarat52/sesver adresine git.
-2. Depo şu an **özeldir (private)**: sayfa görünmüyorsa önce GitHub hesabıyla giriş yapması ve depoya erişim izni olması gerekir.
+2. Depo herkese açıktır (public), giriş yapmaya gerek yoktur.
 3. Yeşil **Code** düğmesine bas → **Download ZIP**.
 
 **Adım M3 — ZIP'i çıkar.**
@@ -172,8 +172,8 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 - Çözüm: Siyah pencerede/Terminal'de `Running on local URL` yazısını bekle. Pencere kapandıysa başlatıcıyı tekrar çalıştır.
 
 **8. GitHub'da depo görünmüyor / 404 / ZIP indirilemiyor**
-- Sebep: Depo özeldir (private).
-- Çözüm: GitHub hesabıyla giriş yap. Giriş yaptığı halde görünmüyorsa depo sahibinden erişim izni istemesi gerekir. Şifresini sana yazmamasını söyle.
+- Sebep: Depo herkese açık olduğu için normalde olmamalı; genelde adres yanlış yazılmıştır, nadiren GitHub'ın kendi erişim sorunu ya da internet bağlantısı sorunu olabilir.
+- Çözüm: Adresi kontrol et: https://github.com/hamarat52/sesver. GitHub'a giriş yapmak gerekmez. Birkaç dakika sonra tekrar dene.
 
 **9. İlk üretim çok uzun sürüyor / "takıldı" gibi görünüyor**
 - Sebep: İlk **Üret**'te ses modeli (yaklaşık 5 GB) internetten indirilir ve belleğe yüklenir. İnternet gerekir.

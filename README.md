@@ -25,7 +25,7 @@ Teknik bilgi gerekmez. Bilgisayarınızda en az **20 GB boş alan** ve **interne
 - Windows'ta kurulumun ilk ekranındaki **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin.
 
 **1. SesVer'i indirin.** Bu sayfanın üstündeki yeşil **Code** düğmesine basın → **Download ZIP**.
-- Depo şu an özeldir: indirebilmek için GitHub hesabınızla **giriş yapmış** olmanız gerekir.
+- Depo herkese açıktır: indirmek için GitHub hesabı gerekmez.
 
 **2. ZIP'i çıkarın.** İndirilen ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla** (Mac'te çift tıklamak yeterli). Dosyaları ZIP'in içinden çalıştırmayın, önce çıkarın.
 
@@ -52,7 +52,7 @@ Notlar:
 
 Yapay zeka asistanınla kurmak ister misin? [AI_KURULUM.md](AI_KURULUM.md) dosyasını aç, **tamamını kopyala** ve kendi yapay zeka sohbetine (ChatGPT, Claude, Gemini, Copilot…) yapıştır. Sonra Windows mu Mac mi kullandığını söyle; asistan seni adım adım yönlendirir ve hata mesajlarını çözmene yardım eder.
 
-**Repoyu indirmeden kopyalamak için:** Dosyayı GitHub'da aç: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md — dosyanın sağ üst köşesindeki **kopyala simgesine** (iki üst üste kare) bas; tüm metin kopyalanır, kendi yapay zekana yapıştır. Depo özel olduğu için bu sayfayı açarken de GitHub hesabınla giriş yapmış olman gerekir.
+**Repoyu indirmeden kopyalamak için:** Dosyayı GitHub'da aç: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md — dosyanın sağ üst köşesindeki **kopyala simgesine** (iki üst üste kare) bas; tüm metin kopyalanır, kendi yapay zekana yapıştır.
 
 ## Kullanım
 
@@ -81,7 +81,7 @@ Telaffuz, ses benzerliği ve kalite değişebilir. Uzun metni cümlelere bölün
 - **Bellek hatası / sistem yavaşladı:** Uygulamayı durdurun, diğer ağır uygulamaları kapatın ve daha kısa metinle yeniden başlatın. 8 GB RAM'li cihazlarda kullanım önerilmez.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
 - **7860 portu kullanımda:** SesVer zaten açık. Daha önce açtığınız SesVer penceresini Ctrl+C ile kapatın, sonra tekrar başlatın.
-- **GitHub'da depo görünmüyor / ZIP inmiyor:** GitHub hesabınıza giriş yaptığınızdan ve depoya erişim izniniz olduğundan emin olun.
+- **GitHub'da depo görünmüyor / ZIP inmiyor:** Depo herkese açıktır, giriş gerekmez. Adresin doğru yazıldığından (https://github.com/hamarat52/sesver) ve internet bağlantınızdan emin olun; birkaç dakika sonra tekrar deneyin.
 
 Çözemediyseniz [AI_KURULUM.md](AI_KURULUM.md) dosyasını yapay zeka asistanınıza verin ya da [issue açın](https://github.com/hamarat52/sesver/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın.
 
