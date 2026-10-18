@@ -8,6 +8,8 @@
 	<string>SesVer</string>
 	<key>CFBundleExecutable</key>
 	<string>SesVer</string>
+	<key>CFBundleIconFile</key>
+	<string>SesVer.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.hamaratlabs.sesver</string>
 	<key>CFBundleInfoDictionaryVersion</key>
