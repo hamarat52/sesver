@@ -14,7 +14,7 @@ HamaratLabs tarafından geliştirilmiştir.
 2. **Çıkarın:** ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla**. ZIP'in içinden çalıştırmayın.
 3. **Başlatın:** Çıkardığınız klasördeki **`WINDOWS_BASLAT.bat`** dosyasına çift tıklayın.
 4. **Bekleyin:** Siyah pencere gerekenleri kendisi kurar (ilk sefer birkaç dakika), sonra SesVer penceresi açılır. Normalde kurulum penceresi SesVer açılınca kendiliğinden kapanır. Bir sorun olursa SesVer klasöründeki `sesver_log.txt` dosyasına bakın.
-5. **Açın:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresine gidin.
+5. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin.
 
 ## 🍎 Mac Kurulum
 
@@ -45,7 +45,7 @@ Bu sayfayı görüyorsanız kurulum başarılı:
 
 - İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir; ilk seferde uzun sürebilir, sonrakiler daha hızlıdır.
 - Sonraki kullanımlarda yalnız başlatıcıya çift tıklayıp tarayıcıda adresi açın; kurulum tekrarlanmaz.
-- Kapatmak için siyah pencerede **Ctrl+C** basın veya pencereyi kapatın.
+- Kapatmak için: **Windows**'ta SesVer penceresini kapatmanız yeterli. **Mac**'te Terminal penceresinde **Ctrl+C** basın veya pencereyi kapatın.
 - Sorun mu çıktı? [Sorun giderme](#sorun-giderme) bölümüne bakın veya [yapay zeka destekli kurulumu](#-yapay-zeka-destekli-kurulum) kullanın.
 
 ## Özellikler
