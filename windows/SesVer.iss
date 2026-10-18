@@ -186,7 +186,7 @@ begin
   try
     CreateShellLink(LinkPath, CustomMessage('ShortcutComment'),
       App + '\python-embed\pythonw.exe', '-E -s "' + App + '\desktop.py"',
-      App, '', 0, SW_SHOWNORMAL);
+      App, App + '\SesVer.ico', 0, SW_SHOWNORMAL);
     Log('Kısayol doğrudan pythonw.exe''ye çevrildi: ' + LinkPath);
   except
     Log('Kısayol güncellenemedi (' + LinkPath + '): ' + GetExceptionMessage);
