@@ -24,6 +24,7 @@ Kurallar:
 
 - Bilgisayarda çalışan, ücretsiz, Türkçe metinden ses üreten ve ses klonlayan bir uygulama. Hesap veya ücretli servis gerekmez.
 - İnternet yalnız ilk kurulumda ve ilk ses üretiminde (model indirme) gerekir.
+- **Kullanıcının ayrıca Python kurmasına gerek yoktur.** Başlatıcılar (`WINDOWS_BASLAT.bat` / `MACOS_BASLAT.command`) ilk çalıştırmada uygulamaya özel bir Python'u kendileri indirir (SesVer klasöründeki `python-embed` klasörüne). Kullanıcıyı python.org'a yalnız başlatıcı otomatik indirmeyi başaramayıp Python kurmasını isterse yönlendir (bkz. **Bilinen hatalar 2**).
 - Depo: https://github.com/hamarat52/sesver
 - Uygulama tarayıcıda çalışır, adresi: **http://127.0.0.1:7860**
 - Kullandığı ses modeli (VoxCPM2) büyüktür: ilk kullanımda yaklaşık **5 GB** indirilir.
@@ -42,64 +43,56 @@ Kullanıcı 8 GB RAM'li bir bilgisayardan bahsederse, kuruluma başlamadan önce
 
 ## Kurulum adımları — Windows
 
-**Adım W1 — Python'u kur (yalnız bir kere).**
-Python, SesVer'in çalışması için gereken ücretsiz bir programdır.
-1. https://www.python.org/downloads/ adresine git.
-2. **Python 3.11** sürümünü indir (3.10 veya 3.12 de olur; 3.13 ve üstünü önerme).
-3. Kurulum dosyasını aç. İlk ekranda en alttaki **"Add python.exe to PATH"** kutusunu **mutlaka işaretle**, sonra **Install Now**'a bas.
-4. Python zaten kuruluysa bu adımı atla.
+Python'u ayrıca kurmaya gerek yok; başlatıcı ilk çalıştırmada kendisi indirir.
 
-**Adım W2 — SesVer'i indir.**
+**Adım W1 — SesVer'i indir.**
 1. https://github.com/hamarat52/sesver adresine git.
 2. Depo herkese açıktır (public), giriş yapmaya gerek yoktur.
 3. Yeşil **Code** düğmesine bas → **Download ZIP**.
 
-**Adım W3 — ZIP'i çıkar.**
+**Adım W2 — ZIP'i çıkar.**
 1. İndirilenler klasöründeki `sesver-main.zip` dosyasına sağ tıkla → **Tümünü Ayıkla** → **Ayıkla**.
 2. Dosyaları ZIP'in içinden çalıştırma. Önce çıkarılmış klasöre gir (genelde `sesver-main` adında bir klasör olur).
 
-**Adım W4 — Başlatıcıya çift tıkla.**
+**Adım W3 — Başlatıcıya çift tıkla.**
 1. Çıkarılmış klasörde `WINDOWS_BASLAT.bat` dosyasına çift tıkla. (Dosya uzantıları gizliyse adı `WINDOWS_BASLAT` olarak görünebilir.)
 2. Windows "Windows bilgisayarınızı korudu" (SmartScreen) uyarısı gösterirse: **Ek bilgi** → **Yine de çalıştır**.
-3. Siyah bir pencere açılır. Önce `Kullanilan Python komutu: ...` satırı görünür, sonra kurulum başlar.
+3. Siyah bir pencere açılır. İlk seferde `Python hazirlaniyor - bilgisayariniza ayrica Python kurmaniz gerekmez...` yazar ve Python indirilir; sonra `Kullanilan Python: python-embed ...` satırı görünür ve kurulum başlar.
 
-**Adım W5 — Bekle.**
-1. İlk seferde paketler indirilir. Birkaç dakika sürer (internet hızına bağlı).
+**Adım W4 — Bekle.**
+1. İlk seferde Python ve paketler indirilir. Birkaç dakika sürer (internet hızına bağlı).
 2. Pencerede `Running on local URL: http://127.0.0.1:7860` yazısı görününce kurulum bitmiştir.
 3. Bu siyah pencereyi **kapatma**. SesVer o pencere açıkken çalışır.
 
-**Adım W6 — Tarayıcıda aç.** → Aşağıdaki **Ortak son adımlar**'a geç.
+**Adım W5 — Tarayıcıda aç.** → Aşağıdaki **Ortak son adımlar**'a geç.
 
 ---
 
 ## Kurulum adımları — Mac
 
-**Adım M1 — Python'u kur (yalnız bir kere).**
-1. https://www.python.org/downloads/ adresine git.
-2. **Python 3.11** için macOS kurulum dosyasını (`.pkg`) indir ve kur (3.10 veya 3.12 de olur; 3.13 ve üstünü önerme).
-3. Python zaten kuruluysa bu adımı atla.
+Python'u ayrıca kurmaya gerek yok; başlatıcı ilk çalıştırmada kendisi indirir.
 
-**Adım M2 — SesVer'i indir.**
+**Adım M1 — SesVer'i indir.**
 1. https://github.com/hamarat52/sesver adresine git.
 2. Depo herkese açıktır (public), giriş yapmaya gerek yoktur.
 3. Yeşil **Code** düğmesine bas → **Download ZIP**.
 
-**Adım M3 — ZIP'i çıkar.**
+**Adım M2 — ZIP'i çıkar.**
 1. İndirilenler (Downloads) klasöründeki ZIP'e çift tıkla. Mac onu `sesver-main` klasörüne çıkarır.
 
-**Adım M4 — Başlatıcıya çift tıkla.**
+**Adım M3 — Başlatıcıya çift tıkla.**
 1. `sesver-main` klasöründeki `MACOS_BASLAT.command` dosyasına çift tıkla.
 2. Mac **"Apple doğrulayamadı"** / **"bilinmeyen geliştirici"** uyarısı verirse:
    - Dosyaya sağ tıkla (veya Control+tık) → **Aç** → tekrar **Aç**.
    - Bu seçenek yoksa (macOS 15 Sequoia ve sonrası): **Sistem Ayarları → Gizlilik ve Güvenlik** → aşağıda SesVer ile ilgili satırda **Yine de Aç**.
-3. Terminal (komut penceresi) açılır ve kurulum başlar.
+3. Terminal (komut penceresi) açılır. İlk seferde `Uygulamaya özel Python indiriliyor (yalnız ilk sefer, ~26 MB ...)` yazar; sonra `Kullanılan Python: uygulamaya özel (...)` satırı görünür ve kurulum başlar.
 
-**Adım M5 — Bekle.**
-1. İlk seferde paketler indirilir. Birkaç dakika sürer.
+**Adım M4 — Bekle.**
+1. İlk seferde Python ve paketler indirilir. Birkaç dakika sürer.
 2. Pencerede `Running on local URL: http://127.0.0.1:7860` yazısı görününce kurulum bitmiştir.
 3. Bu Terminal penceresini **kapatma**. SesVer o pencere açıkken çalışır.
 
-**Adım M6 — Tarayıcıda aç.** → Aşağıdaki **Ortak son adımlar**'a geç.
+**Adım M5 — Tarayıcıda aç.** → Aşağıdaki **Ortak son adımlar**'a geç.
 
 ---
 
@@ -117,7 +110,7 @@ Python, SesVer'in çalışması için gereken ücretsiz bir programdır.
 4. İlk üretimde ses modeli (yaklaşık 5 GB) indirilir. Bu 5–30 dakika sürebilir. İlerlemeyi siyah pencerede/Terminal'de görebilir.
 5. Ses hazır olunca sayfada dinlenebilir; **⬇ WAV indir** ile kaydedilir. Dosyalar ayrıca klasördeki `outputs` klasörüne yazılır.
 
-**Sonraki kullanımlar:** Kurulum tekrarlanmaz. Sadece başlatıcıya (W4 / M4) çift tıkla, `Running on local URL` yazısını bekle, tarayıcıda http://127.0.0.1:7860 adresini aç.
+**Sonraki kullanımlar:** Kurulum tekrarlanmaz. Sadece başlatıcıya (W3 / M3) çift tıkla, `Running on local URL` yazısını bekle, tarayıcıda http://127.0.0.1:7860 adresini aç.
 
 **Kapatmak için:** Siyah pencerede/Terminal'de **Ctrl+C** bas veya pencereyi kapat.
 
@@ -130,7 +123,7 @@ Yalnız kullanıcının NVIDIA ekran kartı varsa ve kurulum çalıştıktan son
 1. Önce SesVer'i normal kur ve bir kere çalıştığından emin ol (yukarıdaki adımlar).
 2. https://pytorch.org/get-started/locally/ adresindeki seçicide işletim sistemi, **Pip**, **Python** ve bir **CUDA** sürümü seç. Sayfa bir `pip install ...` komutu verir.
 3. SesVer klasöründe komut penceresi aç (klasörün adres çubuğuna `powershell` yazıp Enter).
-4. Sayfanın verdiği komutu şu şekilde çalıştır: baştaki `pip install` yerine `.\.venv\Scripts\python.exe -m pip install` yaz; komutun geri kalanını aynen bırak ve sonuna `--force-reinstall` ekle.
+4. Sayfanın verdiği komutu şu şekilde çalıştır: baştaki `pip install` yerine `.\python-embed\python.exe -m pip install` yaz (SesVer klasöründe `python-embed` yoksa, eski kurulumda, `.\.venv\Scripts\python.exe -m pip install`); komutun geri kalanını aynen bırak ve sonuna `--force-reinstall` ekle.
 5. Sonra başlatıcıyla SesVer'i yeniden aç. Model CUDA → Apple MPS → CPU sırasıyla uygun cihazı kendi seçer.
 
 Bu adımın komutu sürüme göre değiştiği için kesin komutu uydurma; pytorch.org'un verdiği komutu kullan.
@@ -143,11 +136,11 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 
 **1. Siyah pencere açılıp hemen kapanıyor / `... was unexpected at this time.` yazıyor (Windows)**
 - Sebep: Eski bir SesVer sürümünün başlatıcısındaki hata. Güncel sürümde düzeltildi.
-- Çözüm: GitHub'dan ZIP'i **yeniden indir** (Adım W2), yeni klasöre çıkar ve yeni `WINDOWS_BASLAT.bat` dosyasını çalıştır.
+- Çözüm: GitHub'dan ZIP'i **yeniden indir** (Adım W1), yeni klasöre çıkar ve yeni `WINDOWS_BASLAT.bat` dosyasını çalıştır.
 
-**2. `[HATA] Python bulunamadi` / `Python bulunamadı`**
-- Sebep: Python kurulu değil veya Windows'ta PATH'e eklenmemiş.
-- Çözüm: Python 3.11'i kur (Adım W1 / M1). Windows'ta **"Add python.exe to PATH"** kutusu işaretli olmalı. Zaten kuruluysa Python kurulum dosyasını tekrar aç → **Modify** → **Add Python to environment variables** işaretle.
+**2. `[HATA] Python hazirlanamadi` (Windows) / `Python bulunamadı ve uygulamaya özel Python indirilemedi.` (Mac) / eski sürümlerde `[HATA] Python bulunamadi`**
+- Normalde hiç görülmemeli: başlatıcı Python'u kendisi indirir. Yalnız otomatik indirme başarısız olursa (nadiren; ör. internet kesintisi, güvenlik duvarı/şirket ağı, antivirüs) ve bilgisayarda çalışan bir Python da yoksa çıkar. Hemen üstündeki `[UYARI] ...` satırı nedeni söyler (örn. `Python indirilemedi`).
+- Çözüm: Önce interneti kontrol edip başlatıcıyı **tekrar çalıştır**. Yine olmazsa https://www.python.org/downloads/ adresinden **Python 3.11**'i elle kur (3.10 veya 3.12 de olur; 3.13 ve üstünü önerme), sonra başlatıcıyı tekrar çalıştır; başlatıcı kurulu Python'la eski yöntemle devam eder. Windows'ta kurulumun ilk ekranındaki **"Add python.exe to PATH"** kutusu işaretli olmalı. Zaten kuruluysa Python kurulum dosyasını tekrar aç → **Modify** → **Add Python to environment variables** işaretle.
 - Windows'ta Microsoft Store penceresi açılıyorsa: **Ayarlar → Uygulamalar → Uygulama yürütme diğer adları** → `python.exe` ve `python3.exe` anahtarlarını kapat.
 
 **3. PowerShell'de `... is not recognized as the name of a cmdlet ...` / `CommandNotFoundException`**
@@ -155,13 +148,13 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 - Çözüm: Dosya adının başına `.\` ekle: `.\WINDOWS_BASLAT.bat`. (Ya da dosyaya Gezgin'den çift tıkla.)
 
 **4. `py` komutu bulunamıyor / `'py' is not recognized`**
-- Sebep: Bazı Python ve Microsoft Store kurulumlarında `py` başlatıcısı yoktur.
+- Sebep: Bazı Python ve Microsoft Store kurulumlarında `py` başlatıcısı yoktur. (Yalnız elle kurulumda veya başlatıcı eski yönteme döndüğünde önemlidir; normalde başlatıcı kendi Python'unu kullanır.)
 - Çözüm: Güncel `WINDOWS_BASLAT.bat` sırasıyla `py -3.11`, `py`, `python` dener; ayrıca bir şey yapmak gerekmez. Elle komut yazılıyorsa `py -3.11` yerine `python` kullan.
 
 **5. `[HATA] Kurulum adimi basarisiz oldu: ...` / `Kurulum adımı başarısız oldu: ...`**
 - Sebep: Genelde internet kesintisi veya disk dolu. Hatanın hangi adımda olduğu satırda yazar (örn. `voxcpm kurulumu`, `requirements.txt kurulumu`).
 - Çözüm: İnterneti ve boş disk alanını (20 GB+) kontrol et, pencereyi kapat, başlatıcıyı **tekrar çalıştır**. Kurulum kaldığı yerden devam eder. Hata sürerse üstteki kırmızı/hata satırlarını iste ve incele.
-- Python sürümü 3.13 veya üstüyse `[UYARI] Onerilen surum Python 3.10-3.12` görünür; Python 3.11 kurup klasörü baştan çıkarmayı öner.
+- Başlatıcı eski yönteme dönüp sistemdeki Python'u kullanıyorsa ve sürüm 3.13 veya üstüyse `[UYARI] Onerilen surum Python 3.10-3.12` görünür; Python 3.11 kurup klasörü baştan çıkarmayı öner.
 
 **6. `Cannot find empty port` / `address already in use` / 7860 portu kullanımda**
 - Sebep: SesVer zaten açık (başka bir pencerede çalışıyor).
@@ -184,7 +177,7 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 - Çözüm: SesVer'i Ctrl+C ile durdur, diğer ağır uygulamaları ve tarayıcı sekmelerini kapat, daha kısa metinle tekrar dene. 8 GB RAM'li bilgisayarda kullanım önerilmez; dürüstçe söyle.
 
 **11. Mac: `MACOS_BASLAT.command` açılmıyor / "izin verilmedi" (`Permission denied`)**
-- Önce Adım M4'teki "Apple doğrulayamadı" çözümünü dene.
+- Önce Adım M3'teki "Apple doğrulayamadı" çözümünü dene.
 - Sürmezse: Terminal uygulamasını aç, `cd ` yaz (sonunda bir boşluk), SesVer klasörünü Terminal penceresine sürükleyip bırak, Enter'a bas. Sonra şunu çalıştır:
   ```bash
   chmod +x MACOS_BASLAT.command && ./MACOS_BASLAT.command

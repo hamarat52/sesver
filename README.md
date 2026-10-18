@@ -8,7 +8,7 @@ HamaratLabs tarafından geliştirilmiştir.
 
 ## 🪟 Windows Kurulum
 
-**Önce (yalnız bir kere):** [python.org/downloads](https://www.python.org/downloads/) adresinden **Python 3.11** indirip kurun; kurulumun ilk ekranındaki **"Add python.exe to PATH"** kutusunu mutlaka işaretleyin. En az **20 GB boş alan** ve **internet** gerekir.
+İlk çalıştırmada gerekli her şey (Python dahil) otomatik indirilir, ayrıca bir şey kurmanıza gerek yok. En az **20 GB boş alan** ve **internet** gerekir.
 
 1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
 2. **Çıkarın:** ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla**. ZIP'in içinden çalıştırmayın.
@@ -18,7 +18,7 @@ HamaratLabs tarafından geliştirilmiştir.
 
 ## 🍎 Mac Kurulum
 
-**Önce (yalnız bir kere):** [python.org/downloads](https://www.python.org/downloads/) adresinden **Python 3.11** indirip kurun. En az **20 GB boş alan** ve **internet** gerekir.
+İlk çalıştırmada gerekli her şey (Python dahil) otomatik indirilir, ayrıca bir şey kurmanıza gerek yok. En az **20 GB boş alan** ve **internet** gerekir.
 
 1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
 2. **Çıkarın:** İndirilen ZIP dosyasına çift tıklayın.
@@ -66,7 +66,7 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 ## Sorun giderme
 
 - **Siyah pencere açılıp hemen kapanıyor / `was unexpected at this time` yazıyor:** Eski bir sürümü indirmişsiniz. Bu sayfadan ZIP'i yeniden indirin ve yeni klasördeki `WINDOWS_BASLAT.bat` dosyasını çalıştırın.
-- **`Python bulunamadı`:** Python 3.11'i [python.org](https://www.python.org/downloads/) adresinden kurun (Windows'ta "Add python.exe to PATH" işaretli olsun), sonra başlatıcıyı tekrar çalıştırın.
+- **`Python hazirlanamadi` / `Python bulunamadı`:** Normalde Python otomatik iner; yalnız indirme başarısız olursa (ör. güvenlik duvarı/şirket ağı) başlatıcı eski yönteme döner ve sizden Python 3.10-3.12 kurmanızı ister. Böyle bir mesaj görürseniz [python.org/downloads](https://www.python.org/downloads/) adresinden kurup (Windows'ta "Add python.exe to PATH" işaretli olsun) başlatıcıyı tekrar çalıştırın.
 - **PowerShell'de `is not recognized` / `CommandNotFoundException`:** Dosya adının başına `.\` ekleyin: `.\WINDOWS_BASLAT.bat`
 - **`py` komutu bulunamıyor:** Komutlarda `py -3.11` yerine `python` yazın. (Başlatıcı bunu kendisi dener.)
 - **Kurulum yarıda kesildi:** Başlatıcıyı tekrar çalıştırın; kaldığı yerden devam eder.
@@ -102,7 +102,7 @@ Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/ka
 
 ### Gereksinimler
 
-**Python 3.10–3.12 kullanın; 3.11 önerilir** ([python.org/downloads](https://www.python.org/downloads/)). Python 3.13+ bu kurulum için önerilmez. En az **20 GB boş disk alanı** ayırın.
+Başlatıcıları kullanıyorsanız Python kurmanız gerekmez (aşağıya bakın). **Elle kurulumda Python 3.10–3.12 kullanın; 3.11 önerilir** ([python.org/downloads](https://www.python.org/downloads/)). Python 3.13+ bu kurulum için önerilmez. En az **20 GB boş disk alanı** ayırın.
 
 ```bash
 git clone https://github.com/hamarat52/sesver.git
@@ -113,7 +113,7 @@ Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi 
 
 ### Başlatıcılar ne yapar?
 
-`MACOS_BASLAT.command` / `WINDOWS_BASLAT.bat` sırasıyla uygun Python'u bulur (Windows: `py -3.11` → `py` → `python`; macOS: `python3.11` → `python3.12` → `python3.10` → `python3`), `.venv` sanal ortamını oluşturur, aşağıdaki elle kurulum adımlarını çalıştırır ve `app.py`'yi başlatır. Kurulum tamamlanınca `.venv/sesver_kurulum_tamam.txt` yazılır; bu dosya yoksa bir sonraki çalıştırmada kurulum kaldığı yerden devam eder. Hata olursa başarısız adımın adı gösterilir.
+`MACOS_BASLAT.command` / `WINDOWS_BASLAT.bat` ilk çalıştırmada uygulamaya özel taşınabilir bir Python'u (python-build-standalone, CPython 3.11) SHA-256 doğrulamasıyla indirip klasördeki `python-embed/` içine açar, paketleri doğrudan oraya kurar ve `app.py`'yi başlatır; sistemdeki Python'a dokunulmaz. Eski yöntemle tamamlanmış bir `.venv` kurulumu varsa o kullanılmaya devam eder. İndirme başarısız olursa eski yönteme döner: uygun sistem Python'unu bulur (Windows: `py -3.11` → `py` → `python`; macOS: `python3.11` → `python3.12` → `python3.10` → `python3`), `.venv` sanal ortamını oluşturur ve aşağıdaki elle kurulum adımlarını çalıştırır. Kurulum tamamlanınca `python-embed/` (ya da `.venv/`) içine `sesver_kurulum_tamam.txt` yazılır; bu dosya yoksa bir sonraki çalıştırmada kurulum kaldığı yerden devam eder. Hata olursa başarısız adımın adı gösterilir.
 
 Port varsayılan olarak **7860**'tır; `GRADIO_SERVER_PORT` ortam değişkeniyle değiştirilebilir (örn. `GRADIO_SERVER_PORT=7861 ./MACOS_BASLAT.command`). Tarayıcı otomatik açılmaz; adresi kendiniz açın.
 
