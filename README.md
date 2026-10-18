@@ -44,7 +44,7 @@ Bu sayfayı görüyorsanız kurulum başarılı:
 ![SesVer çalışırken: Ses Kütüphanesi sekmesi açık ana ekran](docs/screenshots/kurulum-basarili.png)
 
 - İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir; ilk seferde uzun sürebilir, sonrakiler daha hızlıdır.
-- Sonraki kullanımlarda yalnız başlatıcıya çift tıklayıp tarayıcıda adresi açın; kurulum tekrarlanmaz.
+- Sonraki kullanımlarda yalnız başlatıcıya çift tıklayın, pencere otomatik açılır; kurulum tekrarlanmaz.
 - Kapatmak için: **Windows**'ta SesVer penceresini kapatmanız yeterli. **Mac**'te Terminal penceresinde **Ctrl+C** basın veya pencereyi kapatın.
 - Sorun mu çıktı? [Sorun giderme](#sorun-giderme) bölümüne bakın veya [yapay zeka destekli kurulumu](#-yapay-zeka-destekli-kurulum) kullanın.
 
@@ -70,10 +70,10 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 - **PowerShell'de `is not recognized` / `CommandNotFoundException`:** Dosya adının başına `.\` ekleyin: `.\WINDOWS_BASLAT.bat`
 - **`py` komutu bulunamıyor:** Komutlarda `py -3.11` yerine `python` yazın. (Başlatıcı bunu kendisi dener.)
 - **Kurulum yarıda kesildi:** Başlatıcıyı tekrar çalıştırın; kaldığı yerden devam eder.
-- **İlk üretim uzun sürüyor:** Model (yaklaşık 5 GB) ilk seferde indirilir. Siyah penceredeki ilerlemeyi izleyin. M1'de üretim de zaman alır.
+- **İlk üretim uzun sürüyor:** Model (yaklaşık 5 GB) ilk seferde indirilir. İlerlemeyi SesVer penceresindeki durum mesajından izleyin; Windows'ta kurulum penceresi bu sırada kapanmış olabilir, bu normaldir. M1'de üretim de zaman alır.
 - **Bellek hatası / sistem yavaşladı:** Uygulamayı durdurun, diğer ağır uygulamaları kapatın ve daha kısa metinle yeniden başlatın. 8 GB RAM'li cihazlarda kullanım önerilmez.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
-- **7860 portu kullanımda:** SesVer zaten açık. Daha önce açtığınız SesVer penceresini Ctrl+C ile kapatın, sonra tekrar başlatın.
+- **7860 portu kullanımda:** SesVer zaten açık. Daha önce açtığınız SesVer'i kapatın (**Windows**'ta SesVer penceresini kapatmanız yeterli; **Mac**'te Terminal penceresinde **Ctrl+C** basın), sonra tekrar başlatın.
 - **GitHub'da depo görünmüyor / ZIP inmiyor:** Depo herkese açıktır, giriş gerekmez. Adresin doğru yazıldığından (https://github.com/hamarat52/sesver) ve internet bağlantınızdan emin olun; birkaç dakika sonra tekrar deneyin.
 
 Çözemediyseniz [AI_KURULUM.md](AI_KURULUM.md) dosyasını yapay zeka asistanınıza verin ya da [issue açın](https://github.com/hamarat52/sesver/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın.
