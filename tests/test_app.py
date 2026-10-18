@@ -179,6 +179,30 @@ class AppTests(unittest.TestCase):
             result = app.auto_transcribe("/tmp/herhangi.wav")
         self.assertEqual(result, "Merhaba dünya.")
 
+    def test_brand_signature_visible_in_hero_and_footer(self):
+        import app
+        # İmza tek yerde tanımlı; üst bilgi (ilk ekran) ve alt bilgi oradan okur.
+        self.assertEqual(app.BRAND_NAME, "HamaratLabs")
+        self.assertIn("by <b", app.BRAND_SIGNATURE_HTML)
+        self.assertIn("HamaratLabs", app.BRAND_SIGNATURE_HTML)
+        self.assertIn(app.BRAND_SIGNATURE_HTML, app._HERO)
+        # İmza, kaydırmadan görünen üst gezinme çubuğunda olmalı.
+        nav = app._HERO.split('<nav class="sv-nav">', 1)[1].split("</nav>", 1)[0]
+        self.assertIn(app.BRAND_SIGNATURE_HTML, nav)
+        self.assertIn("HamaratLabs tarafından geliştirildi", app._FOOTER)
+        # .sv-brand büyük harfe çevirir; imza yazımı korunmalı (HAMARATLABS olmamalı).
+        sig_css = app._CSS.split(".sv-sig {", 1)[1].split("}", 1)[0]
+        self.assertIn("text-transform: none", sig_css)
+
+    def test_brand_spelling_is_consistent(self):
+        import re
+        import app
+        readme = (Path(app.__file__).parent / "README.md").read_text(encoding="utf-8")
+        self.assertIn("HamaratLabs tarafından geliştirilmiştir.", readme.splitlines()[:4])
+        for source in (app._HERO, app._FOOTER, readme):
+            for match in re.findall(r"hamarat\s*-?\s*labs", source, flags=re.IGNORECASE):
+                self.assertEqual(match, "HamaratLabs")
+
 
 if __name__ == "__main__":
     unittest.main()

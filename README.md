@@ -1,5 +1,7 @@
 # SesVer
 
+HamaratLabs tarafından geliştirilmiştir.
+
 **Ücretsiz, yerel ve açık kaynak Türkçe ses üretimi + ses klonlama.**
 
 Metninizi yazın, isterseniz bir referans ses yükleyin, **Üret** düğmesine basın. Sonucu dinleyin ve WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.

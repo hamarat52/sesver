@@ -610,11 +610,26 @@ def _head(icon, title, text, step=None):
     )
 
 
+# --- Şemsiye marka imzası (HamaratLabs) -------------------------------
+# İmza yalnız burada tanımlıdır; üst bilgi (_HERO) ve alt bilgi (_FOOTER) buradan okur.
+# Logo seçilince yalnız BRAND_SIGNATURE_HTML içindeki <b class="sv-sig-mark"> öğesini
+# satır içi SVG ile değiştirin, ör.:
+#   <svg class="sv-sig-mark" role="img" aria-label="HamaratLabs" viewBox="…">…</svg>
+# ("by" metni ve dış <span class="sv-sig"> kalabilir; .sv-sig-mark CSS'i yüksekliği
+# metin boyuna (1em) göre ayarlanacak şekilde güncellenmeli.)
+BRAND_NAME = "HamaratLabs"
+BRAND_SIGNATURE_HTML = (
+    f'<span class="sv-sig" title="{BRAND_NAME}">'
+    f'by <b class="sv-sig-mark">{BRAND_NAME}</b></span>'
+)
+BRAND_FOOTER_TEXT = f"{BRAND_NAME} tarafından geliştirildi"
+
 _HERO = f"""
 <div class="sv-hero">
   <div class="sv-aura" aria-hidden="true"><i></i><i></i><i></i></div>
   <nav class="sv-nav">
-    <div class="sv-brand"><span class="sv-logo">{_svg(_IC_WAVE)}</span>SesVer</div>
+    <div class="sv-brand"><span class="sv-logo">{_svg(_IC_WAVE)}</span>
+      <span class="sv-brand-text"><span>SesVer</span>{BRAND_SIGNATURE_HTML}</span></div>
     <div class="sv-nav-tags">
       <span class="sv-tag"><span class="sv-live"></span>Bilgisayarınızda çalışır</span>
       <span class="sv-tag sv-hide-sm">Açık kaynak · Ücretsiz</span>
@@ -648,7 +663,8 @@ _FOOTER = f"""
 <footer class="sv-foot">
   <span class="sv-brand sv-brand-sm"><span class="sv-logo">{_svg(_IC_WAVE)}</span>SesVer</span>
   <span>VoxCPM2 ile yerel ses üretimi</span><i></i>
-  <span>Paylaşırken “AI ile üretildi” yazın</span>
+  <span>Paylaşırken “AI ile üretildi” yazın</span><i></i>
+  <span class="sv-foot-sig">{BRAND_FOOTER_TEXT}</span>
 </footer>
 """
 
@@ -738,6 +754,13 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-logo { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
   background: var(--sv-paper); border: 1px solid var(--sv-line); box-shadow: var(--sv-shadow-sm); }
 .sv-logo .sv-ic { width: 17px; height: 17px; stroke-width: 2.2; }
+/* Ürün adı + altında küçük "by HamaratLabs" imzası (ürün markasını bastırmaz). */
+.sv-brand-text { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
+  line-height: 1.1; }
+.sv-sig { font-size: .68rem; font-weight: 500; letter-spacing: .01em; text-transform: none;
+  color: var(--sv-muted); white-space: nowrap; }
+.sv-sig-mark { font-weight: 650; color: var(--sv-ink-2); }
+.sv-foot-sig { color: var(--sv-ink-2); }
 .sv-nav-tags { display: flex; gap: 8px; }
 .sv-tag { display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
   font-size: .8rem; font-weight: 500; color: var(--sv-ink-2); background: rgba(255,255,255,.75);
