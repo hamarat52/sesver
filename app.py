@@ -1207,8 +1207,11 @@ def _library_tab(demo):
                     confirm_yes = gr.Button("Evet, sil", size="sm", scale=0,
                                             elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
                     confirm_no = gr.Button("Vazgeç", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                # Gradio 6 gr.Audio varsayılanı buttons=["download", "share"]; "share" sesi herkese açık
+                # Hugging Face Discussions'a yüklemeye çalışır (yerellik vaadiyle çelişir, Spaces dışında
+                # "Error" verir). Bu yüzden her gr.Audio'da yalnız "download" açık bırakılır.
                 sample = gr.Audio(label="Örnek dinleme (3 sn)", type="filepath", interactive=False, autoplay=True,
-                                  elem_classes=["sv-audio", "sv-sample"])
+                                  buttons=["download"], elem_classes=["sv-audio", "sv-sample"])
                 _html('<div class="sv-divider"></div>')
                 _head(None, "Metninizi yazın",
                       "Kayıtlı seste duygu seçmeyin: ses “Devam” kipinde en yüksek benzerlikle sürer.", step="2")
@@ -1230,7 +1233,7 @@ def _library_tab(demo):
                 status = gr.Markdown("Hazır. Bir ses seçip metninizi yazın ve Üret'e basın.",
                                      elem_classes=["sv-status"])
                 audio = gr.Audio(label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False,
-                                 elem_classes=["sv-audio"])
+                                 buttons=["download"], elem_classes=["sv-audio"])
                 download = gr.DownloadButton("⬇ WAV indir", variant="secondary",
                                              elem_classes=["sv-btn", "sv-btn-ghost"])
                 _html(_RESULT_NOTE)
@@ -1253,7 +1256,7 @@ def _library_tab(demo):
                                           elem_classes=["sv-btn", "sv-mini"])
                 fx_status = gr.Markdown("Efekt kapalı; ham ses olduğu gibi kullanılıyor.", elem_classes=["sv-status"])
                 fx_audio = gr.Audio(label="Efektli ses — AI ile üretildi", type="filepath", interactive=False,
-                                    elem_classes=["sv-audio"])
+                                    buttons=["download"], elem_classes=["sv-audio"])
                 fx_download = gr.DownloadButton("⬇ Efektli WAV indir", variant="secondary",
                                                 elem_classes=["sv-btn", "sv-btn-ghost"])
 
@@ -1393,7 +1396,8 @@ def _design_subtab(lib, tabs):
                             cand_label.append(gr.Markdown(f"Aday {i + 1} · seed {11 * (i + 1)}",
                                                           elem_classes=["sv-cand-label"]))
                             cand_audio.append(gr.Audio(label=f"Aday {i + 1}", show_label=False, type="filepath",
-                                                       interactive=False, elem_classes=["sv-audio", "sv-cand-audio"]))
+                                                       interactive=False, buttons=["download"],
+                                                       elem_classes=["sv-audio", "sv-cand-audio"]))
                             cand_pick.append(gr.Button("Bunu seç", size="sm", elem_classes=["sv-btn", "sv-mini"]))
                 with gr.Row(elem_classes=["sv-cand-actions"]):
                     stop = gr.Button("Durdur", size="sm", scale=0, elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
@@ -1481,7 +1485,7 @@ def _upload_subtab(lib, tabs):
                     u_end = gr.Slider(0, 20, value=20, step=0.1, label="Bitiş (sn)", min_width=200)
                 u_range_md = gr.Markdown("", elem_classes=["sv-fine-md"])
                 u_preview = gr.Audio(label="Hazırlanan kayıt (mono, 16-bit)", type="filepath", interactive=False,
-                                     elem_classes=["sv-audio"])
+                                     buttons=["download"], elem_classes=["sv-audio"])
                 _html('<div class="sv-divider"></div>')
                 _head(None, "Kaydın metni",
                       "Yerel Whisper ile çıkarılır; kayıtla birebir aynı olacak şekilde düzeltin. Boş bırakılamaz.",
@@ -1555,7 +1559,7 @@ def build_app():
                                   "verir (1–30 saniye kabul edilir).", step="1")
                             c_reference = gr.Audio(
                                 label="Referans ses (gerekli)", sources=["upload"], type="filepath",
-                                elem_classes=["sv-audio", "sv-upload"],
+                                buttons=["download"], elem_classes=["sv-audio", "sv-upload"],
                             )
                             _html('<div class="sv-divider"></div>')
                             _head(None, "Kayıtta ne söylendiğini yazın",
@@ -1601,7 +1605,7 @@ def build_app():
                             )
                             c_audio = gr.Audio(
                                 label="Üretilen ses — AI ile üretildi", type="filepath", interactive=False,
-                                elem_classes=["sv-audio"],
+                                buttons=["download"], elem_classes=["sv-audio"],
                             )
                             c_download = gr.DownloadButton(
                                 "⬇ WAV indir", variant="secondary", elem_classes=["sv-btn", "sv-btn-ghost"],

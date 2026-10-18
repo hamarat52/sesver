@@ -90,6 +90,11 @@ class AppTests(unittest.TestCase):
         self.assertIn("Metin", labels)
         self.assertIn("Referans ses (gerekli)", labels)
         self.assertIn("⬇ WAV indir", labels)
+        # Gradio'nun "share" düğmesi sesi herkese açık HF Discussions'a yükler: hiçbir gr.Audio'da olmamalı.
+        audios = [c["props"] for c in demo.config["components"] if c.get("type") == "audio"]
+        self.assertGreaterEqual(len(audios), 7)
+        for props in audios:
+            self.assertNotIn("share", props.get("buttons") or [], props.get("label"))
 
     def test_instruction_is_prepended_to_text(self):
         import app
