@@ -17,9 +17,9 @@ yapılmalı. Aşağıdaki adımları izleyin.
 
 - Dosyaları `%LOCALAPPDATA%\SesVer` altına kopyalar (yönetici hakkı istemez).
 - Başlat Menüsü ve (isteğe bağlı) Masaüstü kısayolu oluşturur.
-- Kurulum bitince "SesVer'u Başlat" seçeneğiyle `baslat.bat`'ı çalıştırır —
+- Kurulum bitince "SesVer'u Başlat" seçeneğiyle `WINDOWS_BASLAT.bat`'ı çalıştırır —
   asıl Python ortamı/bağımlılık kurulumu (birkaç dakika) o noktada, zaten
-  test edilmiş `baslat.bat` mantığıyla yapılır.
+  test edilmiş `WINDOWS_BASLAT.bat` mantığıyla yapılır.
 - Python 3.10–3.12 bulunamazsa kurulum başında uyarır ve python.org'u açmayı önerir.
 - Kaldırma (Denetim Masası → Programlar) `.venv`/`outputs` klasörlerini de temizler.
 
@@ -29,7 +29,7 @@ Bunlar Windows olmadan doğrulanamadı:
 
 - [ ] Sihirbaz gerçekten açılıyor mu, Türkçe mi görünüyor
 - [ ] Python bulunamama uyarısı doğru tetikleniyor mu (Python'u geçici kaldırıp deneyin)
-- [ ] Kurulum sonrası kısayol gerçekten `baslat.bat`'ı doğru çalışma dizininden açıyor mu
+- [ ] Kurulum sonrası kısayol gerçekten `WINDOWS_BASLAT.bat`'ı doğru çalışma dizininden açıyor mu
 - [ ] Kaldırma işlemi `.venv`'i gerçekten temizliyor mu
 
 Bir sorun çıkarsa Inno Setup'ın kendi hata mesajını/ekran görüntüsünü paylaşın.

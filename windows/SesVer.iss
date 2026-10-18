@@ -5,7 +5,7 @@
 ;
 ; Not: Bu sihirbaz sadece dosyaları kopyalar + kısayol oluşturur. Ağır Python
 ; ortamı/bağımlılık kurulumu (birkaç dakika sürer) ilk "SesVer'u Başlat"
-; tıklamasında baslat.bat tarafından yapılır — aynı, zaten test edilmiş mantık.
+; tıklamasında WINDOWS_BASLAT.bat tarafından yapılır — aynı, zaten test edilmiş mantık.
 
 #define MyAppName "SesVer"
 #define MyAppVersion "1.0"
@@ -29,7 +29,7 @@ OutputBaseFilename=SesVer-Kurulum
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\baslat.bat
+UninstallDisplayIcon={app}\WINDOWS_BASLAT.bat
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
@@ -41,18 +41,18 @@ Name: "desktopicon"; Description: "Masaüstü simgesi oluştur"; GroupDescriptio
 [Files]
 Source: "..\app.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\baslat.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\WINDOWS_BASLAT.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion isreadme
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\tests\*"; DestDir: "{app}\tests"; Flags: ignoreversion recursesubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\baslat.bat"; WorkingDir: "{app}"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\WINDOWS_BASLAT.bat"; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\baslat.bat"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\WINDOWS_BASLAT.bat"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\baslat.bat"; Description: "{cm:LaunchProgram,SesVer (ilk kurulum birkaç dakika sürebilir)}"; Flags: postinstall skipifsilent shellexec nowait; WorkingDir: "{app}"
+Filename: "{app}\WINDOWS_BASLAT.bat"; Description: "{cm:LaunchProgram,SesVer (ilk kurulum birkaç dakika sürebilir)}"; Flags: postinstall skipifsilent shellexec nowait; WorkingDir: "{app}"
 
 [UninstallDelete]
 ; Kaldırırken Python ortamını (.venv) da temizle — kurulumdan SONRA oluştuğu için

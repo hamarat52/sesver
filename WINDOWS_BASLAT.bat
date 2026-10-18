@@ -67,6 +67,6 @@ exit /b 0
 echo.
 echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
 echo Yukaridaki hata mesajini okuyun. Internet baglantinizi kontrol edip
-echo baslat.bat dosyasini tekrar calistirin; kurulum kaldigi yerden devam eder.
+echo WINDOWS_BASLAT.bat dosyasini tekrar calistirin; kurulum kaldigi yerden devam eder.
 pause
 exit /b 1

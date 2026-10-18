@@ -1621,7 +1621,8 @@ def _setup_logging():
 if __name__ == "__main__":
     _setup_logging()
     build_app().launch(
-        server_name="127.0.0.1", server_port=7860, share=False, inbrowser=False,
+        server_name="127.0.0.1", server_port=int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
+        share=False, inbrowser=False,
         css=_CSS, theme=_THEME, js=_JS, footer_links=[],
         allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
     )

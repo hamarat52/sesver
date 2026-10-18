@@ -21,8 +21,8 @@ Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi 
 
 ### Kolay yol: tek dosyaya çift tıklayın
 
-- **macOS:** `baslat.command` dosyasına çift tıklayın (ilk seferinde "Bilinmeyen geliştirici" uyarısı çıkarsa sağ tık → Aç).
-- **Windows:** `baslat.bat` dosyasına çift tıklayın.
+- **macOS:** `MACOS_BASLAT.command` dosyasına çift tıklayın. İlk seferinde "Bilinmeyen geliştirici / Apple doğrulayamadı" uyarısı çıkarsa sağ tık → Aç; macOS 15 (Sequoia) ve sonrasında bu seçenek yoksa **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç**.
+- **Windows:** `WINDOWS_BASLAT.bat` dosyasına çift tıklayın.
 
 İlk çalıştırmada ortam otomatik kurulur (birkaç dakika sürebilir, bağımlılıklar indirilir); sonraki her çalıştırmada doğrudan açılır. Terminal/komut penceresi açık kalmalı; kapatmak için pencerede **Ctrl+C**.
 

@@ -1,4 +1,4 @@
-# voxcpm==2.0.3'ü --no-deps ile kurun (bkz. baslat.command / baslat.bat);
+# voxcpm==2.0.3'ü --no-deps ile kurun (bkz. MACOS_BASLAT.command / WINDOWS_BASLAT.bat);
 # pip normal şekilde bu dosyayı kurarsa funasr/matplotlib/modelscope/datasets/
 # spaces/argbind gibi SesVer'in hiç kullanmadığı ~1GB'lık ağır paketleri de
 # çeker (kodda hiçbir yerde import edilmiyorlar — yalnız voxcpm'in eğitim/
