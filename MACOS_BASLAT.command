@@ -184,4 +184,4 @@ fi
 
 echo "SesVer başlatılıyor... Tarayıcınızda http://127.0.0.1:${GRADIO_SERVER_PORT:-7860} adresini açın."
 echo "Durdurmak için bu pencerede Ctrl+C kullanın."
-"$RUN_PY" app.py
+"$RUN_PY" desktop.py

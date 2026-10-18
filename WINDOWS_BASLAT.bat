@@ -113,7 +113,7 @@ echo Kurulum tamamlandi.
 :baslat
 echo SesVer baslatiliyor... Tarayicinizda http://127.0.0.1:7860 acilacak.
 echo Durdurmak icin bu pencerede Ctrl+C kullanin.
-"%PYEXE%" app.py
+"%PYEXE%" desktop.py
 set "CIKIS=%errorlevel%"
 if not "%CIKIS%"=="0" echo [BILGI] SesVer durdu, cikis kodu %CIKIS%. Ctrl+C ile kapatmadiysaniz yukaridaki hata mesajini okuyun.
 pause

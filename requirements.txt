@@ -26,3 +26,12 @@ faster-whisper
 numpy
 scipy
 av
+# Masaüstü penceresi (desktop.py): arayüz tarayıcı sekmesi yerine yerel pencerede açılır.
+# Windows'ta ayrıca Microsoft Edge WebView2 Runtime gerekir (sistem bileşeni, pip ile
+# kurulmaz; Windows 10/11'de genelde hazır). Yoksa desktop.py tarayıcıya geri döner.
+pywebview
+pyobjc-core; sys_platform == "darwin"
+pyobjc-framework-Cocoa; sys_platform == "darwin"
+pyobjc-framework-WebKit; sys_platform == "darwin"
+pyobjc-framework-Quartz; sys_platform == "darwin"
+pyobjc-framework-security; sys_platform == "darwin"
