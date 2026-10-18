@@ -78,6 +78,18 @@ class ServiceError(EngineError):
     """Sağlayıcı tarafında beklenmeyen hata (5xx) ya da ağ hatası."""
 
 
+class EngineNotInstalledError(EngineError):
+    """Yerel motorun paketi ya da ağırlıkları kurulu değil (ör. EMA henüz indirilmedi)."""
+
+
+class InstallError(EngineError):
+    """Motor kurulumu başarısız oldu; yarım dosyalar temizlendi."""
+
+
+class InstallCancelledError(EngineError):
+    """Motor kurulumu kullanıcı tarafından iptal edildi; yarım dosyalar temizlendi."""
+
+
 # --- Veri tipleri -----------------------------------------------------------
 @dataclass(frozen=True)
 class Capabilities:
@@ -99,6 +111,11 @@ class Capabilities:
     requires_api_key: bool = False
     metered: bool = False             # kota/kredi harcıyor mu
     notes: tuple = ()
+    # EMA ile eklenen bayraklar (varsayılan False: eski motorların davranışı değişmez)
+    speed: bool = False               # konuşma hızı parametresi
+    word_timestamps: bool = False     # kelime zamanları (SRT doğrudan bunlardan üretilir)
+    streaming: bool = False           # parça parça (akış) üretim
+    languages: tuple = ()             # boşsa dil kısıtı bildirilmemiş demektir
 
     def as_dict(self):
         return asdict(self)
