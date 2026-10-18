@@ -1,0 +1,24 @@
+#!/bin/bash
+# SesVer.app başlatıcısı (Platypus tarzı sarmalayıcı; Python dondurulmaz).
+# Finder/Dock/"open" ile açıldığında LaunchServices bu dosyayı Terminal
+# OLMADAN çalıştırır. Kurulum/başlatma mantığı proje kökündeki
+# macos_ortak.sh'tadır (MACOS_BASLAT.command ile ortak).
+#
+# Yol: $0 = <proje kökü>/SesVer.app/Contents/MacOS/SesVer
+#      ../../.. = <proje kökü>
+cd "$(dirname "$0")/../../.." 2>/dev/null || exit 1
+if [ ! -f "macos_ortak.sh" ] || [ ! -f "desktop.py" ]; then
+  # Uygulama proje klasörünün dışına (ör. Uygulamalar'a) taşınmış olabilir.
+  osascript \
+    -e 'on run argv' \
+    -e 'display dialog (item 1 of argv) with title "SesVer" buttons {"Tamam"} default button 1 with icon stop' \
+    -e 'end run' \
+    "SesVer.app, SesVer proje klasörünün içinde durmalı (desktop.py ve macos_ortak.sh ile aynı klasörde). Şu an bulunduğu yer: $PWD
+
+Uygulamayı taşımak yerine Dock'a sabitleyin ya da Finder'da sağ tık > Takma Ad Yap ile kısayol oluşturun." \
+    >/dev/null 2>&1
+  exit 1
+fi
+SESVER_MOD=app
+. ./macos_ortak.sh
+sesver_baslat

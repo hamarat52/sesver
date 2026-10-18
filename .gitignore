@@ -53,3 +53,4 @@ sesver_log.txt
 sesver_durum.tmp*
 # Yerel ajan görev notları (iç talimat ve yerel yollar içerir).
 .webdev-task-*.md
+sesver_baslatici_log.txt
