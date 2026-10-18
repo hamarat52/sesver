@@ -987,6 +987,22 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   border-radius: 50%; background: var(--sv-coral); box-shadow: 0 0 0 4px rgba(242,92,59,.16); }
 .sv-status p { margin: 0 !important; font-size: .9rem !important; line-height: 1.5 !important; color: var(--sv-ink-2) !important; }
 .sv-status strong { color: var(--sv-ink); }
+/* Adaylar kartı: Gradio ilerleme göstergesi kartın içinde, üstte kendi satırında (taşma/kesme yok). */
+.block.sv-cand-status > .wrap { position: relative !important; transform: none !important; inset: auto !important;
+  width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 0 6px !important;
+  margin: 0 !important; background: transparent !important; border-radius: 0 !important;
+  flex-direction: row !important; justify-content: flex-start !important; align-items: center !important; gap: 8px; }
+.block.sv-cand-status > .wrap.hide { display: none !important; }
+/* elem_classes hem bloğa hem iç .prose'a gider; nokta yalnız içteki kutuda kalsın (ilerleme satırına binmesin). */
+.block.sv-cand-status::before { display: none !important; }
+.block.sv-cand-status > .wrap .progress-text, .block.sv-cand-status > .wrap .meta-text-center {
+  position: static !important; transform: none !important; padding: 0 !important; text-align: left !important;
+  justify-content: flex-start !important; font-size: .78rem !important; color: var(--sv-ink-2) !important; }
+.block.sv-cand-status > .wrap svg { width: 16px !important; height: 16px !important; margin: 0 !important; }
+.block.sv-cand-status > .wrap > div:has(> svg) { margin: 0 !important; line-height: 0; order: -1; }
+/* Üretim sürerken (generating) yalnızca nabız çerçevesi: kartın içine tam oturur, kenarı kesmez. */
+.block.sv-cand-status > .wrap.generating { position: absolute !important; inset: 0 !important; padding: 0 !important;
+  border-radius: inherit !important; }
 
 .sv-card .block.sv-audio, .sv-panel .block.sv-audio {
   min-height: 132px; padding: 10px !important; border-radius: 16px !important; overflow: hidden;
@@ -1369,7 +1385,7 @@ def _design_subtab(lib, tabs):
             with gr.Column(elem_classes=["sv-card"]):
                 _head(_IC_PLAY, "Adaylar", "Aynı tarif ve cümle, farklı seed. Dinleyin, birini seçin.")
                 d_status = gr.Markdown("Henüz aday yok. Seçimleri yapıp “Sesleri Dene”ye basın.",
-                                       elem_classes=["sv-status"])
+                                       elem_classes=["sv-status", "sv-cand-status"])
                 cand_audio, cand_label, cand_pick = [], [], []
                 with gr.Row(elem_classes=["sv-cgrid"]):
                     for i in range(4):
