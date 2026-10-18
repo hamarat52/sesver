@@ -52,6 +52,8 @@ Notlar:
 
 Yapay zeka asistanınla kurmak ister misin? [AI_KURULUM.md](AI_KURULUM.md) dosyasını aç, **tamamını kopyala** ve kendi yapay zeka sohbetine (ChatGPT, Claude, Gemini, Copilot…) yapıştır. Sonra Windows mu Mac mi kullandığını söyle; asistan seni adım adım yönlendirir ve hata mesajlarını çözmene yardım eder.
 
+**Repoyu indirmeden kopyalamak için:** Dosyayı GitHub'da aç: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md — dosyanın sağ üst köşesindeki **kopyala simgesine** (iki üst üste kare) bas; tüm metin kopyalanır, kendi yapay zekana yapıştır. Depo özel olduğu için bu sayfayı açarken de GitHub hesabınla giriş yapmış olman gerekir.
+
 ## Kullanım
 
 1. Örnek metni değiştirin. İlk denemede kısa bir cümle kullanın; istek başına en fazla **500 karakter** kabul edilir.

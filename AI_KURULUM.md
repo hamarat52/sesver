@@ -1,6 +1,8 @@
 # SesVer — Yapay zeka asistanıyla kurulum
 
 > **Kullanıcı için:** Bu dosyanın TAMAMINI kopyalayıp kendi yapay zeka sohbet uygulamana (ChatGPT, Claude, Gemini, Copilot...) yapıştır. Ardından hangi işletim sistemini kullandığını (Windows/Mac) söyle, geri kalanını o yönetsin.
+>
+> Bu dosyayı GitHub'da açıp (bağlantı: https://github.com/hamarat52/sesver/blob/main/AI_KURULUM.md) sağ üstteki kopyala simgesinden tüm metni kopyalayabilirsin, repoyu indirmen gerekmez. (Depo özel olduğu için GitHub hesabınla giriş yapmış olman gerekir.)
 
 ---
 
