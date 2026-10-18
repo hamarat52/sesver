@@ -746,6 +746,18 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-aura i:nth-child(3) { --r: 2.2px; opacity: .10;
   -webkit-mask-image: radial-gradient(ellipse 20% 12% at 50% 60%, #000 0%, transparent 100%);
           mask-image: radial-gradient(ellipse 20% 12% at 50% 60%, #000 0%, transparent 100%); }
+/* Açılış: nokta katmanları merkezden dışa doğru sırayla büyüyüp belirir (~1,9 sn),
+   sonra durur. Yalnız transform + opacity (GPU dostu); döngü yok. Bitiş anahtar
+   karesi yazılmadı ve fill-mode "backwards": animasyon bitince katman doğrudan
+   yukarıdaki sabit stile döner (son görünüm birebir aynı, getAnimations() boşalır).
+   Statik HTML bir kez bağlandığı için yalnız ilk açılışta oynar. */
+@keyframes sv-aura-in { from { opacity: 0; transform: scale(var(--s0)); } }
+.sv-aura i { transform-origin: 50% 58%;
+  animation: sv-aura-in var(--d) var(--sv-ease) var(--dl) 1 backwards; }
+.sv-aura i:nth-child(3) { --s0: .45; --d: 1.3s; --dl: 0s; }
+.sv-aura i:nth-child(2) { --s0: .6;  --d: 1.5s; --dl: .12s; }
+.sv-aura i:nth-child(1) { --s0: .75; --d: 1.7s; --dl: .24s; }
+@media (prefers-reduced-motion: reduce) { .sv-aura i { animation: none !important; } }
 
 .sv-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px;
   padding: 6px 0 0; margin-bottom: 46px; }

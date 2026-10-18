@@ -203,6 +203,23 @@ class AppTests(unittest.TestCase):
             for match in re.findall(r"hamarat\s*-?\s*labs", source, flags=re.IGNORECASE):
                 self.assertEqual(match, "HamaratLabs")
 
+    def test_hero_intro_animation_runs_once_and_respects_reduced_motion(self):
+        import re
+        import app
+        css = app._CSS
+        self.assertIn("@keyframes sv-aura-in", css)
+        rule = re.search(r"\.sv-aura i \{[^}]*animation:\s*sv-aura-in[^;}]*", css)
+        self.assertIsNotNone(rule)
+        assert rule is not None
+        # Tek seferlik: sonsuz döngü yok; bitince sabit stile döner (forwards/both yok).
+        self.assertNotIn("infinite", rule.group(0))
+        self.assertRegex(rule.group(0), r"\b1 backwards\b")
+        # Yalnız GPU dostu özellikler canlandırılır.
+        frames = css.split("@keyframes sv-aura-in", 1)[1].split("}", 2)[:2]
+        self.assertNotIn("filter", "".join(frames))
+        # Hareket azaltma tercihi olanlarda animasyon kapalı.
+        self.assertRegex(css, r"@media \(prefers-reduced-motion: reduce\) \{\s*\.sv-aura i \{ animation: none")
+
 
 if __name__ == "__main__":
     unittest.main()
