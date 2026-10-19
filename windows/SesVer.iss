@@ -105,6 +105,8 @@ Source: "{#SrcRoot}\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SrcRoot}\AI_KURULUM.md"; DestDir: "{app}"; Flags: ignoreversion
 ; Kısayol ve uygulama ikonu.
 Source: "SesVer.ico"; DestDir: "{app}"; Flags: ignoreversion
+; Tarayıcı sekmesi simgesi (app.FAVICON_PATH).
+Source: "{#SrcRoot}\assets\brand\favicon.ico"; DestDir: "{app}\assets\brand"; Flags: ignoreversion
 ; Hazır (sentetik) sesler. voices\seslerim\ kişisel klonlardır; asla pakete girmez.
 Source: "{#SrcRoot}\voices\hazir\*"; DestDir: "{app}\voices\hazir"; Flags: ignoreversion recursesubdirs createallsubdirs
 

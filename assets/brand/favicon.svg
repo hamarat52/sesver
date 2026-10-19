@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="SesVer">
+<title>SesVer</title>
+<rect width="64" height="64" rx="20.48" fill="#FFFFFF"/>
+<g stroke-width="5.76" stroke-linecap="round" fill="none">
+<line x1="10.62" y1="29.33" x2="10.62" y2="34.67" stroke="#5B4BE0"/>
+<line x1="21.31" y1="25.33" x2="21.31" y2="38.67" stroke="#E25E95"/>
+<line x1="32" y1="21.33" x2="32" y2="42.67" stroke="#FF6A2C"/>
+<line x1="42.69" y1="26.67" x2="42.69" y2="37.33" stroke="#FF4329"/>
+<line x1="53.38" y1="30" x2="53.38" y2="34" stroke="#C98A1E"/>
+</g>
+</svg>

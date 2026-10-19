@@ -24,6 +24,7 @@ import voice_designer as vdes
 import voice_library as vlib
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
+FAVICON_PATH = Path(__file__).resolve().parent / "assets" / "brand" / "favicon.ico"
 MODEL_ID = "openbmb/VoxCPM2"
 _model = None
 _model_lock = Lock()
@@ -609,7 +610,19 @@ def _svg(paths, cls="sv-ic"):
     )
 
 
-_IC_WAVE = '<path d="M3 10v4M7 7v10M11 4v16M15 8v8M19 10.5v3"/>'
+# SesVer logosu: 5 renkli ses çubuğu (lansman filmi kapanışı; kaynak assets/brand/sesver-icon.svg).
+# Beyaz yuvarlatılmış kareyi .sv-logo kutusu çizer (köşe ≈ kenarın %32'si); burada yalnız çubuklar.
+# Kalınlık 34/26 px'te okunurluk için %5 yerine %7 (optik düzeltme, çubuk sayısı hep 5).
+_SV_LOGO = (
+    '<svg class="sv-logo-ic" viewBox="0 0 100 100" fill="none" stroke-width="7" '
+    'stroke-linecap="round" aria-hidden="true">'
+    '<path d="M16.6 45.83v8.34" stroke="#5B4BE0"/>'
+    '<path d="M33.3 39.58v20.84" stroke="#E25E95"/>'
+    '<path d="M50 33.33v33.34" stroke="#FF6A2C"/>'
+    '<path d="M66.7 41.67v16.66" stroke="#FF4329"/>'
+    '<path d="M83.4 46.88v6.24" stroke="#C98A1E"/>'
+    '</svg>'
+)
 _IC_LOCK = '<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/>'
 _IC_TEXT = '<path d="M4 6.5V5h16v1.5M12 5v14M9 19h6"/>'
 _IC_MIC = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'
@@ -654,7 +667,7 @@ _HERO = f"""
 <div class="sv-hero">
   <div class="sv-aura" aria-hidden="true"><i></i><i></i><i></i></div>
   <nav class="sv-nav">
-    <div class="sv-brand"><span class="sv-logo">{_svg(_IC_WAVE)}</span>
+    <div class="sv-brand"><span class="sv-logo">{_SV_LOGO}</span>
       <span class="sv-brand-text"><span>SesVer</span>{BRAND_SIGNATURE_HTML}</span></div>
     <div class="sv-nav-tags">
       <span class="sv-tag"><span class="sv-live"></span>Bilgisayarınızda çalışır</span>
@@ -687,7 +700,7 @@ _INFO = f"""
 
 _FOOTER = f"""
 <footer class="sv-foot">
-  <span class="sv-brand sv-brand-sm"><span class="sv-logo">{_svg(_IC_WAVE)}</span>SesVer</span>
+  <span class="sv-brand sv-brand-sm"><span class="sv-logo">{_SV_LOGO}</span>SesVer</span>
   <span>VoxCPM2 ile yerel ses üretimi</span><i></i>
   <span>Paylaşırken “AI ile üretildi” yazın</span><i></i>
   <span class="sv-foot-sig">{BRAND_FOOTER_TEXT}</span>
@@ -789,9 +802,9 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   padding: 6px 0 0; margin-bottom: 46px; }
 .sv-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700;
   font-size: 1.05rem; letter-spacing: 0.02em; color: var(--sv-ink); text-transform: uppercase; }
-.sv-logo { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
+.sv-logo { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 32%;
   background: var(--sv-paper); border: 1px solid var(--sv-line); box-shadow: var(--sv-shadow-sm); }
-.sv-logo .sv-ic { width: 17px; height: 17px; stroke-width: 2.2; }
+.sv-logo .sv-logo-ic { width: 100%; height: 100%; }
 /* Ürün adı + altında küçük "by HamaratLabs" imzası (ürün markasını bastırmaz). */
 .sv-brand-text { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
   line-height: 1.1; }
@@ -1037,8 +1050,7 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   margin-top: 34px; padding-top: 22px; border-top: 1px solid var(--sv-line); font-size: .8rem; color: var(--sv-muted); }
 .sv-foot i { width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .6; }
 .sv-brand-sm { font-size: .8rem; gap: 8px; }
-.sv-brand-sm .sv-logo { width: 26px; height: 26px; border-radius: 8px; }
-.sv-brand-sm .sv-logo .sv-ic { width: 14px; height: 14px; }
+.sv-brand-sm .sv-logo { width: 26px; height: 26px; border-radius: 32%; }
 
 /* İlerleme göstergesi rengi */
 .gradio-container .progress-bar { background: var(--sv-grad) !important; }
@@ -1644,5 +1656,6 @@ if __name__ == "__main__":
         server_name="127.0.0.1", server_port=int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
         share=False, inbrowser=False,
         css=_CSS, theme=_THEME, js=_JS, footer_links=[],
+        favicon_path=str(FAVICON_PATH) if FAVICON_PATH.is_file() else None,
         allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
     )

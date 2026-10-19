@@ -202,6 +202,7 @@ class Server:
                 server_name=HOST, server_port=self.port,
                 share=False, inbrowser=False,
                 css=app._CSS, theme=app._THEME, js=app._JS, footer_links=[],
+                favicon_path=str(app.FAVICON_PATH) if app.FAVICON_PATH.is_file() else None,
                 allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
                 prevent_thread_lock=True,
             )

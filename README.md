@@ -2,6 +2,13 @@
 
 HamaratLabs tarafından geliştirilmiştir.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/sesver-lockup-horizontal-dark.svg">
+    <img src="assets/brand/sesver-lockup-horizontal.svg" alt="SesVer" width="360">
+  </picture>
+</p>
+
 **Yerel Türkçe ses üretimi + ses klonlama; kaynağı görünür, ticari olmayan kullanım için ücretsiz.** Metninizi yazın, **Üret**'e basın, sonucu dinleyip WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
 
 **İçindekiler:** [Windows Kurulum](#-windows-kurulum) · [Mac Kurulum](#-mac-kurulum) · [Yapay Zeka Destekli Kurulum](#-yapay-zeka-destekli-kurulum) · [Özellikler](#özellikler) · [Sorun giderme](#sorun-giderme) · [Lisans](#lisans-atıf-ve-sorumlu-kullanım) · [Teknik Detaylar](#teknik-detaylar-ileri-seviye)
