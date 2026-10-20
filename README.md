@@ -8,13 +8,23 @@ HamaratLabs tarafından geliştirilmiştir.
 
 ## 🪟 Windows Kurulum
 
-İlk çalıştırmada gerekli her şey (Python dahil) otomatik indirilir, ayrıca bir şey kurmanıza gerek yok. En az **20 GB boş alan** ve **internet** gerekir.
+Normal bir Windows programı gibi **İleri → İleri → Kur** ile kurulur; Başlat menüsüne ve masaüstüne **SesVer** simgesi eklenir. Yönetici izni gerekmez. En az **20 GB boş alan** ve **internet** gerekir.
 
-1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
-2. **Çıkarın:** ZIP dosyasına sağ tıklayın → **Tümünü Ayıkla**. ZIP'in içinden çalıştırmayın.
-3. **Başlatın:** Çıkardığınız klasördeki **`WINDOWS_BASLAT.bat`** dosyasına çift tıklayın.
-4. **Bekleyin:** Siyah pencere gerekenleri kendisi kurar (ilk sefer birkaç dakika), sonra SesVer penceresi açılır. Normalde kurulum penceresi SesVer açılınca kendiliğinden kapanır. Bir sorun olursa SesVer klasöründeki `sesver_log.txt` dosyasına bakın.
-5. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin.
+1. **İndirin:** [**SesVer-Kurulum-Windows.exe**](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-Kurulum-Windows.exe) (her zaman en son sürüm; tüm sürümler: [Releases](https://github.com/hamarat52/sesver/releases/latest)). GitHub hesabı gerekmez.
+2. **Çalıştırın:** İndirilen dosyaya çift tıklayın. **"Windows bilgisayarınızı korudu"** penceresi çıkarsa **Ek bilgi → Yine de çalıştır** deyin (kurulum programı kod imzasız olduğu için bu uyarı çıkar).
+3. **Kurun:** Lisansı kabul edin → **İleri → İleri → Kur**. Masaüstü simgesi istemiyorsanız ilgili kutunun işaretini kaldırın.
+4. **Bitirin:** Son sayfada **"İlk kurulumu şimdi başlat"** işaretli kalsın → **Bitir**. Siyah pencere Python'u ve paketleri indirir (ilk sefer uzun sürebilir), sonra SesVer penceresi açılır ve siyah pencere kendiliğinden kapanır.
+5. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin. Ayrıntı: `%LOCALAPPDATA%\Programs\SesVer\sesver_log.txt`.
+
+### Sonra nasıl açarım?
+
+- **Başlat** menüsüne **SesVer** yazıp Enter'a basın ya da masaüstündeki **SesVer** simgesine çift tıklayın. Kurulum tekrarlanmaz.
+- İlk kurulum yarıda kaldıysa aynı simge kaldığı yerden devam eder.
+- **Kaldırma:** Ayarlar → Uygulamalar → **SesVer** → Kaldır. Kendi sesleriniz (`voices\seslerim`) ve ürettiğiniz sesler (`outputs`) silinmez.
+
+### Alternatif (ileri kullanıcı): ZIP ile
+
+**Code → Download ZIP** → ZIP'e sağ tık → **Tümünü Ayıkla** → klasördeki **`WINDOWS_BASLAT.bat`**'a çift tıklayın. Bu yol **kısayol/simge oluşturmaz**; SesVer'i her seferinde bu klasördeki `WINDOWS_BASLAT.bat` ile açarsınız.
 
 ## 🍎 Mac Kurulum
 
@@ -44,7 +54,7 @@ Bu sayfayı görüyorsanız kurulum başarılı:
 ![SesVer çalışırken: Ses Kütüphanesi sekmesi açık ana ekran](docs/screenshots/kurulum-basarili.png)
 
 - İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir; ilk seferde uzun sürebilir, sonrakiler daha hızlıdır.
-- Sonraki kullanımlarda yalnız başlatıcıya çift tıklayın, pencere otomatik açılır; kurulum tekrarlanmaz.
+- Sonraki kullanımlarda **Windows**'ta Başlat menüsündeki ya da masaüstündeki **SesVer** simgesine, **Mac**'te başlatıcıya çift tıklayın; pencere otomatik açılır, kurulum tekrarlanmaz.
 - Kapatmak için: **Windows**'ta SesVer penceresini kapatmanız yeterli. **Mac**'te Terminal penceresinde **Ctrl+C** basın veya pencereyi kapatın.
 - Sorun mu çıktı? [Sorun giderme](#sorun-giderme) bölümüne bakın veya [yapay zeka destekli kurulumu](#-yapay-zeka-destekli-kurulum) kullanın.
 
@@ -65,11 +75,13 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 
 ## Sorun giderme
 
-- **Siyah pencere açılıp hemen kapanıyor / `was unexpected at this time` yazıyor:** Eski bir sürümü indirmişsiniz. Bu sayfadan ZIP'i yeniden indirin ve yeni klasördeki `WINDOWS_BASLAT.bat` dosyasını çalıştırın.
+- **"Windows bilgisayarınızı korudu" penceresinde "Yine de çalıştır" yok:** Önce **Ek bilgi** bağlantısına tıklayın. Hâlâ yoksa indirilen `.exe`'ye sağ tık → **Özellikler** → alttaki **Engellemeyi kaldır** kutusunu işaretleyin → **Tamam**, sonra tekrar çift tıklayın.
+- **Başlat menüsünde SesVer yok / simge kayboldu:** [Kurulum programını](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-Kurulum-Windows.exe) yeniden çalıştırın; kayıtlı sesleriniz ve çıktılarınız korunur.
+- **Siyah pencere açılıp hemen kapanıyor / `was unexpected at this time` yazıyor:** Eski bir sürümü kullanıyorsunuz. En son [kurulum programını](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-Kurulum-Windows.exe) indirip kurun (ZIP kullanıyorsanız ZIP'i yeniden indirip yeni klasördeki `WINDOWS_BASLAT.bat`'ı çalıştırın).
 - **`Python hazirlanamadi` / `Python bulunamadı`:** Normalde Python otomatik iner; yalnız indirme başarısız olursa (ör. güvenlik duvarı/şirket ağı) başlatıcı eski yönteme döner ve sizden Python 3.10-3.12 kurmanızı ister. Böyle bir mesaj görürseniz [python.org/downloads](https://www.python.org/downloads/) adresinden kurup (Windows'ta "Add python.exe to PATH" işaretli olsun) başlatıcıyı tekrar çalıştırın.
 - **PowerShell'de `is not recognized` / `CommandNotFoundException`:** Dosya adının başına `.\` ekleyin: `.\WINDOWS_BASLAT.bat`
 - **`py` komutu bulunamıyor:** Komutlarda `py -3.11` yerine `python` yazın. (Başlatıcı bunu kendisi dener.)
-- **Kurulum yarıda kesildi:** Başlatıcıyı tekrar çalıştırın; kaldığı yerden devam eder.
+- **Kurulum yarıda kesildi:** Windows'ta SesVer simgesine (ZIP'te ve Mac'te başlatıcıya) tekrar çift tıklayın; kaldığı yerden devam eder.
 - **İlk üretim uzun sürüyor:** Model (yaklaşık 5 GB) ilk seferde indirilir. İlerlemeyi SesVer penceresindeki durum mesajından izleyin; Windows'ta kurulum penceresi bu sırada kapanmış olabilir, bu normaldir. M1'de üretim de zaman alır.
 - **Bellek hatası / sistem yavaşladı:** Uygulamayı durdurun, diğer ağır uygulamaları kapatın ve daha kısa metinle yeniden başlatın. 8 GB RAM'li cihazlarda kullanım önerilmez.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
