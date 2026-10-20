@@ -1,5 +1,7 @@
 # SesVer Windows kurulum programını (Inno Setup) gerçek Windows'ta derler,
 # sessiz kurulum/kaldırma ile duman testi yapar ve .exe'yi artifact olarak yükler.
+# v* tag'i push edilince (ör. v1.2.3) test geçtikten sonra .exe'yi GitHub
+# Releases'a yayınlar (release job'u). Tag dışı koşularda yalnız dry-run logu basılır.
 name: Windows installer
 
 on:
@@ -9,9 +11,17 @@ on:
         description: "Kurulum programı sürümü (ör. 1.0.0)"
         required: false
         default: "1.0.0"
+      full_launch_test:
+        description: "Tam açılış testi: ilk kurulum (torch vb. indirme) + 127.0.0.1 HTTP 200 (uzun sürer)"
+        type: boolean
+        required: false
+        default: false
   push:
     branches:
       - "ci/windows-installer*"
+    # Tag push'larında paths filtresi uygulanmaz (GitHub davranışı): her v* tag'i derlenir.
+    tags:
+      - "v*"
     paths:
       - "windows/**"
       - ".github/workflows/windows-installer.yml"
@@ -27,11 +37,44 @@ jobs:
   build:
     runs-on: windows-latest
     timeout-minutes: 30
-    env:
-      APP_VERSION: ${{ github.event.inputs.version || '1.0.0' }}
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.surum.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Sürümü belirle (tag → girdi → 1.0.0)
+        id: surum
+        shell: pwsh
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          if ($env:REF_TYPE -eq 'tag') {
+            $kaynak = "tag $env:REF_NAME"
+            if ($env:REF_NAME -notmatch '^v(\d+\.\d+\.\d+)$') {
+              Write-Host "::error::Geçersiz tag biçimi: '$env:REF_NAME'. Beklenen: vMAJOR.MINOR.PATCH (ör. v1.2.3). 'v1.2', 'v1.2.3-beta' gibi biçimler kabul edilmez."
+              exit 1
+            }
+            $ver = $Matches[1]
+          } elseif ($env:INPUT_VERSION) {
+            $kaynak = 'workflow_dispatch girdisi'
+            $ver = $env:INPUT_VERSION.Trim()
+          } else {
+            $kaynak = 'varsayılan'
+            $ver = '1.0.0'
+          }
+          # Windows sürüm kaynağı (VERSIONINFO) her parça için 0..65535 kabul eder.
+          if ($ver -notmatch '^\d+\.\d+\.\d+$' -or ($ver.Split('.') | Where-Object { [int64]$_ -gt 65535 })) {
+            Write-Host "::error::Geçersiz sürüm: '$ver' ($kaynak). Beklenen: MAJOR.MINOR.PATCH, her parça 0-65535 (ör. 1.2.3)."
+            exit 1
+          }
+          Write-Host "Sürüm: $ver (kaynak: $kaynak)"
+          "APP_VERSION=$ver" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "version=$ver" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Inno Setup kur (chocolatey)
         shell: pwsh
@@ -55,7 +98,7 @@ jobs:
           Get-FileHash -Algorithm SHA256 $exe | Format-List
           "INSTALLER=$($f.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Duman testi — sessiz kurulum, kısayollar, kaldırma
+      - name: Duman testi — sessiz kurulum, kısayollar, kısayoldan açılış, kaldırma
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -76,17 +119,83 @@ jobs:
           if ($kaynakPy -ne $kurulanPy) { throw ".py sayısı tutmuyor" }
           if (-not (Test-Path (Join-Path $app 'voices\seslerim'))) { throw 'voices\seslerim oluşturulmadı' }
 
+          # Kaldır/Ekle (Ayarlar → Uygulamalar) kaydı: AppId {12D750B7-...} → ..._is1 anahtarı.
+          $unKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{12D750B7-D7C7-400A-A81A-2A083B04A266}_is1'
+          if (-not (Test-Path $unKey)) { throw "Kaldır/Ekle kaydı yok: $unKey" }
+          $un = Get-ItemProperty -Path $unKey
+          Write-Host "Kaldır/Ekle: DisplayName=$($un.DisplayName) DisplayVersion=$($un.DisplayVersion) Publisher=$($un.Publisher) InstallLocation=$($un.InstallLocation) DisplayIcon=$($un.DisplayIcon)"
+          if ($un.DisplayName -ne 'SesVer') { throw "Kaldır/Ekle DisplayName 'SesVer' olmalı: $($un.DisplayName)" }
+          if ($un.DisplayVersion -ne $env:APP_VERSION) { throw "Kaldır/Ekle DisplayVersion $env:APP_VERSION olmalı: $($un.DisplayVersion)" }
+          if ($un.InstallLocation.TrimEnd('\') -ne $app) { throw "Kaldır/Ekle InstallLocation $app olmalı: $($un.InstallLocation)" }
+          if (-not $un.UninstallString) { throw 'Kaldır/Ekle UninstallString boş' }
+
           # Ortam henüz kurulmadı (python-embed yok) → kısayollar WINDOWS_BASLAT.bat'ı göstermeli.
           $sh = New-Object -ComObject WScript.Shell
           $baslat = Join-Path ([Environment]::GetFolderPath('Programs')) 'SesVer.lnk'
           $masa = Join-Path ([Environment]::GetFolderPath('Desktop')) 'SesVer.lnk'
+          $baslatBeklenen = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\SesVer.lnk'
+          if ($baslat -ne $baslatBeklenen) { throw "Başlat Menüsü yolu beklenenden farklı: $baslat (beklenen $baslatBeklenen)" }
           foreach ($l in @($baslat, $masa)) {
             if (-not (Test-Path $l)) { throw "Kısayol yok: $l" }
             $t = $sh.CreateShortcut($l)
             Write-Host "$l -> $($t.TargetPath) $($t.Arguments) [$($t.WorkingDirectory)] ikon=$($t.IconLocation)"
             if ($t.IconLocation -notlike '*\SesVer.ico*') { throw "Kısayol ikonu SesVer.ico olmalı: $($t.IconLocation)" }
+            if ($t.IconLocation -ne "$app\SesVer.ico,0") { throw "Kısayol ikonu kurulum klasöründeki SesVer.ico olmalı: $($t.IconLocation)" }
             if ($t.TargetPath -notlike '*\WINDOWS_BASLAT.bat') { throw "İlk kurulumda kısayol .bat'ı göstermeli: $($t.TargetPath)" }
+            if ($t.TargetPath -ne "$app\WINDOWS_BASLAT.bat") { throw "Kısayol hedefi kurulum klasöründe olmalı: $($t.TargetPath)" }
+            if ($t.WorkingDirectory -ne $app) { throw "Kısayol çalışma klasörü $app olmalı: $($t.WorkingDirectory)" }
           }
+          if (-not (Test-Path (Join-Path $app 'SesVer.ico'))) { throw 'Kısayolun gösterdiği SesVer.ico dosyası yok' }
+
+          # --- Kısayoldan açılış: Başlat Menüsü kısayolunun hedefi + argümanları gerçekten çalıştırılır.
+          # Ölçüt (CI süresine sığan, dürüst): başlatıcı açılır, taşınabilir Python'u indirip
+          # SHA256 doğrular ve çıkarır, Python çalışır ve pip ile ilk kurulum adımı başlar.
+          # torch vb. paket kurulumu ve pencere açılışı burada beklenmez (bkz. full-launch job'u).
+          Write-Host '::group::Kısayoldan açılış (Başlat Menüsü kısayolu)'
+          $t = $sh.CreateShortcut($baslat)
+          $acOut = Join-Path $env:RUNNER_TEMP 'sesver-kisayol-acilis.out.log'
+          $acErr = Join-Path $env:RUNNER_TEMP 'sesver-kisayol-acilis.err.log'
+          $sp = @{ FilePath = $t.TargetPath; WorkingDirectory = $t.WorkingDirectory; PassThru = $true
+                   RedirectStandardOutput = $acOut; RedirectStandardError = $acErr }
+          if ($t.Arguments) { $sp.ArgumentList = $t.Arguments }
+          Write-Host "Çalıştırılıyor: $($t.TargetPath) $($t.Arguments) (çalışma klasörü: $($t.WorkingDirectory))"
+          $bp = Start-Process @sp
+          $sinir = (Get-Date).AddMinutes(12)
+          $basladi = $false
+          while ((Get-Date) -lt $sinir) {
+            Start-Sleep -Seconds 5
+            $c = Get-Content $acOut -Raw -ErrorAction SilentlyContinue
+            if ($c -match 'Ilk kurulum yapiliyor') { $basladi = $true; break }
+            if ($bp.HasExited) { break }
+          }
+          $bitti = $bp.HasExited
+          if (-not $bitti) { & taskkill.exe /PID $bp.Id /T /F | Out-Host }
+          Start-Sleep -Seconds 3
+          $c = Get-Content $acOut -Raw -ErrorAction SilentlyContinue
+          Write-Host "----- başlatıcı konsol çıktısı (stdout) -----"; Write-Host $c
+          Write-Host "----- başlatıcı stderr (son 15 satır) -----"; Get-Content $acErr -Tail 15 -ErrorAction SilentlyContinue | Out-Host
+          if ($bitti) { throw "Başlatıcı ilk kurulum adımına gelmeden çıktı (çıkış kodu $($bp.ExitCode))" }
+          if (-not $basladi) { throw 'Başlatıcı 12 dk içinde ilk kurulum (pip) adımına gelmedi' }
+          foreach ($m in @('[SesVer baslatici calisiyor]','Indiriliyor: cpython-3.11.','Python hazir.','Ilk kurulum yapiliyor')) {
+            if (-not $c.Contains($m)) { throw "Başlatıcı çıktısında beklenen satır yok: $m" }
+          }
+          $embedPy = Join-Path $app 'python-embed\python.exe'
+          if (-not (Test-Path $embedPy)) { throw "python-embed\python.exe oluşmadı" }
+          $pyv = (& $embedPy --version) -join ' '
+          Write-Host "Kurulum klasöründeki python-embed: $pyv"
+          if ($pyv -notmatch '^Python 3\.11\.') { throw "python-embed Python 3.11 değil: $pyv" }
+          if (Test-Path (Join-Path $app 'python-embed\sesver_kurulum_tamam.txt')) { throw 'Kurulum tamam işareti beklenmedik şekilde yazıldı (pip yarıda kesildi)' }
+          Write-Host 'Kısayoldan açılış KANITLANDI: kısayol hedefi çalıştı, Python indirildi+doğrulandı+çalıştı, pip ilk kurulum adımı başladı. (torch kurulumu ve pencere açılışı bu job''da test edilmez.)'
+          # Sonraki adımlar için temiz duruma dön (yarım kalan python-embed ve geçici dosyalar).
+          for ($i = 0; $i -lt 10; $i++) {
+            Remove-Item (Join-Path $app 'python-embed'), (Join-Path $app 'pbs_tmp') -Recurse -Force -ErrorAction SilentlyContinue
+            Get-ChildItem $app -Filter 'pbs_*' -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+            if (-not (Test-Path (Join-Path $app 'python-embed'))) { break }
+            Start-Sleep -Seconds 2
+          }
+          if (Test-Path (Join-Path $app 'python-embed')) { throw 'Yarım python-embed temizlenemedi' }
+          $global:LASTEXITCODE = 0
+          Write-Host '::endgroup::'
 
           # Ortam hazırmış gibi yap (python-embed + kurulum işareti), yeniden kur →
           # WebView2 varsa kısayollar doğrudan pythonw.exe desktop.py olmalı.
@@ -110,8 +219,9 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "Yeniden kurulum çıkış kodu: $($p.ExitCode)" }
           foreach ($l in @($baslat, $masa)) {
             $t = $sh.CreateShortcut($l)
-            Write-Host "$l -> $($t.TargetPath) $($t.Arguments) ikon=$($t.IconLocation)"
+            Write-Host "$l -> $($t.TargetPath) $($t.Arguments) [$($t.WorkingDirectory)] ikon=$($t.IconLocation)"
             if ($t.IconLocation -notlike '*\SesVer.ico*') { throw "Kısayol ikonu SesVer.ico olmalı: $($t.IconLocation)" }
+            if ($t.WorkingDirectory -ne $app) { throw "Kısayol çalışma klasörü $app olmalı: $($t.WorkingDirectory)" }
             if ($wv) {
               if ($t.TargetPath -notlike '*\python-embed\pythonw.exe') { throw "Ortam hazırken kısayol pythonw.exe olmalı: $($t.TargetPath)" }
               if ($t.Arguments -notlike '*desktop.py*') { throw "Kısayol argümanı desktop.py içermeli: $($t.Arguments)" }
@@ -131,20 +241,234 @@ jobs:
             if (Test-Path (Join-Path $app $g)) { throw "Kaldırmadan sonra kaldı: $g" }
           }
           foreach ($l in @($baslat, $masa)) { if (Test-Path $l) { throw "Kaldırmadan sonra kısayol kaldı: $l" } }
+          for ($i = 0; $i -lt 15 -and (Test-Path $unKey); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $unKey) { throw "Kaldırmadan sonra Kaldır/Ekle kaydı kaldı: $unKey" }
           foreach ($k in @('voices\seslerim\kisisel.txt','outputs\uretim.wav')) {
             if (-not (Test-Path (Join-Path $app $k))) { throw "Kullanıcı verisi silindi: $k" }
           }
-          Write-Host 'Duman testi BAŞARILI: kurulum, kısayol seçimi, kaldırma ve kullanıcı verisinin korunması doğrulandı.'
+          Write-Host 'Duman testi BAŞARILI: kurulum, Kaldır/Ekle kaydı, kısayollar (hedef/çalışma klasörü/ikon), kısayoldan açılış (başlatıcı + Python + pip başlangıcı), kısayol seçimi, kaldırma ve kullanıcı verisinin korunması doğrulandı.'
 
       - name: Kurulum günlükleri
         if: always()
         shell: pwsh
         run: Get-ChildItem $env:RUNNER_TEMP -Filter 'sesver-kurulum*.log' | ForEach-Object { Write-Host "===== $($_.Name)"; Get-Content $_.FullName -Tail 60 }
 
+      - name: Release dosyalarını hazırla (iki asset + SHA256 + notlar)
+        shell: pwsh
+        env:
+          REPO: ${{ github.repository }}
+        run: |
+          $ver = $env:APP_VERSION
+          $surumlu = "windows\Output\SesVer-Kurulum-$ver.exe"
+          $sabit = 'windows\Output\SesVer-Kurulum-Windows.exe'
+          Copy-Item $surumlu $sabit -Force
+          $h1 = (Get-FileHash -Algorithm SHA256 $surumlu).Hash.ToLowerInvariant()
+          $h2 = (Get-FileHash -Algorithm SHA256 $sabit).Hash.ToLowerInvariant()
+          if ($h1 -ne $h2) { throw "Sabit adlı kopyanın SHA256'sı farklı: $h1 / $h2" }
+          $notlar = @(
+            "## SesVer $ver — Windows kurulum programı",
+            '',
+            "1. **SesVer-Kurulum-Windows.exe** dosyasını indirin (aynı dosya: SesVer-Kurulum-$ver.exe).",
+            '2. Çift tıklayın. "Windows bilgisayarınızı korudu" çıkarsa **Ek bilgi → Yine de çalıştır** (kurulum programı kod imzasızdır).',
+            '3. **İleri → İleri → Kur**. Son sayfada "İlk kurulumu şimdi başlat" işaretli kalsın → **Bitir**.',
+            '4. İlk kurulum Python ve paketleri indirir (internet ve en az 20 GB boş alan gerekir, uzun sürebilir).',
+            '',
+            'Sonra açmak için: Başlat menüsünde **SesVer** yazın ya da masaüstündeki SesVer simgesine çift tıklayın.',
+            'Kaldırmak için: Ayarlar → Uygulamalar → SesVer (Seslerim ve outputs klasörü korunur).',
+            '',
+            '### SHA256',
+            '',
+            '```',
+            "$h1  SesVer-Kurulum-$ver.exe",
+            "$h2  SesVer-Kurulum-Windows.exe",
+            '```',
+            '',
+            "Her zaman en son sürüm: https://github.com/$env:REPO/releases/latest/download/SesVer-Kurulum-Windows.exe"
+          )
+          [IO.File]::WriteAllLines((Join-Path $PWD 'windows\Output\RELEASE_NOTES.md'), $notlar, [Text.UTF8Encoding]::new($false))
+          Get-ChildItem windows\Output | Format-Table Name, Length -AutoSize | Out-Host
+
+      - name: Release dry-run (tag dışı koşu — yayınlanmaz)
+        if: github.ref_type != 'tag'
+        shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          $ver = $env:APP_VERSION
+          Write-Host "dry-run: bu koşu ($env:EVENT, ref '$env:REF_NAME') bir tag değil; GitHub Release OLUŞTURULMADI."
+          Write-Host "dry-run: tag v$ver push edilseydi release job'u şu komutla yayınlardı:"
+          Write-Host "dry-run:   gh release create v$ver SesVer-Kurulum-$ver.exe SesVer-Kurulum-Windows.exe --title 'SesVer $ver' --notes-file RELEASE_NOTES.md --verify-tag --latest"
+          foreach ($a in @("SesVer-Kurulum-$ver.exe", 'SesVer-Kurulum-Windows.exe')) {
+            $f = Get-Item "windows\Output\$a"
+            Write-Host ("dry-run: asset {0} ({1:N0} bayt) sha256={2}" -f $f.Name, $f.Length, (Get-FileHash -Algorithm SHA256 $f.FullName).Hash.ToLowerInvariant())
+          }
+          Write-Host 'dry-run: ----- release notları -----'
+          Get-Content 'windows\Output\RELEASE_NOTES.md' -Encoding utf8 | ForEach-Object { Write-Host "dry-run: | $_" }
+
       - name: Artifact yükle
         uses: actions/upload-artifact@v7
         with:
           name: SesVer-Kurulum-${{ env.APP_VERSION }}
-          path: windows/Output/SesVer-Kurulum-*.exe
+          path: |
+            windows/Output/SesVer-Kurulum-*.exe
+            windows/Output/RELEASE_NOTES.md
           if-no-files-found: error
+          retention-days: 14
+
+  # Yalnız v* tag push'unda ve build (derleme + duman testi) geçtiyse çalışır.
+  # Yazma yetkisi yalnız bu job'a verilir; derleme/test job'u contents: read kalır.
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Build artifact'ını indir
+        uses: actions/download-artifact@v7
+        with:
+          name: SesVer-Kurulum-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: GitHub Release yayınla (gh release)
+        working-directory: dist
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VER: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          ls -la
+          for f in "SesVer-Kurulum-${VER}.exe" SesVer-Kurulum-Windows.exe RELEASE_NOTES.md; do
+            test -s "$f" || { echo "::error::Eksik release dosyası: $f"; exit 1; }
+          done
+          sha256sum SesVer-Kurulum-*.exe
+          h=$(sha256sum "SesVer-Kurulum-${VER}.exe" | cut -d' ' -f1)
+          grep -q "$h" RELEASE_NOTES.md || { echo "::error::Release notlarındaki SHA256 dosyayla tutmuyor"; exit 1; }
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG zaten var: asset'ler ve notlar güncelleniyor."
+            gh release upload "$TAG" "SesVer-Kurulum-${VER}.exe" SesVer-Kurulum-Windows.exe --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --notes-file RELEASE_NOTES.md --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "SesVer-Kurulum-${VER}.exe" SesVer-Kurulum-Windows.exe \
+              --repo "$GITHUB_REPOSITORY" --title "SesVer ${VER}" --notes-file RELEASE_NOTES.md --verify-tag --latest
+          fi
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json url,assets --jq '.url, (.assets[] | "\(.name) \(.size)")'
+
+  # İsteğe bağlı (workflow_dispatch, full_launch_test=true): gerçek ilk kurulum
+  # (torch vb. indirme) + kısayoldan tam açılış (127.0.0.1 HTTP 200). Tag akışında çalışmaz.
+  full-launch:
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.full_launch_test
+    runs-on: windows-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Build artifact'ını indir
+        uses: actions/download-artifact@v7
+        with:
+          name: SesVer-Kurulum-${{ needs.build.outputs.version }}
+          path: dist
+
+      - name: Kur ve kısayoldan tam açılış (ilk kurulum dahil)
+        shell: pwsh
+        env:
+          VER: ${{ needs.build.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\SesVer'
+          $p = Start-Process -FilePath "dist\SesVer-Kurulum-$env:VER.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon',"/LOG=$env:RUNNER_TEMP\sesver-kurulum-full.log" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Kurulum çıkış kodu: $($p.ExitCode)" }
+          $sh = New-Object -ComObject WScript.Shell
+          $baslat = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\SesVer.lnk'
+
+          function Test-Acilis([string]$etiket, [int]$dakika, [string]$outLog) {
+            $t = $sh.CreateShortcut($baslat)
+            Write-Host "[$etiket] kısayol: $($t.TargetPath) $($t.Arguments) [$($t.WorkingDirectory)] ikon=$($t.IconLocation)"
+            $sp = @{ FilePath = $t.TargetPath; WorkingDirectory = $t.WorkingDirectory; PassThru = $true
+                     RedirectStandardOutput = $outLog; RedirectStandardError = "$outLog.err" }
+            if ($t.Arguments) { $sp.ArgumentList = $t.Arguments }
+            # Önceki açılışın günlüğü eski bir adresi göstermesin (desktop.py her açılışta baştan yazar).
+            Remove-Item (Join-Path $app 'sesver_log.txt') -Force -ErrorAction SilentlyContinue
+            $null = Start-Process @sp
+            $sinir = (Get-Date).AddMinutes($dakika); $sonRapor = Get-Date; $url = $null
+            while ((Get-Date) -lt $sinir) {
+              Start-Sleep -Seconds 10
+              $slog = Join-Path $app 'sesver_log.txt'
+              if (-not $url -and (Test-Path $slog)) {
+                $m = Select-String -Path $slog -Pattern 'SesVer başlatılıyor \((http://127\.0\.0\.1:\d+)\)' -Encoding utf8 | Select-Object -First 1
+                if ($m) { $url = $m.Matches[0].Groups[1].Value; Write-Host "[$etiket] sunucu adresi: $url" }
+              }
+              if ($url) {
+                try {
+                  $r = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 10
+                  if ($r.StatusCode -eq 200) { Write-Host "[$etiket] HTTP $($r.StatusCode) $url ($($r.Content.Length) bayt)"; return $url }
+                } catch { }
+              }
+              if (((Get-Date) - $sonRapor).TotalSeconds -ge 120) {
+                $sonRapor = Get-Date
+                Write-Host "[$etiket] bekleniyor... başlatıcı çıktısı son satırlar:"
+                Get-Content $outLog -Tail 5 -ErrorAction SilentlyContinue | Out-Host
+              }
+            }
+            Get-Content $outLog -Tail 60 -ErrorAction SilentlyContinue | Out-Host
+            Get-Content (Join-Path $app 'sesver_log.txt') -Tail 60 -ErrorAction SilentlyContinue | Out-Host
+            throw "[$etiket] $dakika dk içinde 127.0.0.1 HTTP 200 alınamadı"
+          }
+
+          function Save-Ekran([string]$ad) {
+            try {
+              Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+              $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+              $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+              $bmp.Save((Join-Path $env:RUNNER_TEMP "$ad.png")); $g.Dispose(); $bmp.Dispose()
+              Write-Host "Ekran görüntüsü: $ad.png"
+            } catch { Write-Host "::warning::Ekran görüntüsü alınamadı: $_" }
+          }
+
+          function Stop-SesVer {
+            Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($app, [StringComparison]::OrdinalIgnoreCase) } | Stop-Process -Force -ErrorAction SilentlyContinue
+            Get-CimInstance Win32_Process -Filter "Name='cmd.exe'" | Where-Object { $_.CommandLine -like '*WINDOWS_BASLAT.bat*' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            Start-Sleep -Seconds 5
+          }
+
+          # 1) İlk açılış: kısayol (.bat) → ilk kurulum → SesVer.
+          $u1 = Test-Acilis 'ilk açılış' 100 (Join-Path $env:RUNNER_TEMP 'sesver-full-ilk.out.log')
+          Start-Sleep -Seconds 15; Save-Ekran 'sesver-ilk-acilis'
+          if (-not (Test-Path (Join-Path $app 'python-embed\sesver_kurulum_tamam.txt'))) { throw 'İlk kurulum tamam işareti yazılmadı' }
+          Write-Host '----- sesver_log.txt (ilk açılış, ilk 40 satır) -----'
+          Get-Content (Join-Path $app 'sesver_log.txt') -TotalCount 40 -Encoding utf8 | Out-Host
+          Stop-SesVer
+
+          # 2) Kurulum programını yeniden çalıştır: ortam hazır → kısayollar yeniden değerlendirilir.
+          $p = Start-Process -FilePath "dist\SesVer-Kurulum-$env:VER.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Yeniden kurulum çıkış kodu: $($p.ExitCode)" }
+
+          # 3) İkinci açılış: kullanıcının "tekrar açma" yolu — aynı Başlat Menüsü kısayolu.
+          $env:SESVER_DURUM_DOSYASI = Join-Path $env:RUNNER_TEMP 'sesver_durum_ikinci.txt'
+          $u2 = Test-Acilis 'ikinci açılış' 10 (Join-Path $env:RUNNER_TEMP 'sesver-full-ikinci.out.log')
+          Start-Sleep -Seconds 15; Save-Ekran 'sesver-ikinci-acilis'
+          $durum = Get-Content $env:SESVER_DURUM_DOSYASI -ErrorAction SilentlyContinue
+          Write-Host "İkinci açılış desktop.py durumu: $(if ($durum) { $durum } else { '(yazılmadı — .bat yolu kendi durum dosyasını kullanır)' })"
+          Write-Host '----- sesver_log.txt (ikinci açılış, ilk 40 satır) -----'
+          Get-Content (Join-Path $app 'sesver_log.txt') -TotalCount 40 -Encoding utf8 | Out-Host
+          Stop-SesVer
+          $global:LASTEXITCODE = 0
+          Write-Host "Tam açılış testi BAŞARILI: ilk açılış $u1 ve ikinci açılış $u2 HTTP 200 döndü."
+
+      - name: Tam açılış günlükleri ve ekran görüntüleri
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sesver-full-launch-kanit
+          path: |
+            ${{ runner.temp }}/sesver-*.log
+            ${{ runner.temp }}/sesver-*.err
+            ${{ runner.temp }}/sesver-*.png
+            ${{ runner.temp }}/sesver_durum_*.txt
+          if-no-files-found: warn
           retention-days: 14
