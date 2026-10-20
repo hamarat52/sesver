@@ -26,5 +26,11 @@
 	<string>11.0</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>SesVer, Masaüstü'ndeki kendi proje klasöründen (desktop.py, sesler, Python ortamı) çalışır; bu dosyaları okuyup üretilen sesleri oraya kaydetmek için izin gerekir.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>SesVer, Belgeler'deki kendi proje klasöründen (desktop.py, sesler, Python ortamı) çalışır; bu dosyaları okuyup üretilen sesleri oraya kaydetmek için izin gerekir.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>SesVer, İndirilenler'deki kendi proje klasöründen (desktop.py, sesler, Python ortamı) çalışır; bu dosyaları okuyup üretilen sesleri oraya kaydetmek için izin gerekir.</string>
 </dict>
 </plist>
