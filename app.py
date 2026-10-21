@@ -20,6 +20,7 @@ import soundfile as sf
 
 import audio_prep
 import effects as fx
+import guncelleme
 import voice_designer as vdes
 import voice_library as vlib
 
@@ -1139,6 +1140,14 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   /* Üç sekme 390 px'te tek satıra sığsın: dar ekranda ikonlar gizlenir (sığmazsa alt satıra geçer). */
   #sv-tabs > .tab-wrapper [role="tab"]::before { display: none !important; }
 }
+/* Güncelleme bildirimi: göze batmayan tek satırlık bilgi şeridi (guncelleme.py). */
+.sv-update { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px;
+  margin: 0 auto 14px; padding: 8px 14px; max-width: 720px; border-radius: 12px; font-size: .84rem;
+  line-height: 1.45; color: var(--sv-ink-2); background: var(--sv-paper); border: 1px solid var(--sv-line);
+  box-shadow: var(--sv-shadow-sm); }
+.sv-update b { font-weight: 650; color: var(--sv-ink); }
+.sv-update a { color: var(--sv-coral); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.sv-update-note { flex-basis: 100%; text-align: center; color: var(--sv-muted); font-size: .8rem; }
 """
 
 _THEME = gr.themes.Base(
@@ -1528,9 +1537,24 @@ def _upload_subtab(lib, tabs):
         select_voice_ui, inputs=[lib.selected, lib.emotion, lib.text], outputs=lib.select_outputs)
 
 
+def _guncelleme_bildirimi():
+    """Sayfa yüklenince: açılışta başlatılan arka plan kontrolünün sonucunu gösterir.
+
+    Kontrol başlatılmadıysa (testler, SESVER_GUNCELLEME_KONTROLU=0) ya da yeni
+    sürüm yok/hata varsa bildirim gizli kalır. Bekleme en fazla kontrolün toplam
+    süre sınırına kadardır ve kendi eşzamanlılık havuzunda çalışır; ses üretim
+    kuyruğunu bekletmez.
+    """
+    metin = guncelleme.bildirim_html(guncelleme.sonuc())
+    return gr.update(value=metin, visible=bool(metin))
+
+
 def build_app():
     with gr.Blocks(title="SesVer — Türkçe yerel ses üretimi", analytics_enabled=False) as demo:
         _html(_HERO)
+        update_note = _html("", visible=False, elem_id="sv-update-note")
+        demo.load(_guncelleme_bildirimi, outputs=update_note, show_progress="hidden",
+                  concurrency_limit=None, concurrency_id="sv-guncelleme", api_visibility="private")
 
         with gr.Tabs(elem_id="sv-tabs", selected="lib", overflow_behavior="wrap") as tabs:
             with gr.Tab("Ses Kütüphanesi", id="lib"):
@@ -1640,6 +1664,7 @@ def _setup_logging():
 
 if __name__ == "__main__":
     _setup_logging()
+    guncelleme.baslat()  # arka planda; arayüz beklemez
     build_app().launch(
         server_name="127.0.0.1", server_port=int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
         share=False, inbrowser=False,

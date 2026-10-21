@@ -292,6 +292,8 @@ def _run_browser(server):
 
 def main():
     app._setup_logging()
+    # "Yeni sürüm var" kontrolü arka plan thread'inde; açılışı bekletmez (bkz. guncelleme.py).
+    app.guncelleme.baslat()
     server = Server(_pick_port())
     server.start()
     print(f"SesVer başlatılıyor ({server.url})...", flush=True)
