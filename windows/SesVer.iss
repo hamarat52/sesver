@@ -3,6 +3,9 @@
 ; Derleme (Windows'ta, Inno Setup 6 kurulu):
 ;   ISCC.exe windows\SesVer.iss
 ;   ISCC.exe /DAppVersion=1.2.3 windows\SesVer.iss      (sürümü dışarıdan ver)
+; Sürümün tek kaynağı kökteki VERSION dosyasıdır: /DAppVersion verilmezse oradan
+; okunur. CI her zaman /DAppVersion verir ve v* tag'iyle VERSION'ın eşit olduğunu
+; derlemeden önce denetler.
 ; Çıktı: windows\Output\SesVer-Kurulum-<sürüm>.exe
 ; CI: .github/workflows/windows-installer.yml aynı komutu windows-latest'te çalıştırır.
 ;
@@ -35,7 +38,13 @@
 
 #define AppName "SesVer"
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define VersionFile FileOpen(AddBackslash(SourcePath) + "..\VERSION")
+  #if !VersionFile
+    #error Kökteki VERSION dosyası okunamadı
+  #endif
+  #define AppVersion Trim(FileRead(VersionFile))
+  #expr FileClose(VersionFile)
+  #undef VersionFile
 #endif
 #define AppPublisher "HamaratLabs"
 #define AppURL "https://github.com/hamarat52/sesver"
@@ -97,6 +106,8 @@ Source: "{#SrcRoot}\*.py"; DestDir: "{app}"; Flags: ignoreversion
 ; voice_designer.py'nin çalışma zamanında okuduğu eşleme dosyası.
 Source: "{#SrcRoot}\voice_design_map.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SrcRoot}\requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
+; Uygulama sürümü (surum.py okur; "Yeni sürüm var" kontrolü bununla karşılaştırır).
+Source: "{#SrcRoot}\VERSION"; DestDir: "{app}"; Flags: ignoreversion
 ; Ortam kurulumunu yapan başlatıcı (kısayol ve son ekran bunu çağırır).
 Source: "{#SrcRoot}\WINDOWS_BASLAT.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SrcRoot}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
