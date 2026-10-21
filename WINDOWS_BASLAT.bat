@@ -98,6 +98,22 @@ if errorlevel 1 goto :hata
 set "ADIM=pip guncelleme"
 "%PYEXE%" -m pip install --upgrade pip --quiet --no-warn-script-location
 if errorlevel 1 goto :hata
+REM NVIDIA ekran karti varsa CUDA destekli PyTorch kurulur; yoksa normal
+REM "pip install torch" (PyPI varsayilani) sessizce SADECE CPU derlemesini
+REM kurar ve uretim CPU'da calisir (GPU bos durur). nvidia-smi.exe sadece
+REM NVIDIA suruculeri kuruluysa PATH'te olur, bu yuzden guvenilir bir tespit.
+set "ADIM=GPU tespiti"
+where nvidia-smi >nul 2>nul
+if errorlevel 1 (
+  echo NVIDIA ekran karti bulunamadi, CPU modunda devam edilecek.
+) else (
+  echo NVIDIA ekran karti bulundu, CUDA destekli PyTorch kuruluyor...
+  set "ADIM=CUDA destekli PyTorch kurulumu"
+  "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121 --no-warn-script-location
+  if errorlevel 1 (
+    echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
+  )
+)
 REM --no-deps: voxcpm'in gereksiz agir bagimliliklarini (funasr, matplotlib,
 REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor)
 REM atlayip yalniz requirements.txt'teki gercekten gerekli paketleri kurar.
@@ -111,6 +127,19 @@ echo tamam>"%MARK%"
 echo Kurulum tamamlandi.
 
 :baslat
+REM Kurulum atlanmis olsa bile (MARK zaten vardi) her acilista ucuz bir kontrol:
+REM NVIDIA karti var ama PyTorch CUDA'yi kullanamiyorsa (ör. eski kurulumdan
+REM kalma CPU-only torch), bir kerelik duzeltme dener ve ikinci markla isaretler.
+set "GPU_FIX_MARK=.venv\sesver_gpu_duzeltme_denendi.txt"
+where nvidia-smi >nul 2>nul
+if not errorlevel 1 if not exist "%GPU_FIX_MARK%" (
+  "%PYEXE%" -c "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)" >nul 2>nul
+  if errorlevel 1 (
+    echo NVIDIA ekran karti var ama PyTorch CUDA kullanmiyor, duzeltiliyor...
+    "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121 --no-warn-script-location
+  )
+  echo tamam>"%GPU_FIX_MARK%"
+)
 set "SV_PORT=%GRADIO_SERVER_PORT%"
 if "%SV_PORT%"=="" set "SV_PORT=7860"
 REM Normal yol: konsolsuz pythonw.exe ile baslat; SesVer penceresi acilinca bu
