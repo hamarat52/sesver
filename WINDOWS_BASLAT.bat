@@ -21,6 +21,9 @@ set "PYTHONPATH="
 set "PYTHONNOUSERSITE=1"
 
 set "EMBED_PY=.\python-embed\python.exe"
+REM voxcpm requirements.txt'te degil (--no-deps ile ayri kurulur); pini burada.
+REM macos_ortak.sh'teki VOXCPM_SURUM ile ayni tutun.
+set "VOXCPM_SURUM=2.0.3"
 set "PYEXE="
 set "MARK="
 
@@ -87,7 +90,61 @@ if not exist "%PYEXE%" goto :hata
 :kurulum
 REM Isaret dosyasi yalniz tum adimlar bitince yazilir; yarida kalan kurulum
 REM bir sonraki calistirmada kaldigi yerden devam eder.
-if exist "%MARK%" goto :baslat
+REM Isaret tek satirdir: "req_sha256=<requirements.txt SHA-256> voxcpm=<surum>".
+REM   isaret yok                       -> asagidaki tam ilk kurulum
+REM   isaret ayni                      -> kurulum atlanir
+REM   farkli ya da eski bicim "tamam"  -> :esitle (yalniz pip install -r ...)
+if not exist "%MARK%" goto :ilk_kurulum
+call :isaret_hesapla
+REM Ozet hesaplanamadiysa (Python bozuk vb.) eskisi gibi dogrudan baslatilir.
+if errorlevel 1 goto :baslat
+set "SV_ISARET="
+set /p SV_ISARET=<"%MARK%"
+if not "%SV_ISARET%"=="%SV_BEKLENEN%" goto :esitle
+del "%MARK%.yeni" >nul 2>nul
+goto :baslat
+
+:esitle
+REM SesVer guncellenmis: ortam silinmez, yalniz eksik/degisen paketler kurulur.
+REM Basarisizsa isaret ESKI haliyle kalir (sonraki acilista yeniden denenir)
+REM ve :hata ile ilk kurulumdaki hata yolu gosterilir.
+echo SesVer guncellenmis: paketler esitleniyor - yalniz eksik/degisen paketler kurulur...
+REM CUDA korumasi: NVIDIA kartta CUDA'li torch calisiyorsa kurulu torch/torchaudio
+REM surumleri kisit dosyasina (-c) yazilir; pip onlari PyPI'nin CPU derlemesiyle
+REM degistiremez. Yeni requirements daha yeni torch isterse esitleme hata verir
+REM (sessizce CPU'ya dusmek yerine). --upgrade kullanilmaz: gereksinimi zaten
+REM karsilayan paketlere dokunulmaz.
+set "SV_KISIT="
+del "%MARK%.kisit" >nul 2>nul
+where nvidia-smi >nul 2>nul
+if errorlevel 1 goto :esitle_voxcpm
+"%PYEXE%" -c "import sys,torch,torchaudio;c=torch.cuda.is_available();c and open(sys.argv[1],'w').write('torch=='+torch.__version__+chr(10)+'torchaudio=='+torchaudio.__version__+chr(10));sys.exit(0 if c else 1)" "%MARK%.kisit" >nul 2>nul
+if errorlevel 1 goto :esitle_voxcpm
+set SV_KISIT=-c "%MARK%.kisit"
+echo CUDA destekli PyTorch korunuyor.
+:esitle_voxcpm
+REM voxcpm yalniz pini degistiyse ya da eski "tamam" isaretinde (pin bilinmiyor) kurulur.
+set "SV_ESKI_VOX="
+for /f "tokens=2 delims= " %%v in ("%SV_ISARET%") do set "SV_ESKI_VOX=%%v"
+if "%SV_ESKI_VOX%"=="voxcpm=%VOXCPM_SURUM%" goto :esitle_req
+set "ADIM=voxcpm esitleme"
+"%PYEXE%" -m pip install --no-deps voxcpm==%VOXCPM_SURUM% --no-warn-script-location
+if errorlevel 1 goto :esitle_hata
+:esitle_req
+set "ADIM=requirements.txt esitleme"
+"%PYEXE%" -m pip install -r requirements.txt %SV_KISIT% --no-warn-script-location
+if errorlevel 1 goto :esitle_hata
+del "%MARK%.kisit" >nul 2>nul
+move /y "%MARK%.yeni" "%MARK%" >nul
+if errorlevel 1 goto :hata
+echo Paket esitleme tamamlandi.
+goto :baslat
+:esitle_hata
+del "%MARK%.kisit" >nul 2>nul
+del "%MARK%.yeni" >nul 2>nul
+goto :hata
+
+:ilk_kurulum
 echo Ilk kurulum yapiliyor - bu sadece bir kere calisir...
 set "ADIM=pip kontrolu"
 "%PYEXE%" -m pip --version >nul 2>nul
@@ -118,12 +175,19 @@ REM --no-deps: voxcpm'in gereksiz agir bagimliliklarini (funasr, matplotlib,
 REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor)
 REM atlayip yalniz requirements.txt'teki gercekten gerekli paketleri kurar.
 set "ADIM=voxcpm kurulumu"
-"%PYEXE%" -m pip install --no-deps voxcpm==2.0.3 --no-warn-script-location
+"%PYEXE%" -m pip install --no-deps voxcpm==%VOXCPM_SURUM% --no-warn-script-location
 if errorlevel 1 goto :hata
 set "ADIM=requirements.txt kurulumu"
 "%PYEXE%" -m pip install -r requirements.txt --no-warn-script-location
 if errorlevel 1 goto :hata
+call :isaret_hesapla
+if errorlevel 1 goto :isaret_eski_bicim
+move /y "%MARK%.yeni" "%MARK%" >nul
+if not errorlevel 1 goto :kurulum_bitti
+:isaret_eski_bicim
+REM Ozet yazilamadiysa eski bicim: sonraki acilis bir kez esitleme dener.
 echo tamam>"%MARK%"
+:kurulum_bitti
 echo Kurulum tamamlandi.
 
 :baslat
@@ -212,6 +276,21 @@ pause
 exit /b 1
 
 REM ================= Alt yordamlar =================
+
+:isaret_hesapla
+REM Beklenen kurulum isaretini "%MARK%.yeni" dosyasina yazar, SV_BEKLENEN'e okur.
+REM SHA-256 Python hashlib ile hesaplanir: certutil ciktisinin bicimi Windows
+REM surumune/diline gore degisir (bosluklu hex, yerellestirilmis basliklar).
+del "%MARK%.yeni" >nul 2>nul
+set "SV_BEKLENEN="
+"%PYEXE%" -c "import hashlib,sys;print('req_sha256='+hashlib.sha256(open('requirements.txt','rb').read()).hexdigest()+' voxcpm='+sys.argv[1])" "%VOXCPM_SURUM%" >"%MARK%.yeni" 2>nul
+if errorlevel 1 goto :isaret_hesapla_hata
+set /p SV_BEKLENEN=<"%MARK%.yeni"
+if "%SV_BEKLENEN%"=="" goto :isaret_hesapla_hata
+exit /b 0
+:isaret_hesapla_hata
+del "%MARK%.yeni" >nul 2>nul
+exit /b 1
 
 :embed_kur
 REM Tasinabilir Python'u indirir, SHA256 ile dogrular, python-embed\ olarak

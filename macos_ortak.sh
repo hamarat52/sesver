@@ -22,9 +22,40 @@
 # çalıştırmada kaldığı yerden devam eder: sesver_kurulum_tamam.txt işareti
 # (python-embed/ ya da .venv/ içinde) yalnız tüm kurulum adımları başarıyla
 # bitince yazılır.
+#
+# Güncelleme sonrası paket eşitleme: işaret dosyası tek satırdır:
+#   req_sha256=<requirements.txt'nin SHA-256 özeti> voxcpm=<voxcpm sürümü>
+# Her açılışta beklenen satırla karşılaştırılır:
+#   - işaret yok                      -> tam ilk kurulum (aşağıdaki akış)
+#   - aynı                            -> kurulum adımı tamamen atlanır
+#   - farklı ya da eski biçim "tamam" -> yalnız eşitleme: pip install -r
+#     requirements.txt (+ voxcpm pini değiştiyse/bilinmiyorsa voxcpm) ve işaret
+#     yeni satırla yazılır. Ortam silinmez, baştan kurulmaz.
+# Eşitleme başarısız olursa işaret ESKİ hâliyle kalır (bir sonraki açılışta
+# yeniden denenir) ve ilk kurulumdaki hata yolu gösterilir.
 
 SESVER_MOD="${SESVER_MOD:-konsol}"
 BASLATICI_LOG="sesver_baslatici_log.txt"
+# voxcpm requirements.txt'te değil (--no-deps ile ayrı kurulur); pini burada.
+# WINDOWS_BASLAT.bat'taki VOXCPM_SURUM ile aynı tutun.
+VOXCPM_SURUM="2.0.3"
+
+# requirements.txt'nin SHA-256 özeti (macOS'ta her zaman bulunan shasum).
+# shasum yoksa $1 ile verilen Python'un hashlib'i denenir. Hiçbiri yoksa boş:
+# işaret hiç eşleşmez, her açılışta (zararsız) eşitleme denenir.
+requirements_ozeti() {
+  local oz=""
+  oz="$(shasum -a 256 requirements.txt 2>/dev/null | awk '{print $1}')" || oz=""
+  if [ -z "$oz" ] && [ -n "$1" ] && [ -x "$1" ]; then
+    oz="$("$1" -c "import hashlib;print(hashlib.sha256(open('requirements.txt','rb').read()).hexdigest())" 2>/dev/null)" || oz=""
+  fi
+  printf '%s' "$oz"
+}
+
+# Kurulum işaretine yazılan/karşılaştırılan tek satır. $1 = Python yolu (yedek özet için).
+kurulum_isareti() {
+  printf 'req_sha256=%s voxcpm=%s' "$(requirements_ozeti "$1")" "$VOXCPM_SURUM"
+}
 
 # Görsel bilgi/hata penceresi. Yalnız osascript'in kendi "display dialog"
 # komutu kullanılır (başka bir uygulamaya "tell" YOK), bu yüzden macOS
@@ -236,12 +267,41 @@ Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası süre
     # modelscope, datasets, spaces, argbind — hiçbiri kodda kullanılmıyor)
     # atlayıp yalnız requirements.txt'teki gerçekten gerekli paketleri kurar.
     ADIM="voxcpm kurulumu"
-    "$RUN_PY" -m pip install --no-deps voxcpm==2.0.3
+    "$RUN_PY" -m pip install --no-deps "voxcpm==$VOXCPM_SURUM"
     ADIM="requirements.txt kurulumu"
     "$RUN_PY" -m pip install -r requirements.txt
-    echo tamam > "$MARKER"
+    printf '%s\n' "$(kurulum_isareti "$RUN_PY")" > "$MARKER"
     trap - ERR
     echo "Kurulum tamamlandı."
+  else
+    # Kurulum daha önce bitmiş. SesVer güncellendiyse (requirements.txt ya da
+    # voxcpm pini değiştiyse, ya da işaret eski "tamam" biçimindeyse) yalnız
+    # eksik/değişen paketler kurulur; ortam baştan kurulmaz.
+    local isaret_simdi isaret_beklenen
+    isaret_simdi="$(head -n 1 "$MARKER" 2>/dev/null | tr -d '\r')" || isaret_simdi=""
+    isaret_beklenen="$(kurulum_isareti "$RUN_PY")"
+    if [ "$isaret_simdi" != "$isaret_beklenen" ]; then
+      echo "SesVer güncellenmiş: paketler eşitleniyor (yalnız eksik/değişen paketler kurulur)..."
+      if [ "$SESVER_MOD" = "app" ]; then
+        sesver_dialog "SesVer güncellendi; gerekli paketler denetleniyor. Genelde kısa sürer; yeni paket varsa internet hızınıza göre uzayabilir. Bitince SesVer kendiliğinden açılır.
+
+İlerleme: $PWD/$BASLATICI_LOG" note 20 &
+      fi
+      trap kurulum_hatasi ERR
+      case " $isaret_simdi " in
+        *" voxcpm=$VOXCPM_SURUM "*) ;;
+        *)
+          ADIM="voxcpm eşitleme"
+          "$RUN_PY" -m pip install --no-deps "voxcpm==$VOXCPM_SURUM"
+          ;;
+      esac
+      ADIM="requirements.txt eşitleme"
+      # --upgrade YOK: gereksinimi zaten karşılayan paketlere (ör. kurulu torch) dokunulmaz.
+      "$RUN_PY" -m pip install -r requirements.txt
+      printf '%s\n' "$isaret_beklenen" > "$MARKER"
+      trap - ERR
+      echo "Paket eşitleme tamamlandı."
+    fi
   fi
 
   if [ "$SESVER_MOD" = "app" ]; then
