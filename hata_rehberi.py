@@ -44,10 +44,11 @@ def smart_app_control_rehberi(metin):
     if not metin:
         return None
     kucuk = str(metin).casefold()
+    from i18n import t  # yalnız standart kütüphane; rehber seçili arayüz dilinde gösterilir
     if any(i in kucuk for i in _KESIN_ISARETLER):
-        return _ADIMLAR
+        return t(_ADIMLAR)
     if any(i in kucuk for i in _OLASI_ISARETLER):
-        return _ADIMLAR + _OLASI_EK
+        return t(_ADIMLAR) + t(_OLASI_EK)
     return None
 
 

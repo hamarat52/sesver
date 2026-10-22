@@ -51,6 +51,9 @@ pbs_*
 # desktop.py çalışma günlüğü ve Windows başlatıcısının durum dosyası.
 sesver_log.txt
 sesver_durum.tmp*
+# Arayüz dili tercihi (kullanıcıya özel, i18n.py yazar).
+ayarlar.json
+ayarlar.json.yaz
 # Yerel ajan görev notları (iç talimat ve yerel yollar içerir).
 .webdev-task-*.md
 sesver_baslatici_log.txt

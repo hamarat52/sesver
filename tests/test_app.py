@@ -190,11 +190,11 @@ class AppTests(unittest.TestCase):
         self.assertEqual(app.BRAND_NAME, "HamaratLabs")
         self.assertIn("by <b", app.BRAND_SIGNATURE_HTML)
         self.assertIn("HamaratLabs", app.BRAND_SIGNATURE_HTML)
-        self.assertIn(app.BRAND_SIGNATURE_HTML, app._HERO)
+        self.assertIn(app.BRAND_SIGNATURE_HTML, app._hero())
         # İmza, kaydırmadan görünen üst gezinme çubuğunda olmalı.
-        nav = app._HERO.split('<nav class="sv-nav">', 1)[1].split("</nav>", 1)[0]
+        nav = app._hero().split('<nav class="sv-nav">', 1)[1].split("</nav>", 1)[0]
         self.assertIn(app.BRAND_SIGNATURE_HTML, nav)
-        self.assertIn("HamaratLabs tarafından geliştirildi", app._FOOTER)
+        self.assertIn("HamaratLabs tarafından geliştirildi", app._footer())
         # .sv-brand büyük harfe çevirir; imza yazımı korunmalı (HAMARATLABS olmamalı).
         sig_css = app._CSS.split(".sv-sig {", 1)[1].split("}", 1)[0]
         self.assertIn("text-transform: none", sig_css)
@@ -204,7 +204,7 @@ class AppTests(unittest.TestCase):
         import app
         readme = (Path(app.__file__).parent / "README.md").read_text(encoding="utf-8")
         self.assertIn("HamaratLabs tarafından geliştirilmiştir.", readme.splitlines()[:4])
-        for source in (app._HERO, app._FOOTER, readme):
+        for source in (app._hero(), app._footer(), readme):
             for match in re.findall(r"hamarat\s*-?\s*labs", source, flags=re.IGNORECASE):
                 self.assertEqual(match, "HamaratLabs")
 

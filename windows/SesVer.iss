@@ -96,6 +96,8 @@ Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm
 Source: "{#SrcRoot}\*.py"; DestDir: "{app}"; Flags: ignoreversion
 ; voice_designer.py'nin çalışma zamanında okuduğu eşleme dosyası.
 Source: "{#SrcRoot}\voice_design_map.json"; DestDir: "{app}"; Flags: ignoreversion
+; Arayüz çevirileri (i18n.py okur); yoksa arayüz Türkçe kalır.
+Source: "{#SrcRoot}\locales\*.json"; DestDir: "{app}\locales"; Flags: ignoreversion
 Source: "{#SrcRoot}\requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 ; Ortam kurulumunu yapan başlatıcı (kısayol ve son ekran bunu çağırır).
 Source: "{#SrcRoot}\WINDOWS_BASLAT.bat"; DestDir: "{app}"; Flags: ignoreversion
