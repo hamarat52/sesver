@@ -60,3 +60,6 @@ sesver_baslatici_log.txt
 
 # İçerik taslakları (yayın öncesi senaryo/metin dosyaları, repo koduna karışmaz).
 icerik/
+
+# İç ikon QA kanıt klasörü — GitHub'a gitmesin
+assets/app_icon/kanit/
