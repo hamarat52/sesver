@@ -25,6 +25,8 @@ import urllib.error
 import urllib.request
 
 import hata_rehberi  # yalnız standart kütüphane: numpy/torch yüklenemese de çalışır
+import i18n  # aynı şekilde yalnız standart kütüphane (yükleme/hata ekranı seçili dilde)
+from i18n import t
 
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sesver_log.txt")
 # pythonw.exe altında konsol yoktur ve sys.stdout/sys.stderr None olur.
@@ -100,7 +102,7 @@ def _print_guide(error_text):
     guide = hata_rehberi.smart_app_control_rehberi(error_text)
     if guide:
         bar = "=" * 64
-        print(f"\n{bar}\nNE YAPMALIYIM?\n{bar}\n{guide}\n{bar}", file=sys.stderr, flush=True)
+        print(f"\n{bar}\n{t('NE YAPMALIYIM?')}\n{bar}\n{guide}\n{bar}", file=sys.stderr, flush=True)
     return guide
 
 
@@ -150,18 +152,24 @@ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 body{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
 .s{width:34px;height:34px;border:3px solid #333;border-top-color:#e6e6e6;border-radius:50%;
 animation:r 1s linear infinite}@keyframes r{to{transform:rotate(360deg)}}
-</style></head><body><div class="s"></div><div>SesVer açılıyor…</div></body></html>"""
+</style></head><body><div class="s"></div><div>{opening}</div></body></html>"""
 
 _ERROR_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
 body{margin:0;padding:40px;background:#0f1115;color:#e6e6e6;
 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
 pre{white-space:pre-wrap;color:#ff8a8a}</style></head><body>
-<h2>SesVer başlatılamadı</h2>
-<p>Ayrıntı için SesVer klasöründeki sesver_log.txt dosyasına bakın:</p>
+<h2>{title}</h2>
+<p>{see_log}</p>
 <pre style="color:#e6e6e6">{log}</pre>
 <pre>{msg}</pre>{guide}</body></html>"""
 
-_GUIDE_HTML = """<h3>Ne yapmalıyım?</h3><pre style="color:#e6e6e6">{guide}</pre>"""
+_GUIDE_HTML = """<h3>{what}</h3><pre style="color:#e6e6e6">{guide}</pre>"""
+
+
+def _ui_url(base):
+    """Kayıtlı arayüz dilinin sayfası (Türkçe kökte; diğerleri /en, /es …)."""
+    path = i18n.page_path(i18n.saved_language())
+    return f"{base}/{path}" if path else base
 
 
 def _pick_port():
@@ -250,15 +258,18 @@ def _load_ui(window, server):
     # Pencere ekranda (yükleniyor görünümü): başlatıcı konsolu artık kapanabilir.
     _report_status("acildi")
     if server.wait_ready():
-        window.load_url(server.url)
+        window.load_url(_ui_url(server.url))
     else:
         print(f"[HATA] {server.error}", flush=True)
         print(f"Ayrıntı için: {LOG_PATH}", flush=True)
         guide = _print_guide(server.error)
         window.load_html(
-            _ERROR_HTML.replace("{log}", html.escape(LOG_PATH))
-            .replace("{msg}", html.escape(server.error or "bilinmeyen hata"))
-            .replace("{guide}", _GUIDE_HTML.replace("{guide}", html.escape(guide)) if guide else "")
+            _ERROR_HTML.replace("{title}", html.escape(t("SesVer başlatılamadı")))
+            .replace("{see_log}", html.escape(t("Ayrıntı için SesVer klasöründeki sesver_log.txt dosyasına bakın:")))
+            .replace("{log}", html.escape(LOG_PATH))
+            .replace("{msg}", html.escape(server.error or t("bilinmeyen hata")))
+            .replace("{guide}", _GUIDE_HTML.replace("{what}", html.escape(t("Ne yapmalıyım?")))
+                     .replace("{guide}", html.escape(guide)) if guide else "")
         )
 
 
@@ -269,7 +280,8 @@ def _run_window(server):
     _check_webview_backend(webview)
     webview.settings["ALLOW_DOWNLOADS"] = True  # "WAV indir" düğmeleri için
     window = webview.create_window(
-        "SesVer", html=_LOADING_HTML, width=1280, height=860, min_size=(900, 600),
+        "SesVer", html=_LOADING_HTML.replace("{opening}", html.escape(t("SesVer açılıyor…"))),
+        width=1280, height=860, min_size=(900, 600),
         background_color="#0f1115",
     )
     webview.start(_load_ui, (window, server))
@@ -285,7 +297,7 @@ def _run_browser(server):
         _print_guide(server.error)
         sys.exit(1)
     print(f"Pencere açılamadı, tarayıcıda açılıyor: {server.url}", flush=True)
-    webbrowser.open(server.url)
+    webbrowser.open(_ui_url(server.url))
     print("Durdurmak için bu pencerede Ctrl+C kullanın.", flush=True)
     server.demo.block_thread()
 

@@ -107,9 +107,10 @@ jobs:
           $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon',"/LOG=$log" -Wait -PassThru
           if ($p.ExitCode -ne 0) { Get-Content $log -ErrorAction SilentlyContinue; throw "Kurulum çıkış kodu: $($p.ExitCode)" }
 
-          $beklenen = @('app.py','desktop.py','hata_rehberi.py','voice_library.py','voice_designer.py',
+          $beklenen = @('app.py','desktop.py','hata_rehberi.py','i18n.py','voice_library.py','voice_designer.py',
                         'voice_design_map.json','requirements.txt','WINDOWS_BASLAT.bat','LICENSE',
-                        'README.md','AI_KURULUM.md','SesVer.ico','voices\hazir\belgesel\ses.json','voices\hazir\masalci\ref.wav')
+                        'README.md','AI_KURULUM.md','SesVer.ico','voices\hazir\belgesel\ses.json','voices\hazir\masalci\ref.wav',
+                        'locales\en.json','locales\ar.json','locales\ja.json')
           foreach ($b in $beklenen) {
             if (-not (Test-Path (Join-Path $app $b))) { throw "Kurulumda eksik: $b" }
           }
