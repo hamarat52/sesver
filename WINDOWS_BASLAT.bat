@@ -109,7 +109,7 @@ if errorlevel 1 (
 ) else (
   echo NVIDIA ekran karti bulundu, CUDA destekli PyTorch kuruluyor...
   set "ADIM=CUDA destekli PyTorch kurulumu"
-  "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121 --no-warn-script-location
+  "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126 --no-warn-script-location
   if errorlevel 1 (
     echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
   )
@@ -136,7 +136,7 @@ if not errorlevel 1 if not exist "%GPU_FIX_MARK%" (
   "%PYEXE%" -c "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)" >nul 2>nul
   if errorlevel 1 (
     echo NVIDIA ekran karti var ama PyTorch CUDA kullanmiyor, duzeltiliyor...
-    "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu121 --no-warn-script-location
+    "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126 --no-warn-script-location
   )
   echo tamam>"%GPU_FIX_MARK%"
 )

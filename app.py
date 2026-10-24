@@ -21,6 +21,7 @@ import soundfile as sf
 
 import audio_prep
 import effects as fx
+import hizlandirma as hiz
 import i18n
 import voice_designer as vdes
 import voice_library as vlib
@@ -184,6 +185,10 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
     # Eski çıktı, yeni istek başarısız olsa bile yeni ses sanılmasın.
     progress(0, desc=t("İstek kontrol ediliyor…"))
     yield None, None, t("İstek kontrol ediliyor…")
+    blocked = _accel_block_reason()
+    if blocked:
+        # Ayarlar'dan PyTorch değişiyor/değişti: yarım ya da eski kurulumla model yüklenmesin.
+        raise gr.Error(blocked)
     text = (text or "").strip()
     prompt_text = (prompt_text or "").strip() or None
     if not text:
@@ -1072,6 +1077,10 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
   background: #FFF3EE !important; border: 1px solid rgba(242,92,59,.28) !important; box-shadow: none !important;
   --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z'/><path d='m13.5 6.5 4 4'/></svg>"); }
 .sv-btn-soft:hover { background: #FFE6DC !important; border-color: rgba(242,92,59,.5) !important; transform: translateY(-1px); }
+/* Ayarlar (hızlandırma) düğmelerinin ikonları */
+.sv-ic-download { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 4v11m-5-5 5 5 5-5M5 20h14'/></svg>"); }
+.sv-ic-undo { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 14 4 9l5-5'/><path d='M4 9h10.5a5.5 5.5 0 0 1 0 11H11'/></svg>"); }
+.sv-ic-refresh { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M20 11a8 8 0 0 0-14.5-4.5L4 8m0-4v4h4M4 13a8 8 0 0 0 14.5 4.5L20 16m0 4v-4h-4'/></svg>"); }
 .sv-transcribe-row { align-items: flex-end !important; }
 
 /* --- Sonuç kartı --------------------------------------------------- */
@@ -1081,6 +1090,9 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
   border-radius: 50%; background: var(--sv-coral); box-shadow: 0 0 0 4px rgba(242,92,59,.16); }
 .sv-status p { margin: 0 !important; font-size: .9rem !important; line-height: 1.5 !important; color: var(--sv-ink-2) !important; }
 .sv-status strong { color: var(--sv-ink); }
+.sv-accel-status p + p { margin-top: 8px !important; }
+.sv-accel-log textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-size: .76rem !important; line-height: 1.45 !important; }
 /* Adaylar kartı: Gradio ilerleme göstergesi kartın içinde, üstte kendi satırında (taşma/kesme yok). */
 .block.sv-cand-status > .wrap { position: relative !important; transform: none !important; inset: auto !important;
   width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 0 6px !important;
@@ -1712,6 +1724,11 @@ def _build_page(demo, lang):
             with gr.Tab(t("Ses Klonlama"), id="klon"):
                 _clone_tab()
 
+            with gr.Tab(t("Ayarlar"), id="ayarlar") as settings:
+                accel_refresh, accel_out = _settings_tab()
+            # Tarama (~3 sn, torch ayrı süreçte okunur) yalnız sekme açılınca yapılır.
+            settings.select(accel_refresh, outputs=accel_out, show_progress="minimal")
+
         _html(_info())
         _html(_footer())
         demo.load(None, js=_page_js(lang))
@@ -1816,6 +1833,262 @@ def _clone_tab():
         auto_transcribe, inputs=[c_reference], outputs=[c_prompt_text],
         concurrency_limit=1, show_progress="full",
     )
+
+
+# --- Ayarlar: ekran kartı (GPU) hızlandırma ---------------------------------
+# Algılama/kurulum mantığı hizlandirma.py'de; burada yalnız arayüz ve iletiler var.
+# PyTorch'un CPU/CUDA/ROCm derlemeleri ayrı paketlerdir: kurulumdan sonra değişiklik
+# ancak SesVer yeniden başlatılınca devreye girer (bu sınır arayüzde açıkça söylenir).
+
+_accel = {"busy": False, "restart": False, "scan": None}
+_accel_lock = Lock()
+
+
+def _accel_block_reason():
+    if _accel["busy"]:
+        return t("Ekran kartı kurulumu sürüyor; bitene kadar ses üretilemez.")
+    if _accel["restart"]:
+        return t("Ekran kartı ayarı değişti. Ses üretmeden önce SesVer'i kapatıp yeniden açın.")
+    return None
+
+
+def _accel_scan(force=False):
+    """(donanım, kurulu torch bilgisi, plan); torch okuması ~3 sn sürdüğü için önbelleklenir."""
+    if force or _accel["scan"] is None:
+        hw = hiz.detect()
+        info = hiz.probe_torch()
+        _accel["scan"] = (hw, info, hiz.plan(hw, info))
+    return _accel["scan"]
+
+
+def _backend_label(backend):
+    return {"cuda": "NVIDIA CUDA", "rocm": "AMD ROCm", "mps": "Apple MPS",
+            "cpu": t("İşlemci (CPU)")}.get(backend, t("okunamadı"))
+
+
+def _accel_plan_md(p):
+    gpu = f"**{escape(p['gpu'] or '')}**"
+    durum = p["durum"]
+    if durum == hiz.MAC:
+        if p["gpu"]:
+            return t("Apple Silicon Mac'te SesVer ekran kartını (MPS) zaten otomatik kullanır; "
+                     "ek kurulum gerekmez.")
+        return t("Bu Mac'te ekran kartı hızlandırması yok; SesVer işlemciyle (CPU) çalışır.")
+    if durum == hiz.ACTIVE:
+        return t("✅ Ekran kartı hızlandırması etkin: ses üretimi {gpu} üzerinde çalışır.", gpu=gpu)
+    if durum == hiz.INSTALL:
+        return t("{gpu} algılandı — {backend} hızlandırması kullanılabilir. Şu an işlemci (CPU) "
+                 "kullanılıyor; aşağıdaki düğmeyle etkinleştirebilirsiniz.",
+                 gpu=gpu, backend=_backend_label(p["hedef"]))
+    if durum == hiz.BROKEN:
+        return t("⚠️ {backend} destekli PyTorch kurulu ama ekran kartı kullanılamıyor (sürücü eksik "
+                 "veya uyumsuz olabilir). Ekran kartı sürücüsünü güncelleyip yeniden tarayın ya da "
+                 "işlemci (CPU) sürümüne geri dönün.", backend=_backend_label(p["hedef"]))
+    if durum == hiz.DRIVER_OLD:
+        return t("{gpu} algılandı ama NVIDIA sürücüsü çok eski (sürüm {driver}; en az 525 gerekir). "
+                 "Sürücüyü nvidia.com/drivers adresinden güncelleyip bu sayfayı yeniden tarayın.",
+                 gpu=gpu, driver=escape(p["surucu"] or "?"))
+    if durum == hiz.NO_DRIVER:
+        return t("{gpu} algılandı ama NVIDIA sürücüsü (nvidia-smi) bulunamadı. Sürücüyü "
+                 "nvidia.com/drivers adresinden kurup bu sayfayı yeniden tarayın.", gpu=gpu)
+    if durum == hiz.AMD_WINDOWS:
+        return t("{gpu} algılandı. Windows'ta AMD hızlandırması SesVer'de henüz kullanılamıyor: "
+                 "DirectML eklentisi (torch-directml) yalnız eski PyTorch 2.4 ile çalışıyor, ses "
+                 "modeli ise PyTorch 2.5 veya üstünü istiyor; AMD'nin Windows için PyTorch sürümü de "
+                 "yalnız Python 3.12 ve belirli kartları destekliyor. SesVer işlemciyle (CPU) "
+                 "çalışmaya devam eder.", gpu=gpu)
+    if durum == hiz.PLATFORM:
+        return t("{gpu} algılandı ama bu işletim sistemi/işlemci için hazır bir PyTorch hızlandırma "
+                 "paketi yok; SesVer işlemciyle (CPU) çalışır.", gpu=gpu)
+    return t("Ekran kartı algılanmadı; SesVer işlemciyle (CPU) çalışmaya devam eder.")
+
+
+def _accel_status_md(scan):
+    hw, info, p = scan
+    names = ", ".join(escape(g["name"]) for g in hw["gpus"])
+    detected = (t("**Algılanan ekran kartı:** {gpu}", gpu=names) if names
+                else t("**Algılanan ekran kartı:** bulunamadı"))
+    if _accel["restart"]:
+        # Yeni PyTorch diskte, eskisi bellekte: "kullanılacak cihaz" yeniden başlatana dek anlamsız.
+        return detected + "\n\n" + t("🔄 **SesVer'i kapatıp yeniden açın.** Yeni PyTorch kuruldu; değişiklik "
+                                     "ancak yeniden başlatınca devreye girer. O zamana kadar ses üretimi kapalı.")
+    lines = [detected,
+             t("**Ses modelinin kullanacağı cihaz:** {backend}",
+               backend=_backend_label(hiz.active_backend(info))),
+             t("**Kurulu PyTorch:** {version}", version=escape(info["version"]))
+             if info and info.get("version") else t("**Kurulu PyTorch:** okunamadı")]
+    return "  \n".join(lines) + "\n\n" + _accel_plan_md(p)
+
+
+def _accel_can_install(scan):
+    return scan[2]["durum"] == hiz.INSTALL and not _accel["restart"]
+
+
+def _accel_can_rollback(scan):
+    hw, info, _p = scan
+    return hw["system"] != "Darwin" and hiz.build_of(info) in ("cuda", "rocm") and not _accel["restart"]
+
+
+def _accel_need_md(scan):
+    target = scan[2]["hedef"] if _accel_can_install(scan) else ("cpu" if _accel_can_rollback(scan) else None)
+    if not target:
+        return gr.update(value="", visible=False)
+    download, disk = hiz.SIZES[target]
+    return gr.update(visible=True, value=t(
+        "**Gereksinimler:** internet bağlantısı, yaklaşık {download} GB indirme ve en az {disk} GB boş "
+        "disk alanı. Bağlantınıza göre 5–30 dakika sürebilir; bu sırada ses üretilemez.",
+        download=download, disk=disk))
+
+
+def _accel_refresh(force=False):
+    """Sekme açılınca/“Yeniden tara”: durum, düğmeler ve gereksinim notu."""
+    if _accel["busy"]:
+        return (gr.update(), gr.update(), gr.update(), gr.update())
+    scan = _accel_scan(force)
+    return (_accel_status_md(scan), gr.update(visible=_accel_can_install(scan), interactive=True),
+            gr.update(visible=_accel_can_rollback(scan), interactive=True), _accel_need_md(scan))
+
+
+def _accel_install_ui(target):
+    """target "gpu": algılanan karta uygun derleme; "cpu": hızlandırmayı kaldırıp CPU derlemesi.
+
+    Çıktılar: sonuç iletisi, kurulum günlüğü, etkinleştir/geri dön düğmeleri, durum, gereksinim
+    notu. İlerleme sonuç iletisine yazılır (Gradio'nun bekleme katmanı metni soluklaştırıyor).
+    """
+    if not _accel_lock.acquire(blocking=False):
+        raise gr.Error(t("Kurulum zaten sürüyor."))
+    try:
+        if not _model_lock.acquire(blocking=False):
+            raise gr.Error(t("Şu an ses üretiliyor; bitmesini bekleyip tekrar deneyin."))
+        _model_lock.release()
+        if hiz.windows_files_locked():
+            raise gr.Error(t("Ses modeli bu oturumda yüklendiği için PyTorch dosyaları kilitli. SesVer'i "
+                             "kapatıp yeniden açın ve ses üretmeden önce kurulumu buradan başlatın."))
+        scan = _accel_scan()
+        tag = hiz.CPU if target == "cpu" else scan[2]["etiket"]
+        allowed = _accel_can_rollback(scan) if target == "cpu" else _accel_can_install(scan)
+        if not tag or not allowed:
+            raise gr.Error(t("Bu sistem için uygun PyTorch paketi bulunamadı."))
+        size_key = "cpu" if target == "cpu" else scan[2]["hedef"]
+        need, free = hiz.SIZES[size_key][1], hiz.free_gb()
+        if free is not None and free < need:
+            raise gr.Error(t("Yeterli disk alanı yok: {free} GB boş, en az {need} GB gerekir.",
+                             free=f"{free:.1f}", need=need))
+        _accel["busy"] = True
+        off, keep = gr.update(interactive=False), gr.update()
+
+        def ui(msg, log_value=keep, buttons=off, status=keep, need_md=keep):
+            return msg, log_value, buttons, buttons, status, need_md
+
+        def done_ui(msg, log_value=keep):
+            """Bitiş: durum, düğmeler ve not taze taramayla yeniden çizilir."""
+            _accel["busy"] = False
+            status, install, rollback, need_md = _accel_refresh(force=not _accel["restart"])
+            return msg, log_value, install, rollback, status, need_md
+
+        yield ui(t("PyTorch sürümleri kontrol ediliyor…"), gr.update(value="", visible=True))
+        installed = hiz.installed_versions()
+        try:
+            versions = hiz.resolve(tag, installed)
+        except OSError:
+            yield done_ui(t("PyTorch indirme sunucusuna bağlanılamadı. İnternet bağlantınızı kontrol edin."),
+                          gr.update(visible=False))
+            return
+        if not versions:
+            yield done_ui(t("Bu sistem için uygun PyTorch paketi bulunamadı."), gr.update(visible=False))
+            return
+        cmd = hiz.install_command(tag, *versions, pip_version=installed.get("pip"))
+        log.info("Hızlandırma kurulumu: %s", " ".join(cmd[1:]))
+        lines = ["$ pip " + " ".join(cmd[4:])]
+        working = "⏳ " + t("İndiriliyor ve kuruluyor… Pencereyi kapatmayın.")
+        yield ui(working, "\n".join(lines))
+        proc = hiz.start_install(cmd)
+        last = perf_counter()
+        for raw in proc.stdout:
+            got = hiz.parse_progress(raw)
+            if got:
+                working = "⏳ " + t("İndiriliyor… {done} / {total} MB", done=got[0] // 2 ** 20,
+                                    total=got[1] // 2 ** 20) + f" ({got[0] * 100 // got[1]}%)"
+            elif raw.strip():
+                lines = (lines + [raw.rstrip()])[-60:]
+                if lines[-1].startswith("Installing collected packages"):
+                    working = "⏳ " + t("İndiriliyor ve kuruluyor… Pencereyi kapatmayın.")
+            if perf_counter() - last > 0.5:
+                last = perf_counter()
+                yield ui(working, "\n".join(lines))
+        code = proc.wait()
+        log_text = "\n".join(lines)
+        if code != 0:
+            log.warning("Hızlandırma kurulumu başarısız (çıkış kodu %s)", code)
+            if hiz.build_of(hiz.probe_torch()) is None:
+                # pip normalde geri alır; alamadıysa (ör. disk doldu) bunu saklamıyoruz.
+                msg = t("❌ Kurulum başarısız oldu (çıkış kodu {code}) ve PyTorch şu an okunamıyor. İnternet "
+                        "bağlantısını ve disk alanını kontrol edip kurulumu tekrarlayın; ayrıntılar günlükte.",
+                        code=code)
+            else:
+                msg = t("❌ Kurulum başarısız oldu (çıkış kodu {code}). Mevcut PyTorch korunur ve SesVer "
+                        "eskisi gibi çalışır; ayrıntılar günlükte.", code=code)
+            yield done_ui(msg, log_text)
+            return
+        _accel["restart"] = True  # bu süreçteki eski torch'la artık üretim yapılmasın
+        yield ui("⏳ " + t("Kurulum doğrulanıyor…"), log_text)
+        info = hiz.probe_torch()
+        log_text += f"\n\ntorch {info.get('version') if info else '?'}"
+        if target == "cpu":
+            msg = t("✅ İşlemci (CPU) sürümü kuruldu.")
+        elif info and info.get("cuda_ok"):
+            msg = t("✅ Kurulum tamamlandı; {gpu} PyTorch tarafından görüldü.",
+                    gpu=escape(info.get("device_name") or scan[2]["gpu"] or ""))
+        else:
+            msg = t("⚠️ Kurulum tamamlandı ama test sırasında ekran kartı görülemedi. Yeniden "
+                    "başlattıktan sonra bu sayfadan durumu kontrol edin.")
+        yield done_ui(msg, log_text)
+    finally:
+        _accel["busy"] = False
+        _accel_lock.release()
+
+
+def _settings_tab():
+    """Ayarlar sekmesi: ekran kartı algılama ve hızlandırmalı PyTorch kurulumu."""
+    with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
+        with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
+            _html(
+                f'<div class="sv-frame-bar"><div class="sv-chips">'
+                f'<span class="sv-chip">{_svg(_IC_CPU)}{t("Donanım")}</span></div>'
+                f'<span class="sv-chip sv-chip-dark">{_svg(_IC_LOCK)}{t("Yerel")}</span></div>'
+            )
+            with gr.Column(elem_classes=["sv-panel"]):
+                _head(_IC_CPU, t("Ekran kartı hızlandırma"),
+                      t("SesVer ekran kartınızı otomatik algılar; uygunsa doğru PyTorch sürümünü buradan "
+                        "kurar. Hiçbir şeye dokunmazsanız SesVer bugünkü gibi çalışmaya devam eder."))
+                status = gr.Markdown(t("Donanım taranıyor…"), elem_classes=["sv-status", "sv-accel-status"])
+                need = gr.Markdown("", visible=False, elem_classes=["sv-fine-md"])
+                with gr.Row():
+                    install = gr.Button(t("Hızlandırmayı etkinleştir"), variant="primary", visible=False,
+                                        elem_classes=["sv-btn", "sv-btn-primary", "sv-ic-download"])
+                    rollback = gr.Button(t("İşlemci (CPU) sürümüne geri dön"), visible=False,
+                                         elem_classes=["sv-btn", "sv-btn-soft", "sv-ic-undo"])
+                    rescan = gr.Button(t("Yeniden tara"), elem_classes=["sv-btn", "sv-btn-soft", "sv-ic-refresh"])
+                result = gr.Markdown("", elem_classes=["sv-fine-md"])
+                log_box = gr.Textbox(label=t("Kurulum günlüğü"), lines=10, max_lines=16, interactive=False,
+                                     visible=False, autoscroll=True, elem_classes=["sv-accel-log"])
+                _html('<p class="sv-fine">' + t(
+                    "<b>Neden yeniden başlatma?</b> PyTorch'un işlemci (CPU), NVIDIA (CUDA) ve AMD (ROCm) "
+                    "sürümleri ayrı paketlerdir; çalışan uygulama kullandığı sürümü değiştiremez. "
+                    "Apple Silicon Mac'te ekran kartı zaten kullanılır.") + "</p>")
+    refresh_out = [status, install, rollback, need]
+
+    def enable_gpu():
+        yield from _accel_install_ui("gpu")
+
+    def back_to_cpu():
+        yield from _accel_install_ui("cpu")
+
+    install_out = [result, log_box, install, rollback, status, need]
+    install.click(enable_gpu, outputs=install_out, concurrency_limit=1, show_progress="hidden")
+    rollback.click(back_to_cpu, outputs=install_out, concurrency_limit=1, show_progress="hidden")
+    rescan.click(lambda: _accel_refresh(force=True), outputs=refresh_out, show_progress="minimal")
+    return lambda: _accel_refresh(), refresh_out
 
 
 def _setup_logging():

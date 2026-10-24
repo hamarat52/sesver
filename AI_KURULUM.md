@@ -116,9 +116,21 @@ Python'u ayrıca kurmaya gerek yok; başlatıcı ilk çalıştırmada kendisi in
 
 ---
 
-## İsteğe bağlı: NVIDIA ekran kartı (yalnız Windows/Linux)
+## İsteğe bağlı: Ekran kartı hızlandırma (NVIDIA / AMD)
 
-Yalnız kullanıcının NVIDIA ekran kartı varsa ve kurulum çalıştıktan sonra hız istiyorsa önerilir. Zorunlu değildir; CUDA olmadan da çalışır (daha yavaş).
+Zorunlu değildir; ekran kartı olmadan veya bu adım yapılmadan SesVer işlemciyle (CPU) çalışır (daha yavaş). Apple Silicon Mac'te ekran kartı (MPS) zaten kendiliğinden kullanılır; Mac'te hiçbir şey yapma.
+
+**Önerilen yol — uygulama içinden:** SesVer açıkken **Ayarlar** sekmesine geç. SesVer ekran kartını kendisi algılar, şu an hangi cihazın kullanıldığını gösterir ve uygunsa **Hızlandırmayı etkinleştir** düğmesini sunar. Düğme doğru PyTorch sürümünü indirip kurar (internet gerekir; NVIDIA için yaklaşık 3 GB indirme ve 8 GB boş disk, AMD/Linux için yaklaşık 7 GB indirme ve 20 GB boş disk). Bitince **SesVer'i kapatıp yeniden aç** — PyTorch'un CPU/CUDA/ROCm sürümleri ayrı paketlerdir, değişiklik ancak yeniden başlatınca devreye girer. Sorun olursa aynı sekmedeki **İşlemci (CPU) sürümüne geri dön** düğmesi eski hâline getirir.
+
+Destek durumu:
+- **NVIDIA, Windows/Linux:** CUDA. Sürücü en az 525 olmalı (580 ve üstünde daha yeni CUDA 13 paketi seçilir). Ayarlar sürücü eski/eksikse bunu söyler: nvidia.com/drivers adresinden güncelle, sonra **Yeniden tara**.
+- **AMD, Linux:** ROCm (ROCm destekli bir kart ve AMD'nin Linux sürücüsü gerekir).
+- **AMD, Windows:** şimdilik desteklenmiyor. torch-directml yalnız PyTorch 2.4 ile çalışıyor, ses modeli 2.5+ istiyor; AMD'nin Windows için PyTorch'u ise Python 3.12 ve belirli kartlar gerektiriyor. Ayarlar kartı algılar ve nedenini açıklar; SesVer CPU'da çalışır.
+- Ses modeli yüklendikten sonra Windows PyTorch dosyalarını kilitler. Ayarlar bunu söylerse SesVer'i yeniden aç ve ses üretmeden önce kurulumu başlat.
+
+> **Test durumu:** Bu özellik gerçek NVIDIA veya AMD donanımında henüz uçtan uca denenmedi. Algılama ve kurulum akışı yalnız sahte ortamda doğrulandı: nvidia-smi / PowerShell / wmic / lspci çıktıları ve pip ilerleme satırları enjekte edildi (`tests/test_hizlandirma.py`); Apple Silicon Mac'te gerçek çalıştırmayla MPS akışının bozulmadığı görüldü. Windows'ta dosya kilidi, gerçek ~2 GB indirme ve yeniden başlatma sonrası CUDA'nın görülmesi doğrulanmadı. Kullanıcı bu adımda sorun yaşarsa ekrandaki iletiyi ve **Kurulum günlüğü** içeriğini iste; gerekirse aşağıdaki elle kurulum yoluna geç.
+
+**Yedek yol — elle (yalnız NVIDIA, tercih eden kullanıcılar için):**
 
 1. Önce SesVer'i normal kur ve bir kere çalıştığından emin ol (yukarıdaki adımlar).
 2. https://pytorch.org/get-started/locally/ adresindeki seçicide işletim sistemi, **Pip**, **Python** ve bir **CUDA** sürümü seç. Sayfa bir `pip install ...` komutu verir.
