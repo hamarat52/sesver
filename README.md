@@ -2,7 +2,7 @@
 
 HamaratLabs tarafından geliştirilmiştir.
 
-**Yerel Türkçe ses üretimi + ses klonlama; kaynağı görünür, ticari olmayan kullanım için ücretsiz.** Metninizi yazın, **Üret**'e basın, sonucu dinleyip WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
+**Yerel Türkçe ses üretimi + ses klonlama; açık kaynak (MIT) ve tamamen ücretsiz.** Metninizi yazın, **Üret**'e basın, sonucu dinleyip WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
 
 **İçindekiler:** [Windows Kurulum](#-windows-kurulum) · [Mac Kurulum](#-mac-kurulum) · [Yapay Zeka Destekli Kurulum](#-yapay-zeka-destekli-kurulum) · [Özellikler](#özellikler) · [Sorun giderme](#sorun-giderme) · [Lisans](#lisans-atıf-ve-sorumlu-kullanım) · [Teknik Detaylar](#teknik-detaylar-ileri-seviye)
 
@@ -103,13 +103,13 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 
 ## Lisans, atıf ve sorumlu kullanım
 
-**SesVer'un kendi kodu (bu arayüz, `app.py`, testler) [PolyForm Noncommercial 1.0.0](LICENSE) lisanslıdır.** Kişisel kullanım, inceleme, eğitim, araştırma ve değiştirme serbesttir; **ticari kullanım ve yeniden satış izinli değildir** — SesVer'u indirip başka birine satamaz veya ticari bir ürüne/servise dahil edemezsiniz. Telif ve lisans sahibi **HamaratLabs**'tir. SesVer'un kaynak kodu görünür ve incelenebilir, ancak ticari kullanımı kısıtlayan bu lisans OSI tanımlı bir "open source" lisansı değildir. Ticari kullanım için HamaratLabs'ten ayrıca izin gerekir; izin talebi için [bir issue açın](https://github.com/hamarat52/sesver/issues).
+**SesVer'un kendi kodu (bu arayüz, `app.py`, testler) [MIT License](LICENSE) ile lisanslıdır.** Serbestçe kullanılabilir, değiştirilebilir, ticari ürünlere dahil edilebilir — tek şart lisans ve telif bildirimini korumak. Telif sahibi **HamaratLabs**'tir. MIT, OSI tarafından tanımlı bir "open source" lisansıdır.
 
 Bu arayüz sıfırdan yazılmıştır ve yalnız bağımsız `voxcpm` paketini (pip) kullanır; VoiceStudio kodu veya bağımlılığı içermez. Sizin kendi bilgisayarınıza kurduğunuz **[VoxCPM2 modeli](https://huggingface.co/openbmb/VoxCPM2) ve [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) kodu ise ayrı bir bağımlılıktır ve kendi Apache-2.0 lisansı altındadır** (ticari kullanıma izin veren farklı bir lisans) — SesVer'un lisansı o bağımlılığı kısıtlamaz, sadece bu depodaki arayüz koduna uygulanır. OpenBMB ekibine teşekkürler.
 
 ### Sorumluluk reddi
 
-Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/katkıda bulunanlar, yazılımın kullanımından doğan hiçbir zarardan sorumlu değildir (LICENSE dosyasındaki "No Liability" maddesi). **Üretilen içerikten ve bu aracın nasıl kullanıldığından tamamen kullanıcı sorumludur.**
+Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/katkıda bulunanlar, yazılımın kullanımından doğan hiçbir zarardan sorumlu değildir ([LICENSE](LICENSE) dosyasındaki garanti reddi maddesi). **Üretilen içerikten ve bu aracın nasıl kullanıldığından tamamen kullanıcı sorumludur.**
 
 **Üretilen içeriği paylaşırken “AI ile üretildi” diye açıkça etiketlemek zorunludur.** Bu, model kartındaki kullanım uyarısıdır; uygulama sese otomatik bir filigran eklemez. Bu lisans başka kişilerin sesini izinsiz kullanma hakkı vermez. Sadece kendi sesinizi veya açık izin aldığınız bir sesi klonlayın; kimliğe bürünme, dolandırıcılık veya yanıltıcı/yasadışı içerik üretmek için kullanmayın. Bu araçla üretilen içerikle yapılan kimliğe bürünme, dolandırıcılık veya herhangi bir yasadışı eylemden tamamen kullanıcı sorumludur; proje sahibi/katkıda bulunanlar sorumlu tutulamaz.
 
