@@ -2101,10 +2101,38 @@ def _setup_logging():
     log.propagate = False
 
 
+PORT_TRIES = 5  # 7860, 7861, … 7864
+
+
+def launch_with_port_retry(demo, port, tries=PORT_TRIES, **launch_kwargs):
+    """demo.launch()'u `port`'ta dener; port doluysa (OSError) port += 1 ile toplam `tries`
+    kez dener ve sunucunun açıldığı portu döndürür. Portu önce soketle yoklayıp sonra
+    launch etmek yarış doğurur (port arada kapılabilir); bu yüzden doğrudan launch denenir.
+    Hepsi doluysa anlaşılır bir OSError fırlatır."""
+    first, last_exc = port, None
+    for attempt in range(tries):
+        try:
+            demo.launch(server_port=port, **launch_kwargs)
+            if port != first:
+                print(f"SesVer {port} portunda açıldı.", flush=True)
+            return port
+        except OSError as exc:
+            last_exc = exc
+            if attempt + 1 < tries:
+                print(f"Port {port} kullanımda, {port + 1} portu deneniyor.", flush=True)
+                port += 1
+    raise OSError(
+        f"{first}-{port} arasındaki portların hepsi kullanımda; SesVer başlatılamadı. "
+        "Açık kalmış başka bir SesVer penceresini kapatıp yeniden deneyin ya da "
+        f"GRADIO_SERVER_PORT ile başka bir port belirtin. (Son hata: {last_exc})"
+    )
+
+
 if __name__ == "__main__":
     _setup_logging()
-    build_app().launch(
-        server_name="127.0.0.1", server_port=int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
+    launch_with_port_retry(
+        build_app(), int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
+        server_name="127.0.0.1",
         share=False, inbrowser=False,
         css=_CSS, theme=_THEME, js=_JS, footer_links=[],
         allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
