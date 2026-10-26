@@ -23,6 +23,11 @@ set "PYTHONNOUSERSITE=1"
 set "EMBED_PY=.\python-embed\python.exe"
 set "PYEXE="
 set "MARK="
+REM Varsayilan: python-embed icin Python 3.11 indirilir (SesVer'in bugunku surumu).
+REM AMD ekran karti + ROCm 7.2.1'in Windows'ta destekledigi belirli bir model varsa (ve
+REM NVIDIA karti YOKSA) :amd_rocm312_sec bunu "3.12"ye cevirebilir - yalniz ILK kurulumda,
+REM python-embed henuz yokken calisir; mevcut kurulumlar (3.11) hic etkilenmez.
+set "PBS_PY=3.11"
 
 if not exist "%EMBED_PY%" goto :embed_yok
 "%EMBED_PY%" --version >nul 2>nul
@@ -31,6 +36,7 @@ echo [UYARI] python-embed klasorundeki Python calismiyor; silinip yeniden indiri
 rd /s /q "python-embed" >nul 2>nul
 :embed_yok
 if exist ".venv\Scripts\python.exe" if exist ".venv\sesver_kurulum_tamam.txt" goto :venv_kullan
+call :amd_rocm312_sec
 call :embed_kur
 if not errorlevel 1 goto :embed_kullan
 echo.
@@ -217,11 +223,14 @@ REM ================= Alt yordamlar =================
 REM Tasinabilir Python'u indirir, SHA256 ile dogrular, python-embed\ olarak
 REM yerlestirir. Basariliysa errorlevel 0, degilse 1 doner.
 REM Ara dosyalar pbs_ onekiyle bu klasorde tutulur ve sonda silinir.
+REM PBS_PY (3.11 varsayilan, AMD+ROCm7.2.1 destekli kart icin 3.12) cagirandan gelir.
 echo.
 echo Python hazirlaniyor - bilgisayariniza ayrica Python kurmaniz gerekmez...
-REM Guncel surum bilgisi alinamazsa kullanilacak, dogrulanmis son iyi surum:
+REM Guncel surum bilgisi alinamazsa kullanilacak, dogrulanmis son iyi surum (yalniz 3.11
+REM icin sabitlenmis; 3.12'de canli bakim basarisiz olursa asagida 3.11'e donulur - uydurma
+REM bir 3.12 SHA256 KULLANILMAZ).
 set "PBS_TAG_YEDEK=20261013"
-set "PBS_DOSYA_YEDEK=cpython-3.11.17+20261013-x86_64-pc-windows-msvc-install_only.tar.gz"
+set "PBS_DOSYA_YEDEK=cpython-3.11.17+202****1013-x86_64-pc-windows-msvc-install_only.tar.gz"
 set "PBS_SHA_YEDEK=7616ab1f74aab975bd91eb0a657a74a092a63a46cac38c5f3f9415c79fd781f5"
 set "PBS_REPO=https://github.com/astral-sh/python-build-standalone/releases/download"
 set "PBS_TAG="
@@ -234,17 +243,23 @@ call :indir "https://raw.githubusercontent.com/astral-sh/python-build-standalone
 if errorlevel 1 goto :embed_yedek_surum
 for /f "usebackq tokens=1,2 delims=:, " %%A in ("pbs_latest.json") do if "%%~A"=="tag" set "PBS_TAG=%%~B"
 if "%PBS_TAG%"=="" goto :embed_yedek_surum
-REM Bu etiketteki 3.11 Windows x64 install_only dosyasinin adi ve SHA256'si.
+REM Bu etiketteki %PBS_PY% Windows x64 install_only dosyasinin adi ve SHA256'si.
 call :indir "%PBS_REPO%/%PBS_TAG%/SHA256SUMS" "pbs_sums.txt" sessiz
 if errorlevel 1 goto :embed_yedek_surum
-findstr /l /c:" cpython-3.11." "pbs_sums.txt" >"pbs_sums_311.txt" 2>nul
-findstr /l /c:"-x86_64-pc-windows-msvc-install_only.tar.gz" "pbs_sums_311.txt" >"pbs_satir.txt" 2>nul
+findstr /l /c:" cpython-%PBS_PY%." "pbs_sums.txt" >"pbs_sums_ver.txt" 2>nul
+findstr /l /c:"-x86_64-pc-windows-msvc-install_only.tar.gz" "pbs_sums_ver.txt" >"pbs_satir.txt" 2>nul
 for /f "usebackq tokens=1" %%A in ("pbs_satir.txt") do set "PBS_SHA=%%A"
 for /f "usebackq tokens=2" %%A in ("pbs_satir.txt") do set "PBS_DOSYA=%%A"
 if "%PBS_SHA%"=="" goto :embed_yedek_surum
 if "%PBS_DOSYA%"=="" goto :embed_yedek_surum
 goto :embed_indir
 :embed_yedek_surum
+REM Sabit yedek yalniz Python 3.11 icin dogrulanmis bir SHA256'ya sahip; 3.12 icin canli
+REM surum/SHA256 bulunamadiysa UYDURULMAZ - guvenli varsayilan 3.11'e sessizce donulur.
+if "%PBS_PY%"=="3.11" goto :embed_yedek_sabit
+echo [BILGI] Python 3.12 icin guncel surum bilgisi alinamadi; Python 3.11 ile devam edilecek.
+set "PBS_PY=3.11"
+:embed_yedek_sabit
 echo [BILGI] Guncel surum bilgisi alinamadi; bilinen surum kullaniliyor.
 set "PBS_TAG=%PBS_TAG_YEDEK%"
 set "PBS_DOSYA=%PBS_DOSYA_YEDEK%"
@@ -311,7 +326,22 @@ exit /b 1
 
 :embed_temizle
 if exist "pbs_tmp" rd /s /q "pbs_tmp" >nul 2>nul
-del /f /q "pbs_python.tar.gz" "pbs_latest.json" "pbs_sums.txt" "pbs_sums_311.txt" "pbs_satir.txt" >nul 2>nul
+del /f /q "pbs_python.tar.gz" "pbs_latest.json" "pbs_sums.txt" "pbs_sums_311.txt" "pbs_sums_ver.txt" "pbs_satir.txt" >nul 2>nul
+exit /b 0
+
+:amd_rocm312_sec
+REM AMD ekran karti, ROCm 7.2.1'in Windows'ta destekledigi belirli modellerden biriyse (ve
+REM NVIDIA karti YOKSA) PBS_PY'yi "3.12"ye cevirir: AMD'nin resmi ROCm Windows PyTorch'u
+REM yalniz Python 3.12'yi destekliyor. Kart listesi hizlandirma.py'deki
+REM ROCM_WIN_SUPPORTED_GPUS ile AYNI olmali - biri degisirse digeri de guncellenmeli.
+REM Herhangi bir adim basarisiz/belirsiz olursa SESSIZCE varsayilan Python 3.11'e devam
+REM edilir; bu kontrol yalniz PBS_PY'yi degistirebilir, baska HICBIR SEYE dokunmaz -
+REM NVIDIA/CPU/diger tum kullanicilar icin davranis birebir aynidir.
+where powershell >nul 2>nul || exit /b 0
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference='SilentlyContinue'; $gpus = @((Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue).Name); if (-not $gpus -or $gpus.Count -eq 0) { exit 1 }; if ($gpus -match 'NVIDIA') { exit 1 }; $ok = @('rx 9070','rx 9070 xt','rx 9060 xt','rx 7900 xtx','pro w7900','pro w7900 dual slot','rx 7700','ai pro r9700'); foreach ($g in $gpus) { $n = $g.Trim().ToLower(); $n = $n -replace '\(tm\)|\(r\)', ''; $n = $n -replace '\s+', ' '; $n = $n -replace '^amd\s+', ''; $n = $n -replace '^radeon\s+', ''; $n = ($n -replace '\s+graphics$', '').Trim(); if ($ok -contains $n) { exit 0 } }; exit 1" >nul 2>nul
+if errorlevel 1 exit /b 0
+set "PBS_PY=3.12"
+echo AMD ekran karti (ROCm 7.2.1 destekli) algilandi: Python 3.12 ile GPU hizlandirma denenecek.
 exit /b 0
 
 :indir

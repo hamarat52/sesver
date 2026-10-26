@@ -135,6 +135,37 @@ class DetectTests(unittest.TestCase):
         self.assertEqual(hw["gpus"][0]["vendor"], h.AMD)
         p = h.plan(hw, CPU_TORCH)
         self.assertEqual((p["durum"], p["etiket"]), (h.AMD_WINDOWS, None))
+        # Python 3.12 olsa bile desteklenmeyen kart (RX 6700 XT) hâlâ "henüz yok" kalır.
+        p312 = h.plan(hw, CPU_TORCH, python_version=(3, 12))
+        self.assertEqual(p312["durum"], h.AMD_WINDOWS)
+
+    def test_amd_windows_rocm_supported_card_python312(self):
+        runner, which, _ = fake({"powershell": "AMD Radeon RX 7900 XTX\n"})
+        hw = h.detect("Windows", "AMD64", runner, which)
+        # Python 3.11 (SesVer'in bugünkü varsayılanı): destekli kart olsa da hâlâ CPU'ya düşer.
+        p311 = h.plan(hw, CPU_TORCH, python_version=(3, 11))
+        self.assertEqual(p311["durum"], h.AMD_WINDOWS)
+        # Python 3.12 + desteklenen kart: yeni ROCm Windows yolu açılır.
+        p312 = h.plan(hw, CPU_TORCH, python_version=(3, 12))
+        self.assertEqual((p312["durum"], p312["hedef"], p312["etiket"]),
+                         (h.INSTALL, h.ROCM_WIN, h.ROCM_WIN_TAG))
+        self.assertEqual(p312["gpu"], "AMD Radeon RX 7900 XTX")
+
+    def test_amd_windows_rocm_unsupported_card_python312(self):
+        # RX 7700 XT listede YOK (yalnız XT'siz RX 7700 destekleniyor) — yanlış pozitif olmamalı.
+        runner, which, _ = fake({"powershell": "AMD Radeon RX 7700 XT\n"})
+        hw = h.detect("Windows", "AMD64", runner, which)
+        p = h.plan(hw, CPU_TORCH, python_version=(3, 12))
+        self.assertEqual(p["durum"], h.AMD_WINDOWS)
+
+    def test_rocm_windows_supported_exact_match_not_substring(self):
+        self.assertTrue(h.rocm_windows_supported("AMD Radeon RX 7900 XTX"))
+        self.assertTrue(h.rocm_windows_supported("Radeon(TM) RX 9070 XT Graphics"))
+        self.assertTrue(h.rocm_windows_supported("AMD Radeon RX 7700"))
+        self.assertFalse(h.rocm_windows_supported("AMD Radeon RX 7700 XT"))
+        self.assertFalse(h.rocm_windows_supported("AMD Radeon RX 9060"))  # XT'siz desteklenmiyor
+        self.assertFalse(h.rocm_windows_supported("AMD Radeon RX 6700 XT"))
+        self.assertFalse(h.rocm_windows_supported(None))
 
     def test_amd_linux_rocm(self):
         runner, which, _ = fake({"lspci": LSPCI_AMD})
@@ -194,6 +225,20 @@ class InstallTests(unittest.TestCase):
         self.assertIn("https://download.pytorch.org/whl/cu130", cmd)
         self.assertEqual(cmd[-2:], ["--progress-bar", "raw"])
         self.assertNotIn("raw", h.install_command("cpu", "2.14.1", None, python="py", pip_version="23.0"))
+
+    def test_install_commands_rocm_win_is_two_sequential_steps(self):
+        steps = h.install_commands_rocm_win(python="py", pip_version="26.2.1")
+        self.assertEqual(len(steps), 2)
+        sdk, torch = steps
+        self.assertEqual(sdk[:4], ["py", "-m", "pip", "install"])
+        self.assertTrue(any("rocm_sdk_core-7.2.1-py3-none-win_amd64.whl" in a for a in sdk))
+        self.assertTrue(any(a.endswith("rocm-7.2.1.tar.gz") for a in sdk))
+        self.assertTrue(any("torch-2.9.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl" in a for a in torch))
+        self.assertTrue(any("torchaudio-2.9.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl" in a for a in torch))
+        self.assertTrue(any("torchvision-0.24.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl" in a for a in torch))
+        self.assertTrue(all(url.startswith("https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/")
+                             for url in sdk[9:] + torch[9:]))
+        self.assertEqual(sdk[7:9], ["--progress-bar", "raw"])  # pip >= 24.1 → ilerleme satırları
 
 
 class RealMachineTests(unittest.TestCase):

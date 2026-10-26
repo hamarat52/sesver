@@ -1862,8 +1862,8 @@ def _accel_scan(force=False):
 
 
 def _backend_label(backend):
-    return {"cuda": "NVIDIA CUDA", "rocm": "AMD ROCm", "mps": "Apple MPS",
-            "cpu": t("İşlemci (CPU)")}.get(backend, t("okunamadı"))
+    return {"cuda": "NVIDIA CUDA", "rocm": "AMD ROCm", "rocm_win": "AMD ROCm (Windows, Python 3.12)",
+            "mps": "Apple MPS", "cpu": t("İşlemci (CPU)")}.get(backend, t("okunamadı"))
 
 
 def _accel_plan_md(p):
@@ -1988,35 +1988,47 @@ def _accel_install_ui(target):
 
         yield ui(t("PyTorch sürümleri kontrol ediliyor…"), gr.update(value="", visible=True))
         installed = hiz.installed_versions()
-        try:
-            versions = hiz.resolve(tag, installed)
-        except OSError:
-            yield done_ui(t("PyTorch indirme sunucusuna bağlanılamadı. İnternet bağlantınızı kontrol edin."),
-                          gr.update(visible=False))
-            return
-        if not versions:
-            yield done_ui(t("Bu sistem için uygun PyTorch paketi bulunamadı."), gr.update(visible=False))
-            return
-        cmd = hiz.install_command(tag, *versions, pip_version=installed.get("pip"))
-        log.info("Hızlandırma kurulumu: %s", " ".join(cmd[1:]))
-        lines = ["$ pip " + " ".join(cmd[4:])]
+        rocm_win = target != "cpu" and scan[2]["hedef"] == hiz.ROCM_WIN
+        if rocm_win:
+            # repo.radeon.com bir PEP 503 indeksi değil (sabit dosya adları); resolve() burada
+            # KULLANILAMAZ — bkz. hizlandirma.py modül başı not. İki SIRALI pip adımı var.
+            cmd_steps = hiz.install_commands_rocm_win(pip_version=installed.get("pip"))
+        else:
+            try:
+                versions = hiz.resolve(tag, installed)
+            except OSError:
+                yield done_ui(t("PyTorch indirme sunucusuna bağlanılamadı. İnternet bağlantınızı kontrol edin."),
+                              gr.update(visible=False))
+                return
+            if not versions:
+                yield done_ui(t("Bu sistem için uygun PyTorch paketi bulunamadı."), gr.update(visible=False))
+                return
+            cmd_steps = [hiz.install_command(tag, *versions, pip_version=installed.get("pip"))]
+        lines = []
         working = "⏳ " + t("İndiriliyor ve kuruluyor… Pencereyi kapatmayın.")
-        yield ui(working, "\n".join(lines))
-        proc = hiz.start_install(cmd)
-        last = perf_counter()
-        for raw in proc.stdout:
-            got = hiz.parse_progress(raw)
-            if got:
-                working = "⏳ " + t("İndiriliyor… {done} / {total} MB", done=got[0] // 2 ** 20,
-                                    total=got[1] // 2 ** 20) + f" ({got[0] * 100 // got[1]}%)"
-            elif raw.strip():
-                lines = (lines + [raw.rstrip()])[-60:]
-                if lines[-1].startswith("Installing collected packages"):
-                    working = "⏳ " + t("İndiriliyor ve kuruluyor… Pencereyi kapatmayın.")
-            if perf_counter() - last > 0.5:
-                last = perf_counter()
-                yield ui(working, "\n".join(lines))
-        code = proc.wait()
+        code = 0
+        for adim, cmd in enumerate(cmd_steps, 1):
+            log.info("Hızlandırma kurulumu (adım %s/%s): %s", adim, len(cmd_steps), " ".join(cmd[1:]))
+            lines.append(f"$ pip {' '.join(cmd[4:])}" if len(cmd_steps) == 1
+                         else f"$ pip {' '.join(cmd[4:])}  # adım {adim}/{len(cmd_steps)}")
+            yield ui(working, "\n".join(lines))
+            proc = hiz.start_install(cmd)
+            last = perf_counter()
+            for raw in proc.stdout:
+                got = hiz.parse_progress(raw)
+                if got:
+                    working = "⏳ " + t("İndiriliyor… {done} / {total} MB", done=got[0] // 2 ** 20,
+                                        total=got[1] // 2 ** 20) + f" ({got[0] * 100 // got[1]}%)"
+                elif raw.strip():
+                    lines = (lines + [raw.rstrip()])[-60:]
+                    if lines[-1].startswith("Installing collected packages"):
+                        working = "⏳ " + t("İndiriliyor ve kuruluyor… Pencereyi kapatmayın.")
+                if perf_counter() - last > 0.5:
+                    last = perf_counter()
+                    yield ui(working, "\n".join(lines))
+            code = proc.wait()
+            if code != 0:
+                break  # sonraki adım (ör. ROCm SDK başarısızsa torch) denenmez
         log_text = "\n".join(lines)
         if code != 0:
             log.warning("Hızlandırma kurulumu başarısız (çıkış kodu %s)", code)

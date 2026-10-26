@@ -12,10 +12,18 @@ Desteklenen kurulum yolları (2026-10 itibarıyla doğrulandı):
   * NVIDIA, Windows/Linux x86-64: download.pytorch.org/whl/cu130 (sürücü >= 580,
     compute capability >= 7.5) veya cu126 (sürücü >= 525, daha eski kartlar).
   * AMD, Linux x86-64: download.pytorch.org/whl/rocm7.2.
+  * AMD, Windows, Python 3.12, DESTEKLENEN KART (bkz. ROCM_WIN_SUPPORTED_GPUS):
+    repo.radeon.com'daki AMD ROCm 7.2.1 resmi Windows PyTorch'u (torch 2.9.1+rocm7.2.1).
+    Bu yol SesVer'in varsayılan Python 3.11 akışından AYRI: yalnız python-embed (veya
+    sistem Python'u) zaten 3.12 olarak kurulmuşsa devreye girer — bkz. WINDOWS_BASLAT.bat
+    içindeki AMD+3.12 algılama dalı. 2026-10-26'da rocm.docs.amd.com'dan doğrulandı;
+    AMD bu wheel URL'lerini/sürüm/kart listesini her ROCm sürümünde değiştirebilir,
+    bu yüzden resolve()/install_command() genel indeks-tarama mekanizması KULLANILMAZ
+    (repo.radeon.com bir PEP 503 indeksi değil, dokümantasyonda sabit dosya adları var).
 Desteklenmeyen (algılanır ve nedeni açıklanır):
-  * AMD, Windows: torch-directml en son torch 2.4.1'e bağlı (VoxCPM2 >= 2.5 ister,
-    ayrıca DirectML cihazını kabul etmez); AMD'nin resmi Windows PyTorch'u yalnız
-    Python 3.12 ve belirli kartlar için var (SesVer Python 3.11 kullanır).
+  * AMD, Windows, Python 3.11 VEYA desteklenmeyen kart: torch-directml en son torch
+    2.4.1'e bağlı (VoxCPM2 >= 2.5 ister, ayrıca DirectML cihazını kabul etmez);
+    AMD'nin resmi Windows PyTorch'u yalnız Python 3.12 ve belirli kartlar için var.
 
 Bu modül yalnız standart kütüphaneyi kullanır ve torch'u bu süreçte İÇE AKTARMAZ:
 Windows'ta yüklü torch DLL'leri kilitlenir ve pip onların üzerine yazamaz. Torch
@@ -37,6 +45,38 @@ PYPI = "https://pypi.org/simple"
 CUDA_NEW, CUDA_OLD, ROCM, CPU = "cu130", "cu126", "rocm7.2", "cpu"
 MIN_TORCH = (2, 5, 0)  # voxcpm 2.0.3: torch>=2.5.0
 
+# --- AMD, Windows, ROCm 7.2.1 (native, WSL değil) ---------------------------------
+# Kaynak: rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/install/installrad/
+# windows/install-pytorch.html ve .../compatibility/compatibilityrad/windows/
+# windows_compatibility.html (2026-10-26'da doğrulandı). Yalnız Python 3.12; repo.radeon.com
+# PEP 503 indeksi değil, dosya adları sabit — AMD sürüm atlayınca bunlar elle güncellenmeli.
+ROCM_WIN_VERSION = "7.2.1"
+ROCM_WIN_TAG = f"rocm{ROCM_WIN_VERSION}"  # plan()["etiket"]/SIZES anahtarı değil, gösterim
+ROCM_WIN = "rocm_win"  # plan()["hedef"] ve SIZES anahtarı
+ROCM_WIN_TORCH_VER, ROCM_WIN_TORCHVISION_VER = "2.9.1", "0.24.1"
+_ROCM_WIN_BASE = f"https://repo.radeon.com/rocm/windows/rocm-rel-{ROCM_WIN_VERSION}"
+# 1. adım: ROCm SDK (torch'tan önce kurulmalı, AMD dokümantasyonundaki sıra).
+ROCM_WIN_SDK_WHEELS = (
+    f"{_ROCM_WIN_BASE}/rocm_sdk_core-{ROCM_WIN_VERSION}-py3-none-win_amd64.whl",
+    f"{_ROCM_WIN_BASE}/rocm_sdk_devel-{ROCM_WIN_VERSION}-py3-none-win_amd64.whl",
+    f"{_ROCM_WIN_BASE}/rocm_sdk_libraries_custom-{ROCM_WIN_VERSION}-py3-none-win_amd64.whl",
+    f"{_ROCM_WIN_BASE}/rocm-{ROCM_WIN_VERSION}.tar.gz",
+)
+# 2. adım: torch/torchaudio/torchvision (cp312, win_amd64 — yalnız Python 3.12).
+ROCM_WIN_TORCH_WHEELS = (
+    f"{_ROCM_WIN_BASE}/torch-{ROCM_WIN_TORCH_VER}%2Brocm{ROCM_WIN_VERSION}-cp312-cp312-win_amd64.whl",
+    f"{_ROCM_WIN_BASE}/torchaudio-{ROCM_WIN_TORCH_VER}%2Brocm{ROCM_WIN_VERSION}-cp312-cp312-win_amd64.whl",
+    f"{_ROCM_WIN_BASE}/torchvision-{ROCM_WIN_TORCHVISION_VER}%2Brocm{ROCM_WIN_VERSION}-cp312-cp312-win_amd64.whl",
+)
+# ROCm 7.2.1 Windows'ta desteklenen kartlar (gfx1100/1101/1200/1201). rocm_windows_supported()
+# ile normalize edilmiş adla karşılaştırılır (ör. "RX 7700 XT" burada YOK, yanlışlıkla
+# "RX 7700" ile eşleşmesin diye tam ad kullanılır — alt dize eşleşmesi KULLANILMAZ).
+ROCM_WIN_SUPPORTED_GPUS = frozenset({
+    "rx 9070", "rx 9070 xt", "rx 9060 xt", "rx 7900 xtx",
+    "pro w7900", "pro w7900 dual slot", "rx 7700", "ai pro r9700",
+})
+ROCM_WIN_PYTHON = (3, 12)  # AMD belgeleri: "Only Python 3.12 is supported" (Windows)
+
 # Planın durum kodları (arayüz metni app.py'de, i18n ile)
 MAC, ACTIVE, INSTALL, DRIVER_OLD, NO_DRIVER, AMD_WINDOWS, NO_GPU, PLATFORM, BROKEN = (
     "mac", "aktif", "kur", "surucu_eski", "surucu_yok", "amd_windows", "gpu_yok", "platform",
@@ -45,7 +85,10 @@ MAC, ACTIVE, INSTALL, DRIVER_OLD, NO_DRIVER, AMD_WINDOWS, NO_GPU, PLATFORM, BROK
 # Hedef → (yaklaşık indirme GB, gereken boş disk GB). 2026-10 ölçümü (cp311, torch 2.14.1):
 # cu130 Windows 2,0 GB, cu126 Windows 2,6 GB, cu130 Linux 0,55 GB + PyPI'den nvidia-*
 # kütüphaneleri (~2,5 GB), rocm7.2 Linux 6,2 GB, cpu Windows 0,12 GB.
-SIZES = {"cuda": (3, 8), "rocm": (7, 20), "cpu": (1, 3)}
+# rocm_win: ÖLÇÜLMEDİ (gerçek AMD+Windows+Python 3.12 makinesi yok) — ROCm SDK (4 wheel,
+# Linux ROCm'a benzer boyutta varsayıldı) + torch/torchaudio/torchvision toplamı için
+# kaba bir üst sınır; ilk gerçek kurulumda ölçülüp güncellenmeli.
+SIZES = {"cuda": (3, 8), "rocm": (7, 20), "cpu": (1, 3), ROCM_WIN: (9, 25)}
 
 
 def _no_window():
@@ -77,6 +120,20 @@ def vendor_of(name):
     if "intel" in n:
         return INTEL
     return OTHER
+
+
+def rocm_windows_supported(name):
+    """AMD kart adı, ROCm 7.2.1'in Windows'ta desteklediği TAM modellerden biri mi?
+
+    Alt dize eşleşmesi KULLANILMAZ: "RX 7700 XT" desteklenmez ama "RX 7700" (XT'siz)
+    desteklenir; "in" ile eşleştirmek yanlış pozitif üretirdi. Bkz. ROCM_WIN_SUPPORTED_GPUS.
+    """
+    n = re.sub(r"\s+", " ", (name or "").strip().lower())
+    n = re.sub(r"\(tm\)|\(r\)", "", n)
+    n = re.sub(r"^amd\s+", "", n)
+    n = re.sub(r"^radeon\s+", "", n)
+    n = re.sub(r"\s+graphics$", "", n).strip()
+    return n in ROCM_WIN_SUPPORTED_GPUS
 
 
 def _num(text):
@@ -269,8 +326,12 @@ def _x86(machine):
     return machine in ("x86_64", "amd64")
 
 
-def plan(hw, info):
-    """Ne yapılabileceği: {"durum", "hedef" (cuda/rocm/None), "etiket" (cu130…), "gpu"}."""
+def plan(hw, info, python_version=None):
+    """Ne yapılabileceği: {"durum", "hedef" (cuda/rocm/rocm_win/None), "etiket", "gpu"}.
+
+    python_version: test edilebilirlik için enjekte edilir; verilmezse bu süreci çalıştıran
+    yorumlayıcının sürümü kullanılır (bkz. plan()'ı çağıran süreç genelde app.py/aynı python).
+    """
     def out(durum, hedef=None, etiket=None, gpu=None):
         return {"durum": durum, "hedef": hedef, "etiket": etiket,
                 "gpu": gpu["name"] if gpu else None, "surucu": (gpu or {}).get("driver")}
@@ -304,6 +365,9 @@ def plan(hw, info):
     if amd:
         gpu = amd[0]
         if hw["system"] == "Windows":
+            pyver = tuple(python_version) if python_version else sys.version_info[:2]
+            if pyver == ROCM_WIN_PYTHON and rocm_windows_supported(gpu["name"]):
+                return out(INSTALL, ROCM_WIN, ROCM_WIN_TAG, gpu)
             return out(AMD_WINDOWS, gpu=gpu)
         if hw["system"] != "Linux" or not _x86(hw["machine"]):
             return out(PLATFORM, gpu=gpu)
@@ -388,6 +452,21 @@ def install_command(tag, torch_version, audio_version, python=None, pip_version=
 
 
 _PROGRESS = re.compile(r"^Progress (\d+) of (\d+)")
+
+
+def install_commands_rocm_win(python=None, pip_version=None):
+    """AMD'nin resmi Windows ROCm 7.2.1 PyTorch kurulumu: SIRALI iki pip adımı.
+
+    resolve()/install_command()'ın download.pytorch.org indeks taraması burada
+    İŞLEMEZ (bkz. modül başı not); URL'ler repo.radeon.com'da sabit. Dönen değer
+    [[cmd1...], [cmd2...]] — ikisi de start_install() ile SIRAYLA çalıştırılmalı;
+    1. adım (ROCm SDK) başarısız olursa 2. adım (torch) denenmemeli.
+    """
+    base = [python or sys.executable, "-m", "pip", "install", "--no-cache-dir",
+            "--no-warn-script-location", "--disable-pip-version-check"]
+    if pip_version and _vkey(pip_version) >= (24, 1, 0):
+        base += ["--progress-bar", "raw"]
+    return [base + list(ROCM_WIN_SDK_WHEELS), base + list(ROCM_WIN_TORCH_WHEELS)]
 
 
 def parse_progress(line):
