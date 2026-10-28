@@ -164,7 +164,13 @@ sesver_baslat() {
     # kurulum yerleri eklenir. Konsol yok: tüm çıktı günlük dosyasına.
     export PATH="/Library/Frameworks/Python.framework/Versions/Current/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
     export LANG="${LANG:-en_US.UTF-8}"
-    exec >"$BASLATICI_LOG" 2>&1
+    # SESVER_GUNLUK_EKLE=1: SesVer.app DMG modunda günlüğü kendisi başlatıp
+    # payload eşitleme satırlarını yazmıştır; onların arkasına eklenir.
+    if [ "${SESVER_GUNLUK_EKLE:-0}" = "1" ]; then
+      exec >>"$BASLATICI_LOG" 2>&1
+    else
+      exec >"$BASLATICI_LOG" 2>&1
+    fi
     echo "SesVer.app başlatıcı günlüğü $(date '+%Y-%m-%d %H:%M:%S') | $PWD"
   fi
   echo "[SesVer başlatıcı çalışıyor]"
