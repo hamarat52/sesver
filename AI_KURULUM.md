@@ -26,7 +26,7 @@ Kurallar:
 - İnternet yalnız ilk kurulumda ve ilk ses üretiminde (model indirme) gerekir.
 - **Kullanıcının ayrıca Python kurmasına gerek yoktur.** Başlatıcılar (`WINDOWS_BASLAT.bat` / `MACOS_BASLAT.command`) ilk çalıştırmada uygulamaya özel bir Python'u kendileri indirir (SesVer klasöründeki `python-embed` klasörüne). Kullanıcıyı python.org'a yalnız başlatıcı otomatik indirmeyi başaramayıp Python kurmasını isterse yönlendir (bkz. **Bilinen hatalar 2**).
 - Depo: https://github.com/hamarat52/sesver
-- Uygulama tarayıcıda çalışır, adresi: **http://127.0.0.1:7860**
+- Uygulama kendi penceresinde açılır (arka planda yerel adres **http://127.0.0.1:7860** kullanır; pencere açılmazsa bu adres tarayıcıda açılabilir).
 - Kullandığı ses modeli (VoxCPM2) büyüktür: ilk kullanımda yaklaşık **5 GB** indirilir.
 
 ### Donanım gereksinimi
@@ -80,39 +80,44 @@ Python'u ayrıca kurmaya gerek yok; başlatıcı ilk çalıştırmada kendisi in
 **Adım M2 — ZIP'i çıkar.**
 1. İndirilenler (Downloads) klasöründeki ZIP'e çift tıkla. Mac onu `sesver-main` klasörüne çıkarır.
 
-**Adım M3 — Başlatıcıya çift tıkla.**
-1. `sesver-main` klasöründeki `MACOS_BASLAT.command` dosyasına çift tıkla.
-2. Mac **"Apple doğrulayamadı"** / **"bilinmeyen geliştirici"** uyarısı verirse:
-   - Dosyaya sağ tıkla (veya Control+tık) → **Aç** → tekrar **Aç**.
-   - Bu seçenek yoksa (macOS 15 Sequoia ve sonrası): **Sistem Ayarları → Gizlilik ve Güvenlik** → aşağıda SesVer ile ilgili satırda **Yine de Aç**.
-3. Terminal (komut penceresi) açılır. İlk seferde `Uygulamaya özel Python indiriliyor (yalnız ilk sefer, ~26 MB ...)` yazar; sonra `Kullanılan Python: uygulamaya özel (...)` satırı görünür ve kurulum başlar.
+**Adım M3 — Başlatıcıya çift tıkla (ilk açılış her zaman bununla).**
+1. `sesver-main` klasöründeki **`MACOS_BASLAT.command`** dosyasına çift tıkla. İlk açılışı klasördeki `SesVer.app` ile YAPTIRMA: macOS indirilen klasördeki uygulamayı geçici bir konumdan çalıştırır ve SesVer proje dosyalarını bulamaz (bkz. **Bilinen hatalar 11b**).
+2. Mac **"“MACOS_BASLAT.command” açılmadı"** / **"Apple doğrulayamadı"** uyarısı verirse (SesVer henüz Apple tarafından imzalı/onaylı değil, bu beklenen bir durum):
+   - Uyarıda **Bitti**'ye bas. **Çöp Sepeti'ne Taşı**'ya basma.
+   - **Apple (elma) menüsü → Sistem Ayarları → Gizlilik ve Güvenlik**'e gir. Aşağı kaydırıp **Güvenlik** bölümüne gel.
+   - `MACOS_BASLAT.command`'ın engellendiğini söyleyen satırda **Yine de Aç**'a bas. Bu düğme uyarıdan sonraki yaklaşık 1 saat içinde görünür. Görünmüyorsa 1. adımı tekrarla.
+   - Mac parolasını gir (veya Touch ID). Tekrar soran pencerede **Yine de Aç**'a bas.
+   - macOS 15 (Sequoia) ve sonrasında "sağ tık → Aç" bu uyarıyı GEÇMEZ. Kullanıcıya bunu önerme, yalnız yukarıdaki yolu ver.
+3. Terminal (komut penceresi) açılır. Gerekirse önce `İndirme (karantina) işareti temizleniyor: ...` yazar. Bu normaldir: macOS'un "internetten indirildi" işareti yalnız SesVer klasöründen kaldırılır ve sonraki açılışlarda onay tekrar istenmez. Sonra `Uygulamaya özel Python indiriliyor (yalnız ilk sefer, ~26 MB ...)` ve `Kullanılan Python: uygulamaya özel (...)` satırları görünür, kurulum başlar.
 
 **Adım M4 — Bekle.**
-1. İlk seferde Python ve paketler indirilir. Birkaç dakika sürer.
-2. Pencerede `Running on local URL: http://127.0.0.1:7860` yazısı görününce kurulum bitmiştir.
+1. İlk seferde Python ve paketler indirilir (yaklaşık 0,4 GB). Hızlı bağlantıda 1,5–2 dakika sürer (ölçüm: kurulum 82 sn, pencerenin açılması +36 sn). Yavaş bağlantıda daha uzun sürer.
+2. Kurulum bitince **SesVer penceresi kendiliğinden açılır**. Terminal'de `Running on local URL: http://127.0.0.1:7860` yazar.
 3. Bu Terminal penceresini **kapatma**. SesVer o pencere açıkken çalışır.
 
-**Adım M5 — Tarayıcıda aç.** → Aşağıdaki **Ortak son adımlar**'a geç.
+**Adım M5 — Arayüzü kontrol et.** → Aşağıdaki **Ortak son adımlar**'a geç.
+
+**Mac'te sonraki açılışlar:** Klasördeki **`SesVer.app`**'e çift tıkla (Terminal açılmaz, kurulum tekrarlanmaz; istenirse Dock'a sabitlenir). Klasör Masaüstü/Belgeler/İndirilenler'deyse macOS bir kez "SesVer, … klasörünüzdeki dosyalara erişmek istiyor" diye sorar → **İzin Ver**. `SesVer.app` klasörün dışına taşınmamalı. Sorun olursa her zaman `MACOS_BASLAT.command` kullanılabilir; hata mesajlarını Terminal'de gösterir.
 
 ---
 
 ## Ortak son adımlar (Windows ve Mac)
 
-**Adım S1 — Arayüzü aç.**
-1. Tarayıcı kendiliğinden açılmaz. Chrome, Edge veya Safari'yi aç.
-2. Adres çubuğuna **http://127.0.0.1:7860** yaz ve Enter'a bas.
-3. Sol üstte **SESVER** yazan, ortada büyük harflerle **"Yazdığınız metne ses verin."** başlığı ve altında **Ses Kütüphanesi**, **Ses Oluştur**, **Ses Klonlama** sekmeleri bulunan bir sayfa açılmalı. Bunu görüyorsa kurulum başarılıdır.
+**Adım S1 — Arayüzü kontrol et.**
+1. Kurulum bitince **SesVer** adlı uygulama penceresi kendiliğinden açılır. Tarayıcı açmaya gerek yoktur.
+2. Pencere açılmazsa Chrome, Edge veya Safari'yi aç; adres çubuğuna siyah pencerede/Terminal'de yazan adresi (genelde **http://127.0.0.1:7860**) yaz ve Enter'a bas.
+3. Sol üstte **SESVER** yazan, ortada büyük harflerle **"Yazdığınız metne ses verin."** başlığı ve altında **Ses Kütüphanesi**, **Ses Oluştur**, **Ses Klonlama** sekmeleri bulunan bir ekran açılmalı. Bunu görüyorsa kurulum başarılıdır.
 
 **Adım S2 — İlk sesi üret.**
 1. **Ses Kütüphanesi** sekmesinde bir ses kartı seç (örn. "Belgesel Anlatıcı").
 2. Metin kutusuna kısa bir Türkçe cümle yaz (en fazla 500 karakter; ilk deneme için tek cümle yeterli).
 3. **Üret** düğmesine **bir kere** bas ve bekle. Tekrar tekrar basma.
-4. İlk üretimde ses modeli (yaklaşık 5 GB) indirilir. Bu 5–30 dakika sürebilir. İlerlemeyi siyah pencerede/Terminal'de görebilir.
+4. İlk üretimde ses modeli (yaklaşık 5 GB) bir kere indirilir. Süre internet hızına bağlıdır: ölçümde hızlı bağlantıda 102 sn sürdü; 50 Mbit/sn'de ~15 dk, 25 Mbit/sn'de ~30 dk beklenir (hesap). İlerlemeyi siyah pencerede/Terminal'de görebilir.
 5. Ses hazır olunca sayfada dinlenebilir; **⬇ WAV indir** ile kaydedilir. Dosyalar ayrıca klasördeki `outputs` klasörüne yazılır.
 
-**Sonraki kullanımlar:** Kurulum tekrarlanmaz. Sadece başlatıcıya (W3 / M3) çift tıkla, `Running on local URL` yazısını bekle, tarayıcıda http://127.0.0.1:7860 adresini aç.
+**Sonraki kullanımlar:** Kurulum tekrarlanmaz. Windows'ta başlatıcıya (W3) veya kurulum programının simgesine, Mac'te klasördeki **`SesVer.app`**'e (ya da `MACOS_BASLAT.command`'a) çift tıkla; SesVer penceresi açılır.
 
-**Kapatmak için:** Siyah pencerede/Terminal'de **Ctrl+C** bas veya pencereyi kapat.
+**Kapatmak için:** SesVer penceresini kapat (Terminal/siyah pencere açıksa orada **Ctrl+C** da olur).
 
 ---
 
@@ -189,11 +194,16 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 - Çözüm: SesVer'i Ctrl+C ile durdur, diğer ağır uygulamaları ve tarayıcı sekmelerini kapat, daha kısa metinle tekrar dene. 8 GB RAM'li bilgisayarda kullanım önerilmez; dürüstçe söyle.
 
 **11. Mac: `MACOS_BASLAT.command` açılmıyor / "izin verilmedi" (`Permission denied`)**
-- Önce Adım M3'teki "Apple doğrulayamadı" çözümünü dene.
+- Önce Adım M3'teki "Apple doğrulayamadı" çözümünü dene (Bitti → Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç → parola).
 - Sürmezse: Terminal uygulamasını aç, `cd ` yaz (sonunda bir boşluk), SesVer klasörünü Terminal penceresine sürükleyip bırak, Enter'a bas. Sonra şunu çalıştır:
   ```bash
   chmod +x MACOS_BASLAT.command && ./MACOS_BASLAT.command
   ```
+
+**11b. Mac: "SesVer.app, SesVer proje klasörünün içinde durmalı" ya da "macOS SesVer'i geçici bir konumdan açtı" penceresi**
+- Sebep: Kullanıcı ilk açılışı internetten indirilen klasördeki `SesVer.app` ile yaptı. macOS böyle uygulamaları geçici, salt-okunur bir konumdan çalıştırır (App Translocation) ve uygulama yanındaki proje dosyalarını göremez.
+- Çözüm: Pencereyi kapat. Aynı klasördeki **`MACOS_BASLAT.command`**'ı aç (Adım M3, gerekirse "Yine de Aç" onayıyla). Başlatıcı klasörün indirme işaretini kaldırır. Bundan sonra `SesVer.app` normal açılır.
+- `SesVer.app`'i klasörden çıkarıp başka yere (ör. Uygulamalar) taşıdıysa geri taşı.
 
 **12. "Referans okunmuyor" (ses klonlamada)**
 - Çözüm: 1–30 saniyelik geçerli bir WAV dosyası kullan. Tek kişinin konuştuğu, müziksiz, temiz 3–15 saniyelik kayıt en iyisidir.
