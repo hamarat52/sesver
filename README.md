@@ -82,7 +82,7 @@ Bu sayfayı görüyorsanız kurulum başarılı:
 
 ## Özellikler
 
-SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modelini kullanır. Arayüz varsayılan olarak Türkçedir; sağ üstteki **🌐 Arayüz dili** seçicisinden 10 dile daha geçilebilir (ayrıntı: [Diller](#diller)). Her şey kendi bilgisayarınızda çalışır.
+SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modelini kullanır. Arayüz ilk açılışta bilgisayarınızın dilinde açılır (desteklenmiyorsa İngilizce); sağ üstteki **🌐 Arayüz dili** seçicisinden 10 dile daha geçilebilir (ayrıntı: [Diller](#diller)). Her şey kendi bilgisayarınızda çalışır.
 
 - **📚 Ses Kütüphanesi (açılış sekmesi):** Bir ses kartı seçip metninizi o sesle okutun. **Hazır sesler** (Yaşlı Masalcı, Belgesel Anlatıcı, Heyecanlı Sunucu) tarifle tasarlanmış sentetik seslerdir, gerçek kişi değildir; **Kopyala** ile kendi düzenlenebilir kopyanız **Seslerim**'e eklenir. ▶ **Örnek** 3 saniyelik örneği çalar. Kayıtlı bir sesle her üretimde aynı kişi konuşur. Duygu seçebilirsiniz, ancak bu sesin benzerliğini biraz azaltır. **Kalite:** Hızlı / Dengeli / En İyi.
 - **🎲 Rastgele ses:** Referans olmadan üretim; duygu serbestçe seçilir, ancak her seferinde aynı konuşmacı garanti edilmez.
@@ -99,7 +99,7 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 
 **Arayüz dili ile ses üretim dili ayrı şeylerdir.**
 
-- **🌐 Arayüz dili** (sağ üst seçici): menüler, düğmeler, uyarı ve hata iletileri. 11 seçenek: Türkçe (varsayılan), English, Español, 简体中文, हिन्दी, العربية, Français, Português, Русский, Deutsch, 日本語. Seçim `ayarlar.json` dosyasına yazılır ve masaüstü uygulaması bir sonraki açılışta aynı dille başlar. Her dil ayrı bir adrestedir: Türkçe kökte (`http://127.0.0.1:7860/`), diğerleri `/en`, `/es`, `/zh`, `/hi`, `/ar`, `/fr`, `/pt`, `/ru`, `/de`, `/ja`.
+- **🌐 Arayüz dili** (sağ üst seçici): menüler, düğmeler, uyarı ve hata iletileri. 11 seçenek: Türkçe (kaynak dil), English, Español, 简体中文, हिन्दी, العربية, Français, Português, Русский, Deutsch, 日本語. İlk açılışta arayüz bilgisayarınızın dilinde açılır (desteklenmiyorsa İngilizce). Seçim `ayarlar.json` dosyasına yazılır ve masaüstü uygulaması bir sonraki açılışta aynı dille başlar. Her dil ayrı bir adrestedir: Türkçe kökte (`http://127.0.0.1:7860/`), diğerleri `/en`, `/es`, `/zh`, `/hi`, `/ar`, `/fr`, `/pt`, `/ru`, `/de`, `/ja`.
 - **Ses üretim dili:** VoxCPM2'nin [model kartına](https://huggingface.co/openbmb/VoxCPM2) göre model 30 dilde konuşur (Arapça, Çince, İngilizce, Fransızca, Almanca, Hintçe, Japonca, Portekizce, Rusça, İspanyolca, Türkçe dahil; tam liste model kartında) ve **dil etiketi almaz**: metni hangi dilde yazarsanız o dilde okur. Bu yüzden ayrı bir “ses dili” ayarı yoktur; arayüz dilini değiştirmek sesi değiştirmez, metnin dili değiştirir. Bu projede gerçek üretimle doğrulanan dil Türkçedir (bkz. [gerçek üretim testi](#bu-sürümün-gerçek-üretim-testi)); diğer dillerdeki kalite model kartındaki iddiaya dayanır, burada ayrıca ölçülmedi.
 - **Otomatik yazıya dökme (Whisper):** Türkçe arayüzde kayıt Türkçe kabul edilir (eski davranış). Diğer arayüz dillerinde Whisper kaydın dilini kendisi algılar.
 - **Türkçe kalanlar (bilerek):** Ses tasarımındaki örnek cümleler (süreleri Türkçe metne göre ayarlı), sizin kaydettiğiniz seslerin adları/açıklamaları ve terminal günlükleri çevrilmez. Hazır seslerin adı ve açıklaması çevrilir.

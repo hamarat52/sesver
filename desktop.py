@@ -167,9 +167,18 @@ _GUIDE_HTML = """<h3>{what}</h3><pre style="color:#e6e6e6">{guide}</pre>"""
 
 
 def _ui_url(base):
-    """Kayıtlı arayüz dilinin sayfası (Türkçe kökte; diğerleri /en, /es …)."""
+    """Açılış dilinin sayfası (Türkçe kökte; diğerleri /en, /es …).
+
+    Dil: ayarlar.json'daki tercih; yoksa (ilk açılış) işletim sisteminin dili,
+    o da desteklenmiyorsa İngilizce (bkz. i18n.saved_language)."""
     path = i18n.page_path(i18n.saved_language())
     return f"{base}/{path}" if path else base
+
+
+def _language_note(base):
+    """Günlük satırı: hangi dille ve neden (kayıtlı tercih / sistem dili) açılıyor."""
+    source = "ayarlar.json" if i18n.stored_language() else "sistem dili"
+    return f"Arayüz dili: {i18n.saved_language()} ({source}) -> {_ui_url(base)}"
 
 
 def _pick_port():
@@ -307,6 +316,7 @@ def main():
     server = Server(_pick_port())
     server.start()
     print(f"SesVer başlatılıyor ({server.url})...", flush=True)
+    print(_language_note(server.url), flush=True)
 
     # GUI döngüsü (özellikle macOS Cocoa) Python'un SIGINT işleyicisini çalıştıramaz;
     # varsayılan davranışla terminaldeki Ctrl+C süreci doğrudan sonlandırır.

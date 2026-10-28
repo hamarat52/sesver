@@ -8,6 +8,8 @@ Bu modül yalnız standart kütüphane kullanır: desktop.py, app (torch/numpy)
 yüklenemese de hata sayfasını seçili dilde gösterebilsin.
 
 Seçilen dil ``ayarlar.json`` dosyasında saklanır (SESVER_AYARLAR ile değiştirilebilir).
+Kayıtlı tercih yoksa (ilk açılış) işletim sisteminin dili kullanılır; desteklenmeyen
+sistem dilinde arayüz İngilizce açılır (bkz. ``system_language``).
 Uygulama tek kullanıcılı, yerel bir masaüstü uygulaması olduğundan sunucu tarafı
 iletiler (hata/durum) süreç genelindeki geçerli dili kullanır.
 
@@ -17,12 +19,18 @@ dilini kendisi anlar (dil etiketi almaz); bkz. README "Diller".
 import json
 import os
 import re
+import subprocess
+import sys
 from contextlib import contextmanager
 from contextvars import ContextVar
 from pathlib import Path
 
 LOCALES_DIR = Path(__file__).resolve().parent / "locales"
-DEFAULT = "tr"
+DEFAULT = "tr"  # kaynak dil: anahtarlar Türkçe metindir, Türkçe sayfa kök adrestedir
+FALLBACK = "en"  # ilk açılışta sistem dili desteklenmiyorsa kullanılan dil
+# Yalnız test/kuru çalıştırma içindir: işletim sisteminin dilini taklit eder
+# (ör. SESVER_SISTEM_DILI=en-US). Normal kullanımda ayarlanmaz.
+SYSTEM_LANG_ENV = "SESVER_SISTEM_DILI"
 # Yerel adlarıyla; sıra dil seçicide görünen sıradır.
 LANGUAGES = {
     "tr": "Türkçe",
@@ -49,12 +57,82 @@ def settings_path():
     return Path(os.environ.get("SESVER_AYARLAR") or Path(__file__).resolve().parent / "ayarlar.json")
 
 
-def normalize(lang):
+def match(lang):
+    """Desteklenen dil kodu ya da None: "tr-TR" → "tr", "zh-Hans-CN" → "zh",
+    "en_GB.UTF-8" → "en", "xx" → None."""
     lang = (lang or "").strip().lower().replace("_", "-")
+    lang = lang.split(".", 1)[0].split("@", 1)[0]  # POSIX: en_US.UTF-8, sr_RS@latin
     if lang in LANGUAGES:
         return lang
     base = lang.split("-", 1)[0]
-    return base if base in LANGUAGES else DEFAULT
+    return base if base in LANGUAGES else None
+
+
+def normalize(lang):
+    return match(lang) or DEFAULT
+
+
+def _run(cmd):
+    """Komutun stdout'u; hata/zaman aşımında boş metin."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=3, check=False).stdout or ""
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return ""
+
+
+def _apple_languages(runner):
+    """`defaults read -g AppleLanguages` çıktısının ilk öğesi; ör. '(\\n    "en-US",\\n    "tr-TR"\\n)'."""
+    out = runner(["/usr/bin/defaults", "read", "-g", "AppleLanguages"]) or ""
+    for item in re.split(r"[,\n]", out.strip().strip("()")):
+        item = item.strip().strip('"').strip()
+        if item:
+            return item
+    return ""
+
+
+def _windows_ui_language():
+    """Windows arayüz dili (GetUserDefaultUILanguage); olmazsa varsayılan yerel ayar."""
+    import locale
+    try:
+        import ctypes
+        langid = getattr(ctypes, "windll").kernel32.GetUserDefaultUILanguage()
+        name = locale.windows_locale.get(langid)
+        if name:
+            return name
+    except (AttributeError, OSError, ImportError):
+        pass
+    try:
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return (locale.getdefaultlocale()[0] or "") if hasattr(locale, "getdefaultlocale") else ""
+    except (ValueError, TypeError):
+        return ""
+
+
+def system_language(env=None, runner=None, platform=None, windows_ui=None):
+    """İşletim sisteminin dili, desteklenen bir arayüz koduna çevrilmiş hâlde.
+
+    Kaynak sırası: SESVER_SISTEM_DILI (yalnız test) → macOS AppleLanguages ilk öğesi
+    ya da Windows arayüz dili → LC_ALL / LC_MESSAGES / LANG. Bulunan İLK dil
+    desteklenmiyorsa ``FALLBACK`` (İngilizce) döner; hiçbir kaynak yoksa da öyle.
+    Tüm dış bağımlılıklar enjekte edilebilir (testler için): ``env`` ortam sözlüğü,
+    ``runner(cmd) -> stdout``, ``platform`` (sys.platform), ``windows_ui() -> "en_US"``.
+    """
+    env = os.environ if env is None else env
+    runner = runner or _run
+    platform = platform or sys.platform
+    candidates = [env.get(SYSTEM_LANG_ENV, "")]
+    if platform == "darwin":
+        candidates.append(_apple_languages(runner))
+    elif platform == "win32":
+        candidates.append((windows_ui or _windows_ui_language)())
+    candidates += [env.get(name, "") for name in ("LC_ALL", "LC_MESSAGES", "LANG")]
+    for cand in candidates:
+        cand = (cand or "").strip()
+        if cand and cand.upper() not in ("C", "POSIX") and not cand.upper().startswith("C."):
+            return match(cand) or FALLBACK
+    return FALLBACK
 
 
 def catalog(lang):
@@ -71,12 +149,21 @@ def catalog(lang):
     return _catalogs[lang]
 
 
-def saved_language():
+def stored_language():
+    """ayarlar.json'da kayıtlı arayüz dili; dosya ya da kayıt yoksa None."""
     try:
         data = json.loads(settings_path().read_text(encoding="utf-8"))
-        return normalize(data.get("arayuz_dili"))
-    except (OSError, ValueError, AttributeError):
-        return DEFAULT
+    except (OSError, ValueError):
+        return None
+    value = data.get("arayuz_dili") if isinstance(data, dict) else None
+    if not isinstance(value, str) or not value.strip():
+        return None
+    return normalize(value)
+
+
+def saved_language():
+    """Açılış dili: kayıtlı tercih her zaman önce gelir; yoksa (ilk açılış) sistem dili."""
+    return stored_language() or system_language()
 
 
 def get_lang():

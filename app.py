@@ -2103,8 +2103,13 @@ def _setup_logging():
 
 if __name__ == "__main__":
     _setup_logging()
+    _port = int(os.environ.get("GRADIO_SERVER_PORT", "7860"))
+    _lang = i18n.saved_language()  # kayıtlı tercih; yoksa sistem dili (desteklenmiyorsa en)
+    _page = i18n.page_path(_lang)
+    print(f"Arayüz dili: {_lang} ({'ayarlar.json' if i18n.stored_language() else 'sistem dili'}) -> "
+          f"http://127.0.0.1:{_port}/{_page}", flush=True)
     build_app().launch(
-        server_name="127.0.0.1", server_port=int(os.environ.get("GRADIO_SERVER_PORT", "7860")),
+        server_name="127.0.0.1", server_port=_port,
         share=False, inbrowser=False,
         css=_CSS, theme=_THEME, js=_JS, footer_links=[],
         allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
