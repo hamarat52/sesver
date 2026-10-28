@@ -52,7 +52,10 @@ class CatalogTests(unittest.TestCase):
             path = Path(tmp) / "ayarlar.json"
             old = os.environ.get("SESVER_AYARLAR")
             os.environ["SESVER_AYARLAR"] = str(path)
+            old_sys = os.environ.get(i18n.SYSTEM_LANG_ENV)
+            os.environ[i18n.SYSTEM_LANG_ENV] = "tr-TR"  # dosya yokken sistem dili belirler
             try:
+                self.assertIsNone(i18n.stored_language())
                 self.assertEqual(i18n.saved_language(), "tr")
                 i18n.set_lang("ar")
                 self.assertEqual(json.loads(path.read_text(encoding="utf-8"))["arayuz_dili"], "ar")
@@ -64,10 +67,80 @@ class CatalogTests(unittest.TestCase):
                 self.assertEqual(i18n.normalize("xx"), "tr")
             finally:
                 i18n.set_lang("tr", persist=False)
+                if old_sys is None:
+                    os.environ.pop(i18n.SYSTEM_LANG_ENV, None)
+                else:
+                    os.environ[i18n.SYSTEM_LANG_ENV] = old_sys
                 if old is None:
                     os.environ.pop("SESVER_AYARLAR", None)
                 else:
                     os.environ["SESVER_AYARLAR"] = old
+
+
+class SystemLanguageTests(unittest.TestCase):
+    """İlk açılış dili: kayıtlı tercih yoksa işletim sisteminin dili (desteklenmiyorsa en)."""
+
+    @staticmethod
+    def _mac(first):
+        out = f'(\n    "{first}",\n    "tr-TR"\n)\n'
+        return lambda cmd: out if cmd[-1] == "AppleLanguages" else ""
+
+    def test_macos_apple_languages_first_item(self):
+        cases = {"tr-TR": "tr", "en-GB": "en", "de-DE": "de", "pt-BR": "pt",
+                 "zh-Hans-CN": "zh", "ja-JP": "ja", "ar-SA": "ar", "xx": "en", "ko-KR": "en"}
+        for given, want in cases.items():
+            with self.subTest(given=given):
+                got = i18n.system_language(env={}, runner=self._mac(given), platform="darwin")
+                self.assertEqual(got, want)
+        # Tırnaksız öğe biçimi de okunur (defaults basit dizgeleri tırnaksız yazar).
+        self.assertEqual(i18n.system_language(env={}, runner=lambda c: "(\n    fr,\n    en\n)", platform="darwin"), "fr")
+
+    def test_windows_ui_language(self):
+        for given, want in {"tr_TR": "tr", "en_GB": "en", "de_DE": "de", "pt_BR": "pt",
+                            "zh_CN": "zh", "xx_XX": "en"}.items():
+            with self.subTest(given=given):
+                self.assertEqual(i18n.system_language(env={}, platform="win32", windows_ui=lambda: given), want)
+
+    def test_env_fallbacks_and_defaults(self):
+        empty = lambda cmd: ""  # noqa: E731 — AppleLanguages okunamadı
+        self.assertEqual(i18n.system_language(env={"LANG": "tr_TR.UTF-8"}, runner=empty, platform="darwin"), "tr")
+        self.assertEqual(i18n.system_language(env={"LC_ALL": "es_ES.UTF-8", "LANG": "tr_TR.UTF-8"},
+                                              platform="linux"), "es")
+        self.assertEqual(i18n.system_language(env={"LANG": "C.UTF-8"}, platform="linux"), "en")
+        self.assertEqual(i18n.system_language(env={}, runner=empty, platform="darwin"), "en")
+        # Test ortam değişkeni her şeyden önce gelir.
+        self.assertEqual(i18n.system_language(env={i18n.SYSTEM_LANG_ENV: "ru-RU"}, runner=self._mac("en-US"),
+                                              platform="darwin"), "ru")
+        self.assertEqual(i18n.match("zh-Hans-CN"), "zh")
+        self.assertIsNone(i18n.match("xx"))
+
+    def _with_settings(self, content, system):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "ayarlar.json"
+        if content is not None:
+            path.write_text(content, encoding="utf-8")
+        from unittest import mock
+        patcher = mock.patch.dict(os.environ, {"SESVER_AYARLAR": str(path), i18n.SYSTEM_LANG_ENV: system})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_first_run_uses_system_language(self):
+        for system, want in {"en-US": "en", "tr-TR": "tr", "de-DE": "de", "xx": "en"}.items():
+            with self.subTest(system=system):
+                self._with_settings(None, system)
+                self.assertIsNone(i18n.stored_language())
+                self.assertEqual(i18n.saved_language(), want)
+        # Dosya var ama dil kaydı yok (ör. başka ayarlar) → yine sistem dili.
+        self._with_settings('{"baska": 1}', "pt-BR")
+        self.assertEqual(i18n.saved_language(), "pt")
+
+    def test_saved_preference_wins_over_system_language(self):
+        self._with_settings('{"arayuz_dili": "tr"}', "en-US")
+        self.assertEqual(i18n.stored_language(), "tr")
+        self.assertEqual(i18n.saved_language(), "tr")
+        self._with_settings('{"arayuz_dili": "ja"}', "de-DE")
+        self.assertEqual(i18n.saved_language(), "ja")
 
 
 class AppPageTests(unittest.TestCase):
@@ -113,6 +186,11 @@ class AppPageTests(unittest.TestCase):
             self.assertEqual(desktop._ui_url("http://127.0.0.1:7860"), "http://127.0.0.1:7860/ja")
         with mock.patch.object(i18n, "saved_language", return_value="tr"):
             self.assertEqual(desktop._ui_url("http://127.0.0.1:7860"), "http://127.0.0.1:7860")
+        # İlk açılış (ayarlar.json yok): masaüstü penceresi sistem dilinin sayfasını açar.
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(
+                os.environ, {"SESVER_AYARLAR": str(Path(tmp) / "ayarlar.json"), i18n.SYSTEM_LANG_ENV: "en-US"}):
+            self.assertEqual(desktop._ui_url("http://127.0.0.1:7860"), "http://127.0.0.1:7860/en")
+            self.assertIn("(sistem dili)", desktop._language_note("http://127.0.0.1:7860"))
         with i18n.use("en"):
             self.assertTrue(hata_rehberi.smart_app_control_rehberi("Application Control").startswith("This error"))
         self.assertTrue(hata_rehberi.smart_app_control_rehberi("uygulama denetimi").startswith("Bu hata"))

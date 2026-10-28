@@ -31,7 +31,7 @@ Kurallar:
 
 ### Donanım gereksinimi
 
-- **İşletim sistemi:** Windows 10/11 veya macOS (Apple Silicon M1/M2/M3 veya Intel). Linux da çalışır ama bu rehber Windows ve Mac içindir.
+- **İşletim sistemi:** Windows 10/11 veya macOS (yalnız Apple Silicon: M1 ve sonrası). **Intel işlemcili Mac desteklenmez:** PyTorch artık Intel Mac için paket yayınlamıyor; SesVer bunu kurulumdan önce bir pencereyle söyler ve hiçbir şey indirmez. Linux da çalışır ama bu rehber Windows ve Mac içindir.
 - **RAM (bellek):** 16 GB veya üstü önerilir. **8 GB RAM'de önerilmez**: çok yavaş olur, bilgisayar kilitlenebilir.
 - **Disk:** En az **20 GB boş alan**.
 - **Ekran kartı:** Gerekmez. NVIDIA ekran kartı varsa daha hızlı olabilir (aşağıda isteğe bağlı adım var).

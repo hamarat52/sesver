@@ -193,6 +193,7 @@ baslik "4. dist/SesVer.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 clang -Os -Wall -Wextra -Werror \
   -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 \
+  -framework CoreFoundation \
   -o "$APP/Contents/MacOS/SesVer" "$SRC/macos/sesver_app_launcher.c"
 strip -x "$APP/Contents/MacOS/SesVer"
 cp "$SRC/SesVer.app/Contents/Info.plist" "$APP/Contents/Info.plist"
