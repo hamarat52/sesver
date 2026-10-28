@@ -145,8 +145,11 @@ hata çıktısıyla gerekçelendirip bu tabloya yazın.
 > 2. Açılan pencerede **SesVer**'i **Uygulamalar** (Applications) klasörüne sürükleyin.
 > 3. Uygulamalar'dan **SesVer**'i açın.
 >
-> İlk açılışta SesVer kendi Python ortamını ve ses modelini indirir: yaklaşık
-> `<PM dolduracak>` dk, `~<PM dolduracak>` GB. Sonraki açılışlar hızlıdır.
+> İlk açılışta SesVer kendi Python ortamını (~0,4 GB indirme, diskte ~1,7 GB) kurar;
+> ses modeli (~5 GB) ilk **Üret**'te bir kere indirilir. Toplam indirme ~5,4 GB, diskte ~7 GB;
+> en az 20 GB boş alan önerilir. Süre internet hızına bağlıdır: hızlı bağlantıda ölçülen
+> ~2 dk (kurulum) + ~2 dk (model); 50 Mbit/sn'de toplam ~15 dk, 25 Mbit/sn'de ~30 dk (hesap).
+> Sonraki açılışlar hızlıdır.
 > Sesleriniz ve üretilen dosyalar `~/Library/Application Support/SesVer` klasöründe tutulur;
 > yeni sürüme geçmek için yeni DMG'deki SesVer'i aynı şekilde Uygulamalar'a sürükleyip
 > eskisinin üzerine yazmanız yeterlidir — sesleriniz korunur.
