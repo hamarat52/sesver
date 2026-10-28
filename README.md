@@ -30,12 +30,34 @@ Normal bir Windows programı gibi **İleri → İleri → Kur** ile kurulur; Ba�
 
 İlk çalıştırmada gerekli her şey (Python dahil) otomatik indirilir, ayrıca bir şey kurmanıza gerek yok. En az **20 GB boş alan** ve **internet** gerekir.
 
+**İlk açılış her zaman `MACOS_BASLAT.command` ile yapılır** (klasördeki `SesVer.app` ile değil). SesVer şu an Apple tarafından imzalanmış/onaylanmış (notarize) değildir; macOS ilk açılışta bir kez onay ister. İnternetten indirilen bir klasörde `SesVer.app`'e doğrudan çift tıklarsanız macOS uygulamayı geçici bir konumdan çalıştırır ve SesVer proje dosyalarını bulamaz. `MACOS_BASLAT.command` bu sorunu yaşamaz ve ilk açılışta klasörün "internetten indirildi" işaretini kaldırır. Bundan sonra `SesVer.app` normal şekilde açılır.
+
 1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
-2. **Çıkarın:** İndirilen ZIP dosyasına çift tıklayın.
-3. **Başlatın:** Çıkan klasördeki **`MACOS_BASLAT.command`** dosyasına çift tıklayın.
-   - Mac "Apple doğrulayamadı" / "bilinmeyen geliştirici" derse: dosyaya sağ tık → **Aç**. Bu seçenek yoksa **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç**.
-4. **Bekleyin:** Terminal penceresi gerekenleri kendisi kurar (ilk sefer birkaç dakika). `Running on local URL: http://127.0.0.1:7860` yazınca hazırdır. Bu pencereyi **kapatmayın**.
-5. **Açın:** Tarayıcınızda (Safari, Chrome) **http://127.0.0.1:7860** adresine gidin.
+2. **Çıkarın:** İndirilen ZIP dosyasına çift tıklayın. `sesver-main` klasörü oluşur. İsterseniz bu klasörü kalıcı bir yere (ör. Belgeler) taşıyın. Taşıyacaksanız **şimdi** taşıyın, kurulumdan sonra değil.
+3. **Başlatın:** Klasördeki **`MACOS_BASLAT.command`** dosyasına çift tıklayın.
+4. **macOS uyarısını geçin (yalnız ilk sefer):** **"“MACOS_BASLAT.command” açılmadı"** / **"Apple doğrulayamadı…"** penceresi çıkar. **Bitti**'ye basın (Çöp Sepeti'ne Taşı'ya basmayın). Sonra:
+   - **Apple (elma) menüsü → Sistem Ayarları → Gizlilik ve Güvenlik**. Aşağı kaydırıp **Güvenlik** bölümüne gelin.
+   - **MACOS_BASLAT.command**'ın engellendiğini söyleyen satırın yanındaki **Yine de Aç**'a basın. Bu düğme uyarıdan sonraki yaklaşık 1 saat içinde görünür. Görmüyorsanız 3. adımı tekrarlayın.
+   - Mac parolanızı girin (veya Touch ID kullanın). Tekrar soran pencerede **Yine de Aç**'a basın.
+   - Not: macOS 15 (Sequoia) ve sonrasında "sağ tık → Aç" artık bu uyarıyı geçmez. Yalnız yukarıdaki yol çalışır.
+5. **Bekleyin:** Bir Terminal penceresi açılır ve gerekenleri kendisi kurar. Bu pencereyi **kapatmayın**. Kurulum bitince **SesVer penceresi kendiliğinden açılır**. Pencere açılmazsa Terminal'de yazan adresi (genelde **http://127.0.0.1:7860**) Safari'de açın.
+
+**Ne kadar sürer, ne kadar yer kaplar?** (Ölçüm 28 Ekim 2026, Apple Silicon Mac, hızlı ev bağlantısı)
+
+| Aşama | İndirme | Diskte | Ölçülen süre |
+|---|---|---|---|
+| Kurulum: Python + paketler (3. adımdan sonra, otomatik) | ~0,4 GB | ~1,7 GB | 82 sn kurulum + 36 sn arayüzün açılması |
+| Ses modeli (ilk **Üret**'te, bir kere) | ~5,0 GB | ~4,6 GB | 102 sn |
+| Yazıya dökme modeli (yalnız **Otomatik yazıya dök** ilk kullanılınca) | ~0,5 GB | ~0,5 GB | ölçülmedi |
+
+Toplam indirme yaklaşık **5,4 GB**. Bu yüzden süreyi en çok internet hızınız belirler. Kabaca hesap: 100 Mbit/sn'de ~8 dk, 50 Mbit/sn'de ~15 dk, 25 Mbit/sn'de ~30 dk (bu süreler hesaplanmıştır, ölçülmemiştir). Mac'te ölçülen disk kullanımı ~7 GB'tır. **20 GB** boş alan önerisi; ürettiğiniz sesler, güncellemeler ve kurulum sırasındaki geçici dosyalar için güvenlik payıdır.
+
+### Sonra nasıl açarım? (Mac)
+
+- İlk açılış bittikten sonra klasördeki **`SesVer.app`**'e çift tıklayın. Terminal açılmaz ve kurulum tekrarlanmaz. İsterseniz Dock'a sabitleyin (açıkken Dock'taki simgeye sağ tık → **Seçenekler → Dock'ta Tut**). `SesVer.app`'i klasörün dışına **taşımayın**, çünkü proje dosyalarıyla aynı klasörde durmalıdır.
+- Klasör Masaüstü, Belgeler veya İndirilenler'deyse macOS ilk seferde **"SesVer, … klasörünüzdeki dosyalara erişmek istiyor"** diye sorar. **İzin Ver** deyin.
+- `MACOS_BASLAT.command` her zaman çalışmaya devam eder. Uygulama açılmazsa bunu kullanın, çünkü hata mesajlarını Terminal'de gösterir.
+- Kapatmak için SesVer penceresini kapatın. Terminal ile açtıysanız Terminal'de **Ctrl+C** da olur.
 
 ## 🤖 Yapay Zeka Destekli Kurulum
 
@@ -54,8 +76,8 @@ Bu sayfayı görüyorsanız kurulum başarılı:
 ![SesVer çalışırken: Ses Kütüphanesi sekmesi açık ana ekran](docs/screenshots/kurulum-basarili.png)
 
 - İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir; ilk seferde uzun sürebilir, sonrakiler daha hızlıdır.
-- Sonraki kullanımlarda **Windows**'ta Başlat menüsündeki ya da masaüstündeki **SesVer** simgesine, **Mac**'te başlatıcıya çift tıklayın; pencere otomatik açılır, kurulum tekrarlanmaz.
-- Kapatmak için: **Windows**'ta SesVer penceresini kapatmanız yeterli. **Mac**'te Terminal penceresinde **Ctrl+C** basın veya pencereyi kapatın.
+- Sonraki kullanımlarda **Windows**'ta Başlat menüsündeki ya da masaüstündeki **SesVer** simgesine, **Mac**'te klasördeki **`SesVer.app`**'e çift tıklayın. Pencere kendiliğinden açılır ve kurulum tekrarlanmaz.
+- Kapatmak için SesVer penceresini kapatmanız yeterli (**Mac**'te Terminal ile açtıysanız Terminal'de **Ctrl+C** da olur).
 - Sorun mu çıktı? [Sorun giderme](#sorun-giderme) bölümüne bakın veya [yapay zeka destekli kurulumu](#-yapay-zeka-destekli-kurulum) kullanın.
 
 ## Özellikler
@@ -93,6 +115,8 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 - **PowerShell'de `is not recognized` / `CommandNotFoundException`:** Dosya adının başına `.\` ekleyin: `.\WINDOWS_BASLAT.bat`
 - **`py` komutu bulunamıyor:** Komutlarda `py -3.11` yerine `python` yazın. (Başlatıcı bunu kendisi dener.)
 - **Kurulum yarıda kesildi:** Windows'ta SesVer simgesine (ZIP'te ve Mac'te başlatıcıya) tekrar çift tıklayın; kaldığı yerden devam eder.
+- **Mac: "Apple doğrulayamadı" / "açılmadı" uyarısı:** [Mac Kurulum](#-mac-kurulum) 4. adım: **Bitti** → **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç** → parola. "Sağ tık → Aç" macOS 15 ve sonrasında işe yaramaz.
+- **Mac: "SesVer.app, SesVer proje klasörünün içinde durmalı" ya da "macOS SesVer'i geçici bir konumdan açtı" uyarısı:** İlk açılışı `SesVer.app` ile yaptınız. Aynı klasördeki **`MACOS_BASLAT.command`**'ı açın (4. adımdaki onayla). Bu işlem klasörün indirme işaretini kaldırır; sonra `SesVer.app` düzgün açılır.
 - **İlk üretim uzun sürüyor:** Model (yaklaşık 5 GB) ilk seferde indirilir. İlerlemeyi SesVer penceresindeki durum mesajından izleyin; Windows'ta kurulum penceresi bu sırada kapanmış olabilir, bu normaldir. M1'de üretim de zaman alır.
 - **Bellek hatası / sistem yavaşladı:** Uygulamayı durdurun, diğer ağır uygulamaları kapatın ve daha kısa metinle yeniden başlatın. 8 GB RAM'li cihazlarda kullanım önerilmez.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
@@ -138,7 +162,7 @@ Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi 
 
 `MACOS_BASLAT.command` / `WINDOWS_BASLAT.bat` ilk çalıştırmada uygulamaya özel taşınabilir bir Python'u (python-build-standalone, CPython 3.11) SHA-256 doğrulamasıyla indirip klasördeki `python-embed/` içine açar, paketleri doğrudan oraya kurar ve `app.py`'yi başlatır; sistemdeki Python'a dokunulmaz. Eski yöntemle tamamlanmış bir `.venv` kurulumu varsa o kullanılmaya devam eder. İndirme başarısız olursa eski yönteme döner: uygun sistem Python'unu bulur (Windows: `py -3.11` → `py` → `python`; macOS: `python3.11` → `python3.12` → `python3.10` → `python3`), `.venv` sanal ortamını oluşturur ve aşağıdaki elle kurulum adımlarını çalıştırır. Kurulum tamamlanınca `python-embed/` (ya da `.venv/`) içine `sesver_kurulum_tamam.txt` yazılır; bu dosya yoksa bir sonraki çalıştırmada kurulum kaldığı yerden devam eder. Hata olursa başarısız adımın adı gösterilir.
 
-Port varsayılan olarak **7860**'tır; `GRADIO_SERVER_PORT` ortam değişkeniyle değiştirilebilir (örn. `GRADIO_SERVER_PORT=7861 ./MACOS_BASLAT.command`). Tarayıcı otomatik açılmaz; adresi kendiniz açın.
+Port varsayılan olarak **7860**'tır; `GRADIO_SERVER_PORT` ortam değişkeniyle değiştirilebilir (örn. `GRADIO_SERVER_PORT=7861 ./MACOS_BASLAT.command`). Başlatıcılar `desktop.py`'yi çalıştırır; arayüz kendi penceresinde (pywebview) açılır. Pencere açılamazsa varsayılan tarayıcıda açılır.
 
 ### Elle kurulum
 
