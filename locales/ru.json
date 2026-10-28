@@ -60,7 +60,7 @@
  "Kaydın metni boş olamaz; devam kipi bu metinle çalışır.": "Текст записи не может быть пустым; режим продолжения работает с этим текстом.",
  "Kayıt {sec} sn; 8–20 sn arası olmalı.": "Длина записи {sec} с; нужно от 8 до 20 с.",
  "Bilgisayarınızda çalışır": "Работает на вашем компьютере",
- "Kaynağı görünür · Ticari olmayan kullanımda ücretsiz": "Исходный код открыт · Бесплатно для некоммерческого использования",
+ "Açık kaynak (MIT) · Ücretsiz": "Открытый исходный код (MIT) · Бесплатно",
  "Türkçe": "Турецкий",
  "Hesap gerekmez": "Без аккаунта",
  "Ses klonlama": "Клонирование голоса",
