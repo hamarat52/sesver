@@ -96,6 +96,18 @@ elif [ "$KURU" = 1 ]; then
     SIG_HASH="-"; SIG_AD="ad-hoc (-)"; MOD="kuru-adhoc"
   fi
 else
+  # Bilgi amaçlı: mevcut Apple Development sertifikasının OU (takım) alanı.
+  team_ipucu() {
+    local ad ou
+    ad="$(kimlik_bul 'Apple Development: ' | cut -f2)"
+    [ -n "$ad" ] || return 0
+    ou="$(security find-certificate -a -p -c "$ad" 2>/dev/null \
+          | openssl x509 -noout -subject -nameopt multiline 2>/dev/null \
+          | sed -n 's/^ *organizationalUnitName *= *//p' | head -n 1)" || ou=""
+    [ -n "$ou" ] && echo "(Bilgi: Apple Development sertifikasının takım alanı (OU) = $ou. Developer ID"
+    [ -n "$ou" ] && echo " sertifikası aynı takımda olmalı; Team ID'yi yine de Xcode'da doğrulayın.)"
+    return 0
+  }
   cat <<KAPI
 
 ==================================================================== KAPI ====
@@ -105,6 +117,7 @@ hiçbir şey gönderilmedi. Kuru çalıştırma için: macos/release_mac.sh $SUR
 
 Bulunan imza kimlikleri:
 $(printf '%s\n' "$KIMLIKLER" | sed 's/^/  /')
+$(team_ipucu)
 
 Yapılacaklar (bir kez, Yusuf kendisi):
   1) Xcode -> Settings -> Accounts -> Apple ID'nizi seçin (Team: Muhammed Yusuf
@@ -274,16 +287,16 @@ echo "\$ codesign --verify --deep --strict --verbose=2 dist/SesVer.app"
 codesign --verify --deep --strict --verbose=2 "$APP" 2>&1
 echo
 echo "\$ codesign -dv --verbose=4 dist/SesVer.app"
-codesign -dv --verbose=4 "$APP" 2>&1 | grep -E '^(Executable|Identifier|Format|CodeDirectory|Authority|Timestamp|Signed Time|TeamIdentifier|Runtime Version|Info.plist|Sealed Resources)=' || true
+codesign -dv --verbose=4 "$APP" 2>&1 | grep -E '^(Executable=|Identifier=|Format=|CodeDirectory |Authority=|Timestamp=|Signed Time=|TeamIdentifier=|Runtime Version=|Sealed Resources )' || true
 echo
 echo "Paketteki her Mach-O:"
 for f in "${MACHO[@]}"; do
   echo "\$ codesign -dv ${f#"$DIST/"}"
-  codesign -dv --verbose=4 "$f" 2>&1 | grep -E '^(Identifier|CodeDirectory|Authority|TeamIdentifier|Timestamp)=' | sed 's/^/    /'
+  codesign -dv --verbose=4 "$f" 2>&1 | grep -E '^(Identifier=|CodeDirectory |Authority=|TeamIdentifier=|Timestamp=)' | sed 's/^/    /'
 done
 echo
-echo "\$ codesign -d --entitlements :- dist/SesVer.app"
-codesign -d --entitlements :- "$APP" 2>&1 || true
+echo "\$ codesign -d --entitlements - --xml dist/SesVer.app   (':-' biçiminin güncel karşılığı)"
+codesign -d --entitlements - --xml "$APP" 2>&1 || true
 echo
 echo "\$ hdiutil verify ${DMG#"$KOK/"}"
 hdiutil verify "$DMG" 2>&1 | tail -n 3
