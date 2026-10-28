@@ -23,6 +23,19 @@ DMG modunda eşitleme (`sesver_app.sh`):
 - `SESVER_HOME` ortam değişkeni verilirse o kullanılır (test:
   `open --env SESVER_HOME=… --env GRADIO_SERVER_PORT=7881 SesVer.app`).
 
+Her iki modda ortak kurallar:
+- **Pencere dili:** başlatıcı pencereleri (`sesver_app_launcher.c`, `sesver_app.sh`,
+  `macos_ortak.sh`) sistem dili (AppleLanguages ilk öğesi) `tr` ile başlıyorsa Türkçe,
+  değilse İngilizcedir; terminal/günlük satırları Türkçe kalır. Arayüz (`desktop.py`) ilk
+  açılışta sistem dilinde açılır, desteklenmeyen dilde İngilizce; `ayarlar.json`'daki
+  tercih her zaman önce gelir. `SESVER_SISTEM_DILI=en-US` sistem dilini taklit eder
+  (**yalnız test**; normal kullanımda ayarlanmaz).
+- **Intel Mac:** `uname -m` = `x86_64` ve Rosetta altında değilse
+  (`sysctl.proc_translated` ≠ 1) ve tamamlanmış bir kurulum yoksa, kurulumdan önce
+  "Apple Silicon gerektirir" penceresi gösterilip çıkılır; hiçbir şey indirilmez (PyTorch
+  ≥ 2.5'in macOS tekerleği yalnız arm64). Rosetta altında arm64 Python indirilir.
+  Testler: `tests/test_macos_baslatici.py`.
+
 ### Neden DMG modu? (App Translocation kanıtı)
 
 Karantinalı (`com.apple.quarantine`, internetten indirilmiş) ve kullanıcının onayladığı bir

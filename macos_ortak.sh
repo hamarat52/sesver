@@ -26,26 +26,53 @@
 SESVER_MOD="${SESVER_MOD:-konsol}"
 BASLATICI_LOG="sesver_baslatici_log.txt"
 
+# --- Pencere dili (TR/EN) --------------------------------------------------
+# Kullanıcıya görünen pencereler sistem dili "tr" ile başlıyorsa Türkçe, değilse
+# İngilizcedir (terminal/günlük satırları Türkçe kalır). Kaynak sırası:
+# SESVER_SISTEM_DILI (yalnız test; ör. en-US) → macOS AppleLanguages ilk öğesi →
+# LC_ALL / LANG. sesver_apple_languages testlerde yeniden tanımlanabilir.
+sesver_apple_languages() { /usr/bin/defaults read -g AppleLanguages 2>/dev/null || true; }
+
+sesver_dil_belirle() {
+  local d="${SESVER_SISTEM_DILI:-}"
+  if [ -z "$d" ]; then
+    # Çıktı: "(", '    "en-US",', ... ")" — ilk öğe.
+    d="$(sesver_apple_languages | tr -d ' "(),' | sed -n '/./{p;q;}')"
+  fi
+  [ -z "$d" ] && d="${LC_ALL:-${LANG:-}}"
+  case "$d" in
+    tr|tr[-_.]*|TR|TR[-_.]*) SESVER_PENCERE_DILI=tr ;;
+    *) SESVER_PENCERE_DILI=en ;;
+  esac
+}
+sesver_dil_belirle
+
+# $1 = Türkçe metin, $2 = İngilizce metin; pencere diline uygun olanı yazar.
+sesver_metin() {
+  if [ "$SESVER_PENCERE_DILI" = "tr" ]; then printf '%s' "$1"; else printf '%s' "$2"; fi
+}
+
 # Görsel bilgi/hata penceresi. Yalnız osascript'in kendi "display dialog"
 # komutu kullanılır (başka bir uygulamaya "tell" YOK), bu yüzden macOS
 # Otomasyon izni istemez. Mesaj argüman olarak verilir: tırnak/özel karakter
 # AppleScript koduna karışmaz.
 #   $1 = mesaj, $2 = simge (stop | caution | note), $3 = kaç sn sonra kendiliğinden kapansın (ops.)
 sesver_dialog() {
-  local giving_up=""
+  local giving_up="" ok
   [ -n "$3" ] && giving_up=" giving up after $3"
+  ok="$(sesver_metin "Tamam" "OK")"
   osascript \
     -e 'on run argv' \
-    -e "display dialog (item 1 of argv) with title \"SesVer\" buttons {\"Tamam\"} default button 1 with icon $2$giving_up" \
+    -e "display dialog (item 1 of argv) with title \"SesVer\" buttons {\"$ok\"} default button 1 with icon $2$giving_up" \
     -e 'end run' "$1" >/dev/null 2>&1 || true
 }
 
 bekle_ve_cik() {
-  # $1 = çıkış kodu, $2 = (app modunda) pencerede gösterilecek mesaj
+  # $1 = çıkış kodu, $2 = (app modunda) pencerede gösterilecek mesaj (pencere dilinde)
   if [ "$SESVER_MOD" = "app" ]; then
-    sesver_dialog "${2:-SesVer başlatılamadı.}
+    sesver_dialog "${2:-$(sesver_metin "SesVer başlatılamadı." "SesVer could not be started.")}
 
-Ayrıntı: $PWD/$BASLATICI_LOG" stop
+$(sesver_metin "Ayrıntı" "Details"): $PWD/$BASLATICI_LOG" stop
   else
     read -n 1 -s -r -p "Çıkmak için bir tuşa basın..." || true
     echo
@@ -53,15 +80,56 @@ Ayrıntı: $PWD/$BASLATICI_LOG" stop
   exit "$1"
 }
 
+# Kurulum adımı: ADIM günlükte (Türkçe), ADIM_PENCERE hata penceresinde görünür.
 ADIM=""
+ADIM_PENCERE=""
+adim() { ADIM="$1"; ADIM_PENCERE="$(sesver_metin "$1" "$2")"; }
 kurulum_hatasi() {
   echo
   echo "[HATA] Kurulum adımı başarısız oldu: $ADIM"
   echo "Yukarıdaki hata mesajını okuyun. İnternet bağlantınızı kontrol edip"
   echo "SesVer'i (SesVer.app ya da MACOS_BASLAT.command) tekrar açın; kurulum kaldığı yerden devam eder."
-  bekle_ve_cik 1 "Kurulum adımı başarısız oldu: $ADIM
+  bekle_ve_cik 1 "$(sesver_metin "Kurulum adımı başarısız oldu: $ADIM_PENCERE
 
-İnternet bağlantınızı kontrol edip SesVer'i tekrar açın; kurulum kaldığı yerden devam eder."
+İnternet bağlantınızı kontrol edip SesVer'i tekrar açın; kurulum kaldığı yerden devam eder." \
+"A setup step failed: $ADIM_PENCERE
+
+Check your internet connection and open SesVer again; setup will continue where it left off.")"
+}
+
+# --- Intel Mac denetimi ----------------------------------------------------
+# PyTorch 2.5+ (requirements.txt: torch>=2.5.0) PyPI'de macOS için yalnız arm64
+# tekerleği yayınlıyor; Intel Mac'te pip adımı anlamsız bir hatayla düşer. Bu
+# yüzden kurulum başlamadan, hiçbir şey indirilmeden açık bir uyarı gösterilir.
+# Rosetta altında (Apple Silicon'da x86_64 olarak) çalışıyorsa uyarılmaz: makine
+# arm64'tür ve arm64 Python kullanılır (bkz. sesver_mimari).
+# Enjekte edilebilir: testler bu iki işlevi source ettikten sonra yeniden tanımlar.
+sesver_uname() { uname "$@"; }
+sesver_proc_translated() { sysctl -n sysctl.proc_translated 2>/dev/null || true; }
+
+# Gömülü Python için gerçek makine mimarisi (Rosetta altında arm64).
+sesver_mimari() {
+  local m
+  m="$(sesver_uname -m)"
+  if [ "$m" = "x86_64" ] && [ "$(sesver_proc_translated)" = "1" ]; then m="arm64"; fi
+  printf '%s' "$m"
+}
+
+# 0 (doğru): desteklenmeyen Intel Mac. Linux x86_64 etkilenmez (orada torch tekerleği var).
+sesver_intel_mac_mi() {
+  [ "$(sesver_uname -s)" = "Darwin" ] || return 1
+  [ "$(sesver_uname -m)" = "x86_64" ] || return 1
+  [ "$(sesver_proc_translated)" = "1" ] && return 1
+  return 0
+}
+
+intel_mac_uyarisi_ve_cik() {
+  echo "[HATA] Intel işlemcili Mac: SesVer Apple Silicon (M1 ve sonrası) gerektirir; kurulum başlatılmadı, hiçbir şey indirilmedi."
+  # Terminal modunda da pencere gösterilir: ilk kurulum çoğu kullanıcı için buradan başlar.
+  sesver_dialog "$(sesver_metin \
+"SesVer Apple Silicon (M1 ve sonrası) gerektirir; bu Mac'te Intel işlemci var. PyTorch artık Intel Mac için paket yayınlamadığı için SesVer bu bilgisayarda kurulamaz." \
+"SesVer requires Apple Silicon (M1 or later); this Mac has an Intel processor. Because PyTorch no longer publishes packages for Intel Macs, SesVer cannot be installed on this computer.")" stop
+  exit 1
 }
 
 # --- Gömülü (taşınabilir) Python: python-build-standalone ------------------
@@ -85,11 +153,11 @@ PBS_FALLBACK_SHA_X86_64="3acde87324867dab4e63329be3010130c75bfc4a3709db00866862d
 # set -e etkisizdir; her adım bu yüzden açıkça denetlenir.
 gomulu_python_kur() {
   local arch triple fb_sha tag sums line asset sha tmp got
-  case "$(uname -s)" in
+  case "$(sesver_uname -s)" in
     Darwin) ;;
     *) echo "[BİLGİ] Gömülü Python yalnız macOS için hazır; sistem Python'u kullanılacak."; return 1 ;;
   esac
-  arch="$(uname -m)"
+  arch="$(sesver_mimari)"
   case "$arch" in
     arm64|aarch64) triple="aarch64-apple-darwin"; fb_sha="$PBS_FALLBACK_SHA_AARCH64" ;;
     x86_64)        triple="x86_64-apple-darwin";  fb_sha="$PBS_FALLBACK_SHA_X86_64" ;;
@@ -184,6 +252,13 @@ sesver_baslat() {
   RUN_PY=""
   MARKER=""
   PY=""
+  # Intel Mac: kurulum başlamadan (hiçbir şey indirilmeden) uyar ve çık. Daha önce
+  # TAMAMLANMIŞ bir kurulum varsa dokunulmaz (çalışıyorsa çalışmaya devam etsin).
+  if ! { [ -x "$EMBED_PY" ] && [ -f "$EMBED_DIR/sesver_kurulum_tamam.txt" ]; } \
+     && ! { [ -x ".venv/bin/python" ] && [ -f ".venv/sesver_kurulum_tamam.txt" ]; } \
+     && sesver_intel_mac_mi; then
+    intel_mac_uyarisi_ve_cik
+  fi
   if [ -x "$EMBED_PY" ] && "$EMBED_PY" --version >/dev/null 2>&1; then
     RUN_PY="$EMBED_PY"
   elif [ -x ".venv/bin/python" ] && [ -f ".venv/sesver_kurulum_tamam.txt" ]; then
@@ -191,11 +266,16 @@ sesver_baslat() {
   else
     if [ "$SESVER_MOD" = "app" ]; then
       # Bilgi penceresi arka planda: kurulum onu beklemeden sürer.
-      sesver_dialog "SesVer ilk kez kuruluyor (Python ve paketler indiriliyor, yalnız bir kere).
+      sesver_dialog "$(sesver_metin "SesVer ilk kez kuruluyor (Python ve paketler indiriliyor, yalnız bir kere).
 
 Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası sürebilir. Kurulum bitince SesVer penceresi kendiliğinden açılır.
 
-İlerleme: $PWD/$BASLATICI_LOG" note 120 &
+İlerleme: $PWD/$BASLATICI_LOG" \
+"SesVer is being set up for the first time (downloading Python and packages, only once).
+
+Depending on your internet speed this can take from a few minutes to half an hour. The SesVer window opens by itself when setup is finished.
+
+Progress: $PWD/$BASLATICI_LOG")" note 120 &
     fi
     if gomulu_python_kur; then
       RUN_PY="$EMBED_PY"
@@ -218,9 +298,12 @@ Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası süre
       echo "Python bulunamadı ve uygulamaya özel Python indirilemedi."
       echo "İnternet bağlantınızı kontrol edip SesVer'i tekrar açın"
       echo "ya da Python 3.10–3.12 kurun: https://www.python.org/downloads/"
-      bekle_ve_cik 1 "Python bulunamadı ve uygulamaya özel Python indirilemedi.
+      bekle_ve_cik 1 "$(sesver_metin "Python bulunamadı ve uygulamaya özel Python indirilemedi.
 
-İnternet bağlantınızı kontrol edip SesVer'i tekrar açın ya da Python 3.10–3.12 kurun: https://www.python.org/downloads/"
+İnternet bağlantınızı kontrol edip SesVer'i tekrar açın ya da Python 3.10–3.12 kurun: https://www.python.org/downloads/" \
+"Python was not found and SesVer's own Python could not be downloaded.
+
+Check your internet connection and open SesVer again, or install Python 3.10–3.12: https://www.python.org/downloads/")"
     fi
     echo "Kullanılan Python komutu: $PY ($("$PY" --version 2>&1))"
     "$PY" -c "import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,12) else 1)" \
@@ -233,17 +316,17 @@ Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası süre
     echo "İlk kurulum yapılıyor (bu sadece bir kere çalışır)..."
     trap kurulum_hatasi ERR
     if [ ! -x "$RUN_PY" ]; then
-      ADIM="sanal ortam oluşturma: $PY -m venv .venv"
+      adim "sanal ortam oluşturma: $PY -m venv .venv" "creating the virtual environment: $PY -m venv .venv"
       "$PY" -m venv .venv
     fi
-    ADIM="pip güncelleme"
+    adim "pip güncelleme" "upgrading pip"
     "$RUN_PY" -m pip install --upgrade pip --quiet
     # --no-deps: voxcpm'in gereksiz ağır bağımlılıklarını (funasr, matplotlib,
     # modelscope, datasets, spaces, argbind — hiçbiri kodda kullanılmıyor)
     # atlayıp yalnız requirements.txt'teki gerçekten gerekli paketleri kurar.
-    ADIM="voxcpm kurulumu"
+    adim "voxcpm kurulumu" "installing voxcpm"
     "$RUN_PY" -m pip install --no-deps voxcpm==2.0.3
-    ADIM="requirements.txt kurulumu"
+    adim "requirements.txt kurulumu" "installing requirements.txt"
     "$RUN_PY" -m pip install -r requirements.txt
     echo tamam > "$MARKER"
     trap - ERR
@@ -269,15 +352,16 @@ Bu işlem internet hızınıza göre birkaç dakika ile yarım saat arası süre
       rehber="$("$RUN_PY" hata_rehberi.py sesver_log.txt 2>/dev/null)" || rehber=""
       if [ -n "$rehber" ]; then
         echo "$rehber"
-        sesver_dialog "SesVer başlatılamadı.
+        sesver_dialog "$(sesver_metin "SesVer başlatılamadı." "SesVer could not be started.")
 
 $rehber
 
-Ayrıntı: $PWD/sesver_log.txt" stop
+$(sesver_metin "Ayrıntı" "Details"): $PWD/sesver_log.txt" stop
       else
-        sesver_dialog "SesVer beklenmedik şekilde kapandı (çıkış kodu $kod).
+        sesver_dialog "$(sesver_metin "SesVer beklenmedik şekilde kapandı (çıkış kodu $kod)." \
+"SesVer quit unexpectedly (exit code $kod).")
 
-Ayrıntı: $PWD/sesver_log.txt" stop
+$(sesver_metin "Ayrıntı" "Details"): $PWD/sesver_log.txt" stop
       fi
     fi
     exit "$kod"

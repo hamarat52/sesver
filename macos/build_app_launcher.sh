@@ -9,6 +9,7 @@ APP="SesVer.app"
 OUT="$APP/Contents/MacOS/SesVer"
 clang -Os -Wall -Wextra -Werror \
   -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 \
+  -framework CoreFoundation \
   -o "$OUT" macos/sesver_app_launcher.c
 strip -x "$OUT"
 # TCC (Masaüstü vb. klasör izni) izni bu imzaya bağlanır; derleme sonrası ilk
