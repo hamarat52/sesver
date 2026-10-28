@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  SesVer.app — hardened runtime ("codesign options runtime") entitlement'ları.
+  (Not: XML yorumunda çift tire yasak olduğundan bayrak adları tiresiz yazıldı.)
+
+  BİLEREK BOŞ: hiçbir hardened-runtime istisnası istenmez.
+  Gerekçe (ayrıntı: docs/macos-yayin.md, "Entitlement gerekçeleri"):
+    - Contents/MacOS/SesVer düz C başlatıcıdır (macos/sesver_app_launcher.c): JIT yok,
+      çalışma anında kod üretmiyor, yalnız libSystem'e bağlı; üçüncü taraf dylib
+      yüklemiyor -> allow-jit / allow-unsigned-executable-memory /
+      disable-library-validation / allow-dyld-environment-variables gerekmez.
+    - Python (python-embed ya da .venv) /bin/bash üzerinden AYRI bir süreç olarak
+      başlar; hardened runtime kısıtları üst süreçten alt sürece geçmez, Python
+      kendi imzasıyla (ya da imzasız) çalışır.
+    - Mikrofon kullanılmıyor (yalnız dosya yükleme, app.py sources=["upload"])
+      -> com.apple.security.device.audio-input gerekmez.
+    - Sandbox yok (com.apple.security.app-sandbox eklenmez): Developer ID ile
+      App Store dışı dağıtımda zorunlu değil; Python ortamı ~/Library/Application
+      Support/SesVer altına kurulur ve ağdan paket indirir.
+  Bir anahtar eklenecekse gerçek hata çıktısıyla gerekçelendirip docs/macos-yayin.md'ye yazın.
+-->
+<plist version="1.0">
+<dict/>
+</plist>

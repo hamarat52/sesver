@@ -63,3 +63,7 @@ icerik/
 
 # İç ikon QA kanıt klasörü — GitHub'a gitmesin
 assets/app_icon/kanit/
+
+# Yayın çıktıları (macos/release_mac.sh -> dist/, Inno Setup -> windows/Output/).
+dist/
+windows/Output/
