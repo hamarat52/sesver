@@ -707,7 +707,7 @@ def _hero():
       <span class="sv-brand-text"><span>SesVer</span>{BRAND_SIGNATURE_HTML}</span></div>
     <div class="sv-nav-tags">
       <span class="sv-tag"><span class="sv-live"></span>{t("Bilgisayarınızda çalışır")}</span>
-      <span class="sv-tag sv-hide-sm">{t("Kaynağı görünür · Ticari olmayan kullanımda ücretsiz")}</span>
+      <span class="sv-tag sv-hide-sm">{t("Açık kaynak (MIT) · Ücretsiz")}</span>
     </div>
   </nav>
   <div class="sv-hero-body">

@@ -60,7 +60,7 @@
  "Kaydın metni boş olamaz; devam kipi bu metinle çalışır.": "Le texte de l'enregistrement ne peut pas être vide ; le mode continuation fonctionne avec ce texte.",
  "Kayıt {sec} sn; 8–20 sn arası olmalı.": "L'enregistrement dure {sec} s ; il doit durer entre 8 et 20 s.",
  "Bilgisayarınızda çalışır": "Fonctionne sur votre ordinateur",
- "Kaynağı görünür · Ticari olmayan kullanımda ücretsiz": "Code source visible · Gratuit pour un usage non commercial",
+ "Açık kaynak (MIT) · Ücretsiz": "Open source (MIT) · Gratuit",
  "Türkçe": "Turc",
  "Hesap gerekmez": "Aucun compte requis",
  "Ses klonlama": "Clonage de voix",

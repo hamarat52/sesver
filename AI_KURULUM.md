@@ -256,7 +256,7 @@ Sonra tarayıcıda http://127.0.0.1:7860 adresini aç.
 
 - Yalnız kendi sesini veya açık izin aldığı birinin sesini klonlasın.
 - Ürettiği sesi paylaşırken "AI ile üretildi" diye belirtmesi gerekir.
-- SesVer'in kodu ticari olmayan kullanım içindir (PolyForm Noncommercial 1.0.0).
+- SesVer'in kodu açık kaynaktır (MIT License); ücretsizdir, ticari kullanım dahil serbestçe kullanılabilir.
 
 ---
 

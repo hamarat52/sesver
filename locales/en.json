@@ -60,7 +60,7 @@
  "Kaydın metni boş olamaz; devam kipi bu metinle çalışır.": "The recording's text cannot be empty; continuation mode works with this text.",
  "Kayıt {sec} sn; 8–20 sn arası olmalı.": "The recording is {sec} s; it must be between 8 and 20 s.",
  "Bilgisayarınızda çalışır": "Runs on your computer",
- "Kaynağı görünür · Ticari olmayan kullanımda ücretsiz": "Source-available · Free for non-commercial use",
+ "Açık kaynak (MIT) · Ücretsiz": "Open source (MIT) · Free",
  "Türkçe": "Turkish",
  "Hesap gerekmez": "No account needed",
  "Ses klonlama": "Voice cloning",

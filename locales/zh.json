@@ -60,7 +60,7 @@
  "Kaydın metni boş olamaz; devam kipi bu metinle çalışır.": "录音文本不能为空；续写模式依赖此文本。",
  "Kayıt {sec} sn; 8–20 sn arası olmalı.": "录音时长 {sec} 秒；须在 8 到 20 秒之间。",
  "Bilgisayarınızda çalışır": "在你的电脑上运行",
- "Kaynağı görünür · Ticari olmayan kullanımda ücretsiz": "源码可见 · 非商业用途免费",
+ "Açık kaynak (MIT) · Ücretsiz": "开源 (MIT) · 免费",
  "Türkçe": "土耳其语",
  "Hesap gerekmez": "无需账号",
  "Ses klonlama": "声音克隆",
