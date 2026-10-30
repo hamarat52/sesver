@@ -7,7 +7,8 @@ eski davranışa dönülür: arayüz varsayılan tarayıcıda açılır.
 
 Elle çalıştırmak için: python desktop.py   (python app.py de hâlâ çalışır.)
 
-Tüm çıktı ayrıca sesver_log.txt dosyasına yazılır (her açılışta baştan). Windows
+Tüm çıktı ayrıca sesver_log.txt dosyasına yazılır (her açılışta baştan; bir önceki
+açılışın günlüğü sesver_log_onceki.txt olarak saklanır). Windows
 başlatıcısı uygulamayı konsolsuz pythonw.exe ile açtığında hata takibi buradan yapılır.
 SESVER_DURUM_DOSYASI ortam değişkeni verilmişse (yalnız WINDOWS_BASLAT.bat verir)
 açılış sonucu o dosyaya yazılır: acildi / hata / pencere_yok.
@@ -15,20 +16,24 @@ açılış sonucu o dosyaya yazılır: acildi / hata / pencere_yok.
 import atexit
 import datetime
 import html
+import json
 import os
 import signal
 import socket
 import sys
 import threading
 import time
+import traceback
 import urllib.error
 import urllib.request
 
+import hata_raporu  # aynı şekilde yalnız standart kütüphane (başlatma hatasında rapor)
 import hata_rehberi  # yalnız standart kütüphane: numpy/torch yüklenemese de çalışır
 import i18n  # aynı şekilde yalnız standart kütüphane (yükleme/hata ekranı seçili dilde)
 from i18n import t
 
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sesver_log.txt")
+PREV_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sesver_log_onceki.txt")
 # pythonw.exe altında konsol yoktur ve sys.stdout/sys.stderr None olur.
 _NO_CONSOLE = sys.stdout is None or sys.stderr is None
 _STATUS_FILE = os.environ.get("SESVER_DURUM_DOSYASI", "")
@@ -107,7 +112,10 @@ def _print_guide(error_text):
 
 
 def _setup_log_file():
-    """stdout/stderr'i sesver_log.txt'ye de yönlendirir; yakalanmamış hatayı durum dosyasına bildirir."""
+    """stdout/stderr'i sesver_log.txt'ye de yönlendirir; yakalanmamış hatayı durum dosyasına bildirir.
+
+    Önceki açılışın günlüğü (hata kanıtı) silinmesin diye önce sesver_log_onceki.txt'ye taşınır."""
+    hata_raporu.rotate_log(LOG_PATH, PREV_LOG_PATH)
     try:
         log = open(LOG_PATH, "w", encoding="utf-8", errors="replace", buffering=1)
     except OSError:
@@ -161,9 +169,87 @@ pre{white-space:pre-wrap;color:#ff8a8a}</style></head><body>
 <h2>{title}</h2>
 <p>{see_log}</p>
 <pre style="color:#e6e6e6">{log}</pre>
-<pre>{msg}</pre>{guide}</body></html>"""
+<pre>{msg}</pre>{guide}{report}</body></html>"""
 
 _GUIDE_HTML = """<h3>{what}</h3><pre style="color:#e6e6e6">{guide}</pre>"""
+
+# Başlatma hatasında "Hata raporu gönder": rapor önce gösterilir, e-posta taslağı ancak
+# kullanıcı "E-posta uygulamasında aç"a basınca açılır (pywebview js_api → ReportApi).
+_REPORT_HTML = """<style>
+.rp button{font:inherit;padding:8px 14px;margin:4px 6px 4px 0;border-radius:10px;border:1px solid #555;
+background:#1d2129;color:#e6e6e6;cursor:pointer}.rp button.p{background:#e6e6e6;color:#0f1115}
+.rp textarea{width:100%;box-sizing:border-box;height:260px;background:#171a21;color:#e6e6e6;border:1px solid #333;
+border-radius:10px;padding:10px;font:12px ui-monospace,Menlo,Consolas,monospace}.rp .f{color:#9aa0aa;font-size:13px}
+</style><div class="rp"><h3>{title}</h3>
+<button id="rp-open" class="p">{send}</button>
+<div id="rp-box" hidden><p><b>{consent}</b> {details}</p>
+<label id="rp-prev-row" hidden><input type="checkbox" id="rp-prev"> {prev}</label>
+<textarea id="rp-text" readonly></textarea>
+<div><button id="rp-mail" class="p">{mail}</button><button id="rp-copy">{copy}</button></div>
+<p class="f">{to}</p></div><p id="rp-msg"></p></div>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const api = () => window.pywebview && window.pywebview.api;
+  const say = (s) => { $('rp-msg').textContent = s || ''; };
+  async function prepare(prev) {
+    if (!api()) { say({noapi}); return; }
+    say({wait});
+    const r = await api().hazirla(prev);
+    $('rp-text').value = r.text; $('rp-prev').checked = !!r.prev_checked;
+    $('rp-prev-row').hidden = !r.prev_exists; $('rp-box').hidden = false; say('');
+  }
+  $('rp-open').onclick = () => prepare(null);
+  $('rp-prev').onchange = (e) => prepare(e.target.checked);
+  $('rp-mail').onclick = async () => { if (api()) say(await api().eposta()); };
+  $('rp-copy').onclick = async () => { if (api()) say(await api().kopyala()); };
+})();
+</script>"""
+
+
+class ReportApi:
+    """pywebview js_api: başlatma hatası ekranındaki rapor düğmeleri (yalnız kullanıcı tıklayınca)."""
+
+    def __init__(self):
+        self._report = None
+
+    def hazirla(self, prev=None):
+        """Raporu kurar ve önizleme için döndürür; hiçbir şey açılmaz/gönderilmez."""
+        prev_exists = os.path.isfile(PREV_LOG_PATH)
+        if prev is None:
+            prev = prev_exists and hata_raporu.log_has_error(PREV_LOG_PATH)
+        prev = bool(prev) and prev_exists
+        self._report = hata_raporu.build_report(include_previous=prev, log_path=LOG_PATH, prev_path=PREV_LOG_PATH)
+        return {"text": self._report["text"], "prev_exists": prev_exists, "prev_checked": prev}
+
+    def eposta(self):
+        if not self._report:
+            return t("Önce “Hata raporu gönder” ile raporu hazırlayın.")
+        try:
+            path, opened = hata_raporu.send(self._report)
+        except OSError as exc:
+            return t("Rapor dosyası yazılamadı: {hata}", hata=f"{type(exc).__name__}: {exc}")
+        return hata_raporu.send_message(path, opened)
+
+    def kopyala(self):
+        if not self._report:
+            return t("Önce “Hata raporu gönder” ile raporu hazırlayın.")
+        return hata_raporu.copy_message(hata_raporu.copy_to_clipboard(hata_raporu.clipboard_text(self._report)))
+
+
+def _report_html():
+    consent, details = hata_raporu.consent_text()
+    esc = html.escape
+    return (_REPORT_HTML.replace("{title}", esc(t("Sorun bildir / Hata raporu gönder")))
+            .replace("{send}", esc(t("Hata raporu gönder")))
+            .replace("{consent}", esc(consent)).replace("{details}", esc(details))
+            .replace("{prev}", esc(t("Önceki oturumun günlüğünü de ekle")))
+            .replace("{mail}", esc(t("E-posta uygulamasında aç"))).replace("{copy}", esc(t("Panoya kopyala")))
+            .replace("{to}", esc(hata_raporu.recipient_text()))
+            .replace("{wait}", json.dumps(t("Rapor hazırlanıyor…"), ensure_ascii=False))
+            .replace("{noapi}", json.dumps(t("Rapor düğmesi bu pencerede çalışmıyor. Lütfen {log} dosyasını "
+                                             "{adres} adresine e-postayla gönderin.",
+                                             log=LOG_PATH, adres=hata_raporu.DESTEK_EPOSTA), ensure_ascii=False)))
 
 
 def _ui_url(base):
@@ -205,6 +291,7 @@ class Server:
         self.url = f"http://{HOST}:{port}"
         self.demo = None
         self.error = None
+        self.traceback = ""
         self._launched = threading.Event()
         self._thread = threading.Thread(target=self._run, name="sesver-gradio", daemon=True)
 
@@ -224,7 +311,8 @@ class Server:
             )
             self.demo = demo
         except BaseException as exc:  # noqa: BLE001 — hata ana thread'e taşınır
-            self.error = f"{type(exc).__name__}: {exc}"
+            self.error = hata_raporu.exc_line(exc)  # "MemoryError: MemoryError: …" olmasın
+            self.traceback = traceback.format_exc()  # hata raporu için (log'a ana thread yazar)
         finally:
             self._launched.set()
 
@@ -270,7 +358,10 @@ def _load_ui(window, server):
         window.load_url(_ui_url(server.url))
     else:
         print(f"[HATA] {server.error}", flush=True)
+        if server.traceback:
+            print(server.traceback, end="", file=sys.stderr, flush=True)
         print(f"Ayrıntı için: {LOG_PATH}", flush=True)
+        hata_raporu.record_text_error(server.error or "", server.traceback, where="startup")
         guide = _print_guide(server.error)
         window.load_html(
             _ERROR_HTML.replace("{title}", html.escape(t("SesVer başlatılamadı")))
@@ -279,6 +370,7 @@ def _load_ui(window, server):
             .replace("{msg}", html.escape(server.error or t("bilinmeyen hata")))
             .replace("{guide}", _GUIDE_HTML.replace("{what}", html.escape(t("Ne yapmalıyım?")))
                      .replace("{guide}", html.escape(guide)) if guide else "")
+            .replace("{report}", _report_html())
         )
 
 
@@ -291,7 +383,7 @@ def _run_window(server):
     window = webview.create_window(
         "SesVer", html=_LOADING_HTML.replace("{opening}", html.escape(t("SesVer açılıyor…"))),
         width=1280, height=860, min_size=(900, 600),
-        background_color="#0f1115",
+        background_color="#0f1115", js_api=ReportApi(),
     )
     webview.start(_load_ui, (window, server))
 
@@ -324,7 +416,7 @@ def main():
     try:
         _run_window(server)
     except Exception as exc:  # noqa: BLE001 — her türlü pencere hatasında tarayıcıya dön
-        print(f"[BILGI] Masaüstü penceresi kullanılamıyor: {type(exc).__name__}: {exc}", flush=True)
+        print(f"[BILGI] Masaüstü penceresi kullanılamıyor: {hata_raporu.exc_line(exc)}", flush=True)
         if _NO_CONSOLE:
             # Konsolsuz (pythonw) çalışıyoruz: tarayıcı modu Ctrl+C için konsol ister.
             # Başlatıcıya bildirip çık; o, uygulamayı konsollu python.exe ile yeniden açar.

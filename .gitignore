@@ -48,9 +48,12 @@ voices/**/*Akif*
 python-embed/
 python-embed.indiriliyor/
 pbs_*
-# desktop.py çalışma günlüğü ve Windows başlatıcısının durum dosyası.
+# desktop.py çalışma günlüğü (+ bir önceki açılışınki) ve Windows başlatıcısının durum dosyası.
 sesver_log.txt
+sesver_log_onceki.txt
 sesver_durum.tmp*
+# Kullanıcının oluşturduğu hata raporları (hata_raporu.py; yalnız onayla e-postaya eklenir).
+hata_raporlari/
 # Arayüz dili tercihi (kullanıcıya özel, i18n.py yazar).
 ayarlar.json
 ayarlar.json.yaz

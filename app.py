@@ -21,6 +21,7 @@ import soundfile as sf
 
 import audio_prep
 import effects as fx
+import hata_raporu
 import hizlandirma as hiz
 import i18n
 import voice_designer as vdes
@@ -252,13 +253,15 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
             OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
             output = str(OUTPUT_DIR / f"ai-ile-uretildi-{uuid4().hex}.wav")
             sf.write(output, wav, model.tts_model.sample_rate)
-    except Exception:
-        import traceback
-        traceback.print_exc()  # Ayrıntı yalnız yerel terminalde; metin/ses loglanmaz.
+    except Exception as exc:
+        # Ayrıntı (traceback) sesver_log.txt'ye yazılır; kullanıcının metni oradan ve hata
+        # raporundan silinir (hata_raporu.record_error). Kullanıcıya hatanın türü söylenir.
+        private = [text, prompt_text] + ([instruction] if instruction not in EMOTIONS.values() else [])
+        entry = hata_raporu.record_error(exc, redact=private, where=log_mode or "generate")
         yield None, None, t(
-            "Üretim başarısız. İlk indirme için interneti, boş disk alanını ve RAM'i "
-            "kontrol edin. Diğer ağır uygulamaları kapatıp kısa metinle tekrar deneyin. "
-            "Ayrıntı terminalde; bellek hatasında uygulamayı yeniden başlatın."
+            "Üretim başarısız: **{neden}**. Diğer ağır uygulamaları kapatıp kısa bir metinle tekrar deneyin; "
+            "bellek hatasında SesVer'i yeniden başlatın. Ayrıntı: sesver_log.txt. Sorun sürerse "
+            "“Hata raporu gönder” düğmesiyle bize bildirin.", neden=escape(entry["reason"])
         )
         return
     progress(1.0, desc=t("Tamamlandı"))
@@ -1091,8 +1094,13 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 .sv-status p { margin: 0 !important; font-size: .9rem !important; line-height: 1.5 !important; color: var(--sv-ink-2) !important; }
 .sv-status strong { color: var(--sv-ink); }
 .sv-accel-status p + p { margin-top: 8px !important; }
-.sv-accel-log textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+.sv-accel-log textarea, .sv-report-text textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
   font-size: .76rem !important; line-height: 1.45 !important; }
+/* Hata raporu önizlemesi (kullanıcı onayı olmadan hiçbir şey gönderilmez) */
+.sv-report { gap: 8px !important; padding: 12px; border-radius: 14px; background: #FFF9F6;
+  border: 1px solid rgba(242,92,59,.3); }
+.sv-report-actions { flex-wrap: wrap !important; gap: 6px !important; align-items: center !important; }
+.sv-report-consent p { margin: 0 !important; font-size: .86rem !important; line-height: 1.5 !important; }
 /* Adaylar kartı: Gradio ilerleme göstergesi kartın içinde, üstte kendi satırında (taşma/kesme yok). */
 .block.sv-cand-status > .wrap { position: relative !important; transform: none !important; inset: auto !important;
   width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 0 6px !important;
@@ -1342,6 +1350,7 @@ def _library_tab(demo):
                 _head(*_result_head())
                 status = gr.Markdown(t("Hazır. Bir ses seçip metninizi yazın ve Üret'e basın."),
                                      elem_classes=["sv-status"])
+                report_button = _report_panel(lang)
                 audio = gr.Audio(label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
                                  buttons=["download"], elem_classes=["sv-audio"])
                 download = gr.DownloadButton(t("⬇ WAV indir"), variant="secondary",
@@ -1424,8 +1433,9 @@ def _library_tab(demo):
         trigger(_mode_info, inputs=[selected, emotion, text], outputs=mode_md, queue=False)
     demo.load(_in_lang(_mode_info, lang), inputs=[selected, emotion, text], outputs=mode_md)
 
-    generation = button.click(
-        library_generate, inputs=[text, emotion, quality, selected], outputs=[audio, download, status],
+    generation = _watch_failures(
+        button.click, report_button,
+        fn=library_generate, inputs=[text, emotion, quality, selected], outputs=[audio, download, status],
         concurrency_limit=1, api_name="generate_audio", show_progress="full",
     )
     fx_inputs = [audio, *fx_controls]
@@ -1506,6 +1516,7 @@ def _design_subtab(lib, tabs):
                 _head(_IC_PLAY, t("Adaylar"), t("Aynı tarif ve cümle, farklı seed. Dinleyin, birini seçin."))
                 d_status = gr.Markdown(t("Henüz aday yok. Seçimleri yapıp “Sesleri Dene”ye basın."),
                                        elem_classes=["sv-status", "sv-cand-status"])
+                d_report_button = _report_panel(i18n.get_lang())
                 cand_audio, cand_label, cand_pick = [], [], []
                 with gr.Row(elem_classes=["sv-cgrid"]):
                     for i in range(4):
@@ -1573,8 +1584,10 @@ def _design_subtab(lib, tabs):
     run_args = dict(fn=design_candidates, inputs=[tarif, sample, quality, batch, cands, *selections],
                     outputs=[*cand_audio, *cand_label, d_status, cands, meta, save_group, picked],
                     concurrency_limit=1, show_progress="full", show_progress_on=[d_status])
-    first_run = try_button.click(lambda: 0, outputs=batch, queue=False).then(**run_args)
-    more_run = more.click(lambda b: int(b or 0) + 1, inputs=batch, outputs=batch, queue=False).then(**run_args)
+    first_run = _watch_failures(try_button.click(lambda: 0, outputs=batch, queue=False).then,
+                                d_report_button, **run_args)
+    more_run = _watch_failures(more.click(lambda b: int(b or 0) + 1, inputs=batch, outputs=batch, queue=False).then,
+                               d_report_button, **run_args)
     stopped_msg = t("Durduruldu. Çalışmakta olan aday bitene kadar model meşgul kalabilir.")
     change_msg = t("Seçimleri soldan değiştirip yeniden “Sesleri Dene”ye basın.")
     stop.click(lambda: stopped_msg, outputs=d_status, cancels=[first_run, more_run], queue=False)
@@ -1814,6 +1827,7 @@ def _clone_tab():
                     t("Hazır. Metin ve referans ses yükleyip Klonla ve Üret'e basın."),
                     elem_classes=["sv-status"],
                 )
+                c_report_button = _report_panel(i18n.get_lang())
                 c_audio = gr.Audio(
                     label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
                     buttons=["download"], elem_classes=["sv-audio"],
@@ -1824,8 +1838,9 @@ def _clone_tab():
                 _html(_result_note())
             with gr.Column(elem_classes=["sv-card"]):
                 _html(_ethics())
-    c_button.click(
-        _clone_generate, inputs=[c_text, c_reference, c_emotion, c_prompt_text],
+    _watch_failures(
+        c_button.click, c_report_button,
+        fn=_clone_generate, inputs=[c_text, c_reference, c_emotion, c_prompt_text],
         outputs=[c_audio, c_download, c_status],
         concurrency_limit=1, api_name="clone_audio", show_progress="full",
     )
@@ -2048,8 +2063,90 @@ def _accel_install_ui(target):
         _accel_lock.release()
 
 
+# --- Hata raporu (kullanıcı onaylı; mailto + dosya, hiçbir şey kendiliğinden gönderilmez) ---------
+# Rapor içeriği ve maskeleme hata_raporu.py'de; burada yalnız önizleme/onay arayüzü var.
+
+
+def report_open_ui(include_prev=None):
+    """“Hata raporu gönder”: raporu kurar ve önizleme kutusunu açar (henüz hiçbir şey açılmaz/gönderilmez)."""
+    prev_exists = hata_raporu.PREV_LOG_PATH.is_file()
+    if include_prev is None:  # varsayılan: önceki oturumun günlüğü hata içeriyorsa eklenir
+        include_prev = prev_exists and hata_raporu.log_has_error()
+    include_prev = bool(include_prev) and prev_exists
+    report = hata_raporu.build_report(include_previous=include_prev)
+    return (gr.update(visible=True), gr.update(visible=prev_exists, value=include_prev),
+            report["text"], report, "")
+
+
+def report_rebuild_ui(include_prev):
+    report = hata_raporu.build_report(include_previous=bool(include_prev))
+    return report["text"], report
+
+
+def report_send_ui(report):
+    """Onaydan sonra: dosyayı kaydet + klasörde göster + e-posta TASLAĞI aç (gönderen kullanıcıdır)."""
+    if not report:
+        raise gr.Error(t("Önce “Hata raporu gönder” ile raporu hazırlayın."))
+    try:
+        path, opened = hata_raporu.send(report)
+    except OSError as exc:
+        raise gr.Error(t("Rapor dosyası yazılamadı: {hata}", hata=f"{type(exc).__name__}: {exc}")) from exc
+    return hata_raporu.send_message(path, opened, fmt_path=lambda p: f"`{p}`", fmt_addr=lambda a: f"**{a}**")
+
+
+def report_copy_ui(report):
+    if not report:
+        raise gr.Error(t("Önce “Hata raporu gönder” ile raporu hazırlayın."))
+    ok = hata_raporu.copy_to_clipboard(hata_raporu.clipboard_text(report))
+    return hata_raporu.copy_message(ok, fmt_addr=lambda a: f"**{a}**")
+
+
+def _report_panel(lang, visible=False):
+    """“Hata raporu gönder” düğmesi + önizleme/onay kutusu. Düğmeyi döndürür (görünürlüğü dışarıdan yönetilir)."""
+    button = gr.Button(t("Hata raporu gönder"), size="sm", visible=visible,
+                       elem_classes=["sv-btn", "sv-mini", "sv-report-btn"])
+    report = gr.State(None)
+    with gr.Column(visible=False, elem_classes=["sv-report"]) as box:
+        consent, details = hata_raporu.consent_text()
+        gr.Markdown(f"**{consent}** {details}", elem_classes=["sv-report-consent"])
+        prev = gr.Checkbox(label=t("Önceki oturumun günlüğünü de ekle"), value=False, visible=False)
+        text = gr.Textbox(label=t("Rapor önizlemesi"), lines=12, max_lines=12, interactive=False,
+                          elem_classes=["sv-report-text"])
+        with gr.Row(elem_classes=["sv-report-actions"]):
+            mail = gr.Button(t("E-posta uygulamasında aç"), size="sm", scale=0,
+                             elem_classes=["sv-btn", "sv-mini", "sv-mini-dark"])
+            copy = gr.Button(t("Panoya kopyala"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+            cancel = gr.Button(t("Vazgeç"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+        gr.Markdown(hata_raporu.recipient_text(f"**{hata_raporu.DESTEK_EPOSTA}**"), elem_classes=["sv-fine-md"])
+        msg = gr.Markdown("", elem_classes=["sv-fine-md"])
+    button.click(_in_lang(lambda: report_open_ui(), lang), outputs=[box, prev, text, report, msg],
+                 show_progress="minimal")
+    prev.input(_in_lang(report_rebuild_ui, lang), inputs=prev, outputs=[text, report], show_progress="minimal")
+    mail.click(_in_lang(report_send_ui, lang), inputs=report, outputs=msg, show_progress="minimal")
+    copy.click(_in_lang(report_copy_ui, lang), inputs=report, outputs=msg, show_progress="hidden")
+    cancel.click(lambda: (gr.update(visible=False), None, ""), outputs=[box, report, msg], queue=False)
+    return button
+
+
+def _watch_failures(trigger, button, **run):
+    """``trigger`` (ör. ``button.click``) → rapor düğmesini gizle → üretim (``run``) → üretim sırasında
+    yeni bir hata kaydedildiyse düğmeyi göster. Üretim olayını döndürür (``.then``/``cancels`` için).
+
+    Adımlar zincirlenir: gizleme + hata sayacı anlık görüntüsü üretimden ÖNCE kesinleşir (paralel
+    olaylarda hızlı düşen bir üretim sayacı anlık görüntüden önce artırabiliyordu). Üretim
+    işlevlerinin çıktıları ve API'leri değişmez.
+    """
+    seen = gr.State(0)
+    event = trigger(lambda: (gr.update(visible=False), hata_raporu.error_count()), outputs=[button, seen],
+                    queue=False, show_progress="hidden").then(**run)
+    event.then(lambda n: gr.update(visible=hata_raporu.error_count() > int(n or 0)), inputs=seen,
+               outputs=button, queue=False, show_progress="hidden")
+    return event
+
+
 def _settings_tab():
-    """Ayarlar sekmesi: ekran kartı algılama ve hızlandırmalı PyTorch kurulumu."""
+    """Ayarlar sekmesi: ekran kartı algılama ve hızlandırmalı PyTorch kurulumu + sorun bildirme."""
+    lang = i18n.get_lang()
     with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
         with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
             _html(
@@ -2076,6 +2173,13 @@ def _settings_tab():
                     "<b>Neden yeniden başlatma?</b> PyTorch'un işlemci (CPU), NVIDIA (CUDA) ve AMD (ROCm) "
                     "sürümleri ayrı paketlerdir; çalışan uygulama kullandığı sürümü değiştiremez. "
                     "Apple Silicon Mac'te ekran kartı zaten kullanılır.") + "</p>")
+        with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
+            with gr.Column(elem_classes=["sv-card"]):
+                _head(_IC_SHIELD, t("Sorun bildir / Hata raporu gönder"),
+                      t("Bir sorun yaşarsanız teknik raporu (sistem bilgisi ve günlüğün son satırları) "
+                        "e-postayla geliştiriciye gönderebilirsiniz. Önce raporu görürsünüz; hiçbir şey "
+                        "kendiliğinden gönderilmez."))
+                _report_panel(lang, visible=True)
     refresh_out = [status, install, rollback, need]
 
     def enable_gpu():

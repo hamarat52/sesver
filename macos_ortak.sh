@@ -89,6 +89,7 @@ kurulum_hatasi() {
   echo "[HATA] Kurulum adımı başarısız oldu: $ADIM"
   echo "Yukarıdaki hata mesajını okuyun. İnternet bağlantınızı kontrol edip"
   echo "SesVer'i (SesVer.app ya da MACOS_BASLAT.command) tekrar açın; kurulum kaldığı yerden devam eder."
+  echo "Sorun sürerse sesver_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin."
   bekle_ve_cik 1 "$(sesver_metin "Kurulum adımı başarısız oldu: $ADIM_PENCERE
 
 İnternet bağlantınızı kontrol edip SesVer'i tekrar açın; kurulum kaldığı yerden devam eder." \
@@ -346,6 +347,7 @@ Check your internet connection and open SesVer again, or install Python 3.10–3
     local kod=$?
     if [ "$kod" -ne 0 ]; then
       echo "[HATA] desktop.py $kod koduyla bitti."
+      echo "Sorun sürerse sesver_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin."
       # Bilinen bir engel (ör. Windows Akıllı Uygulama Denetimi; bkz. AI_KURULUM.md #13)
       # log'da görünüyorsa genel ileti yerine adım adım rehber gösterilir.
       local rehber
