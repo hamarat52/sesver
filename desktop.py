@@ -19,7 +19,6 @@ import html
 import json
 import os
 import signal
-import socket
 import sys
 import threading
 import time
@@ -268,19 +267,9 @@ def _language_note(base):
 
 
 def _pick_port():
-    """GRADIO_SERVER_PORT (yoksa 7860); doluysa boş bir port seçer."""
-    wanted = int(os.environ.get("GRADIO_SERVER_PORT", "7860"))
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind((HOST, wanted))
-            return wanted
-        except OSError:
-            pass
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, 0))
-        free = s.getsockname()[1]
-    print(f"Port {wanted} kullanımda, {free} portu kullanılacak.", flush=True)
-    return free
+    """İlk denenecek port: GRADIO_SERVER_PORT (yoksa 7860). Burada soketle yoklanmaz —
+    yokla-sonra-kullan yarışı doğurur; port doluysa Server._run sonraki portları dener."""
+    return int(os.environ.get("GRADIO_SERVER_PORT", "7860"))
 
 
 class Server:
@@ -302,13 +291,16 @@ class Server:
         try:
             demo = app.build_app()
             # app.py'deki launch parametrelerinin aynısı + prevent_thread_lock.
-            demo.launch(
-                server_name=HOST, server_port=self.port,
+            # Port doluysa (OSError) sonraki portlar denenir; açılan port URL'ye yansır.
+            port = app.launch_with_port_retry(
+                demo, self.port,
+                server_name=HOST,
                 share=False, inbrowser=False,
                 css=app._CSS, theme=app._THEME, js=app._JS, footer_links=[],
                 allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
                 prevent_thread_lock=True,
             )
+            self.port, self.url = port, f"http://{HOST}:{port}"
             self.demo = demo
         except BaseException as exc:  # noqa: BLE001 — hata ana thread'e taşınır
             self.error = hata_raporu.exc_line(exc)  # "MemoryError: MemoryError: …" olmasın

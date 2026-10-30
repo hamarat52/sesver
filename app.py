@@ -2205,6 +2205,33 @@ def _setup_logging():
     log.propagate = False
 
 
+PORT_TRIES = 5  # 7860, 7861, … 7864
+
+
+def launch_with_port_retry(demo, port, tries=PORT_TRIES, **launch_kwargs):
+    """demo.launch()'u `port`'ta dener; port doluysa (OSError) port += 1 ile toplam `tries`
+    kez dener ve sunucunun açıldığı portu döndürür. Portu önce soketle yoklayıp sonra
+    launch etmek yarış doğurur (port arada kapılabilir); bu yüzden doğrudan launch denenir.
+    Hepsi doluysa anlaşılır bir OSError fırlatır."""
+    first, last_exc = port, None
+    for attempt in range(tries):
+        try:
+            demo.launch(server_port=port, **launch_kwargs)
+            if port != first:
+                print(f"SesVer {port} portunda açıldı.", flush=True)
+            return port
+        except OSError as exc:
+            last_exc = exc
+            if attempt + 1 < tries:
+                print(f"Port {port} kullanımda, {port + 1} portu deneniyor.", flush=True)
+                port += 1
+    raise OSError(
+        f"{first}-{port} arasındaki portların hepsi kullanımda; SesVer başlatılamadı. "
+        "Açık kalmış başka bir SesVer penceresini kapatıp yeniden deneyin ya da "
+        f"GRADIO_SERVER_PORT ile başka bir port belirtin. (Son hata: {last_exc})"
+    )
+
+
 if __name__ == "__main__":
     _setup_logging()
     _port = int(os.environ.get("GRADIO_SERVER_PORT", "7860"))
@@ -2212,8 +2239,10 @@ if __name__ == "__main__":
     _page = i18n.page_path(_lang)
     print(f"Arayüz dili: {_lang} ({'ayarlar.json' if i18n.stored_language() else 'sistem dili'}) -> "
           f"http://127.0.0.1:{_port}/{_page}", flush=True)
-    build_app().launch(
-        server_name="127.0.0.1", server_port=_port,
+    # Port doluysa (OSError) 7860..7864 sırayla denenir — yokla-sonra-kullan yarışı yok.
+    launch_with_port_retry(
+        build_app(), _port,
+        server_name="127.0.0.1",
         share=False, inbrowser=False,
         css=_CSS, theme=_THEME, js=_JS, footer_links=[],
         allowed_paths=[str(vlib.VOICES_DIR / "hazir"), str(vlib.VOICES_DIR / "seslerim")],
