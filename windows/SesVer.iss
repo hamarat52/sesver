@@ -276,11 +276,12 @@ var
   OrtamNotuEtiketi: TNewStaticText;
   GunlukDugmesi: TNewButton;
 
+// BOOL dönüşleri Boolean: Pascal Script'te BOOL (LongBool) 'and' ile Boolean'a karışınca 'Type mismatch' verir.
 function OpenProcess(dwDesiredAccess: DWORD; bInheritHandle: BOOL; dwProcessId: DWORD): THandle;
   external 'OpenProcess@kernel32.dll stdcall';
-function GetExitCodeProcess(hProcess: THandle; var lpExitCode: DWORD): BOOL;
+function GetExitCodeProcess(hProcess: THandle; var lpExitCode: DWORD): Boolean;
   external 'GetExitCodeProcess@kernel32.dll stdcall';
-function CloseHandle(hObject: THandle): BOOL;
+function CloseHandle(hObject: THandle): Boolean;
   external 'CloseHandle@kernel32.dll stdcall';
 function GetTickCount: DWORD;
   external 'GetTickCount@kernel32.dll stdcall';
