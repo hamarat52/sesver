@@ -21,6 +21,7 @@ import soundfile as sf
 
 import audio_prep
 import effects as fx
+import guncelleme
 import hata_raporu
 import hizlandirma as hiz
 import i18n
@@ -1253,6 +1254,14 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
   /* Üç sekme 390 px'te tek satıra sığsın: dar ekranda ikonlar gizlenir (sığmazsa alt satıra geçer). */
   #sv-tabs > .tab-wrapper [role="tab"]::before { display: none !important; }
 }
+/* Güncelleme bildirimi: göze batmayan tek satırlık bilgi şeridi (guncelleme.py). */
+.sv-update { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 4px 10px;
+  margin: 0 auto 14px; padding: 8px 14px; max-width: 720px; border-radius: 12px; font-size: .84rem;
+  line-height: 1.45; color: var(--sv-ink-2); background: var(--sv-paper); border: 1px solid var(--sv-line);
+  box-shadow: var(--sv-shadow-sm); }
+.sv-update b { font-weight: 650; color: var(--sv-ink); }
+.sv-update a { color: var(--sv-coral); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.sv-update-note { flex-basis: 100%; text-align: center; color: var(--sv-muted); font-size: .8rem; }
 """
 
 _THEME = gr.themes.Base(
@@ -1716,11 +1725,28 @@ def _language_bar(lang):
     picker.change(None, inputs=picker, js=_switch_js())
 
 
+def _guncelleme_bildirimi(lang):
+    """Sayfa yüklenince: açılışta başlatılan arka plan kontrolünün sonucunu gösterir.
+
+    Kontrol başlatılmadıysa (testler, ayar kapalı, SESVER_GUNCELLEME_KONTROLU=0) ya da
+    yeni sürüm yok/hata varsa bildirim gizli kalır. Bekleme en fazla kontrolün toplam
+    süre sınırına kadardır ve kendi eşzamanlılık havuzunda çalışır; ses üretim
+    kuyruğunu bekletmez.
+    """
+    def goster():
+        metin = guncelleme.bildirim_html(guncelleme.sonuc())
+        return gr.update(value=metin, visible=bool(metin))
+    return goster
+
+
 def _build_page(demo, lang):
     """Bir dilin tam sayfası; tüm metinler kurulurken o dilde üretilir."""
     with i18n.use(lang):
         _language_bar(lang)
         _html(_hero())
+        update_note = _html("", visible=False, elem_id="sv-update-note")
+        demo.load(_guncelleme_bildirimi(lang), outputs=update_note, show_progress="hidden",
+                  concurrency_limit=None, concurrency_id="sv-guncelleme", api_visibility="private")
 
         with gr.Tabs(elem_id="sv-tabs", selected="lib", overflow_behavior="wrap") as tabs:
             with gr.Tab(t("Ses Kütüphanesi"), id="lib"):
@@ -2240,6 +2266,7 @@ if __name__ == "__main__":
     print(f"Arayüz dili: {_lang} ({'ayarlar.json' if i18n.stored_language() else 'sistem dili'}) -> "
           f"http://127.0.0.1:{_port}/{_page}", flush=True)
     # Port doluysa (OSError) 7860..7864 sırayla denenir — yokla-sonra-kullan yarışı yok.
+    guncelleme.baslat()  # "Yeni sürüm var" kontrolü arka planda; arayüz beklemez
     launch_with_port_retry(
         build_app(), _port,
         server_name="127.0.0.1",
