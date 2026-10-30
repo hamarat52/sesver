@@ -159,6 +159,8 @@ turkish.OrtamBaslatilamadi=kurulum başlatıcısı çalıştırılamadı (%1)
 english.OrtamBaslatilamadi=the setup launcher could not be started (%1)
 turkish.OrtamBeklenmedikCikis=kurulum beklenmedik şekilde durdu (çıkış kodu %1)
 english.OrtamBeklenmedikCikis=setup stopped unexpectedly (exit code %1)
+turkish.OrtamYanitYok=kurulum başlatıcısı %1 sn içinde yanıt vermedi
+english.OrtamYanitYok=the setup launcher did not respond within %1 s
 turkish.OrtamBitirBaslikEksik=SesVer kuruldu, ilk hazırlık tamamlanamadı
 english.OrtamBitirBaslikEksik=SesVer is installed, but first-time setup did not finish
 turkish.OrtamHataMetni=İlk hazırlık şu adımda durdu: %1%n%nİnternet bağlantınızı kontrol edip masaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıklayın; kurulum kaldığı yerden devam eder.%n%nAyrıntılar: %2%nSorun sürerse kurulum_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin.
@@ -260,6 +262,9 @@ const
   // İlerleme çubuğu ölçeği (binde) ve durum dosyası okuma aralığı.
   OrtamCubukMax = 1000;
   OrtamOkumaAraligiMs = 500;
+  // Bat saniyeler içinde PID'ini ve "0/6|..." satırını yazar. Bu sürede ikisi de
+  // yoksa başlatma ölü/askıda sayılır (sihirbaz sonsuza dek beklemez).
+  OrtamIlkSinyalSn = 180;
   // kernel32: PROCESS_QUERY_LIMITED_INFORMATION ve STILL_ACTIVE.
   OrtamSurecSorguErisimi = $1000;
   OrtamSurecCalisiyor = 259;
@@ -622,8 +627,12 @@ begin
     // asıl cmd.exe'yi aynı penceresiz konsolda başlatıp hemen çıkar. Bekleme ve
     // iptal aşağıdaki döngüde yapılır. "call": yoldaki & gibi karakterler tırnak
     // içinde kalır (cmd /c tırnak soyma kuralına girilmez).
+    // ">nul 2>&1" dıştaki cmd'nin "start" komutuna uygulanır; başlatılan cmd.exe bu
+    // tutamaçları devralır. Olmazsa ExecAndLogOutput'un çıktı borusunu devralır: dış
+    // cmd ~15 ms'de çıkınca Inno borunun okuma ucunu kapatır ve bat ilk satırlarda
+    // (durum/PID/günlük dosyası yazılmadan) sessizce biter — CI 41060202136/41073828284.
     Komut := '/d /c start "" /b "' + Cmd + '" /d /c call "' + App + '\WINDOWS_BASLAT.bat" ' +
-      OrtamYalnizKurulumArg;
+      OrtamYalnizKurulumArg + ' >nul 2>&1';
     Log('İlk kurulum başlatılıyor: ' + Cmd + ' ' + Komut);
     Basladi := False;
     try
@@ -688,6 +697,17 @@ begin
           AdimBaslangic := GetTickCount;
         end;
         Ayrinti := Metin;
+      end;
+
+      // Başlatma ölü doğduysa (ne PID ne durum satırı) sonsuza dek beklenmez.
+      if (Pid = 0) and (SonSatir = '') and (Integer((GetTickCount - Baslangic) div 1000) >= OrtamIlkSinyalSn) then
+      begin
+        OrtamSureciniDurdur(0);
+        OrtamSonuc := osHata;
+        OrtamHataAdimi := FmtMessage(CustomMessage('OrtamYanitYok'), [IntToStr(OrtamIlkSinyalSn)]);
+        OrtamGunlugeEkle('Kurulum baslaticisi ' + IntToStr(OrtamIlkSinyalSn) +
+          ' sn icinde ne PID ne durum satiri yazdi; ilk kurulum baslatilamadi.');
+        Break;
       end;
 
       // Süreç son satırı yazmadan bittiyse (çöktü/kapatıldı) sonsuza dek beklenmez.

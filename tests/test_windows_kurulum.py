@@ -299,6 +299,11 @@ class IssTests(unittest.TestCase):
         # Konsol penceresi yok: ExecAndLogOutput (CREATE_NO_WINDOW) + "start /b"; Exec(ewNoWait) yok.
         self.assertIn("'/d /c start \"\" /b \"' + Cmd + '\" /d /c call \"'", kod)
         self.assertIn("ExecAndLogOutput(Cmd, Komut", kod)
+        # Torun cmd.exe Inno'nun çıktı borusunu devralmamalı (CI 41073828284: boru
+        # kapanınca bat hiçbir dosya yazmadan bitiyordu, sihirbaz sonsuza dek bekliyordu).
+        self.assertIn("OrtamYalnizKurulumArg + ' >nul 2>&1'", kod)
+        self.assertIn("(Pid = 0) and (SonSatir = '')", kod)
+        self.assertRegex(iss_metni(), r"(?m)^\s*OrtamIlkSinyalSn = \d+;")
         self.assertNotRegex(kod, r"\bExec\([^;]*ewNoWait[^;]*WINDOWS_BASLAT")
         self.assertIn("'/T /F /PID '", kod)
         self.assertIn("WizardSilent() and not KomutSatirindaVar(OrtamKurParametresi)", kod)
