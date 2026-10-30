@@ -178,6 +178,7 @@ echo ----------------------------------------------------------------
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath 'sesver_log.txt' -Tail 40 -Encoding UTF8" 2>nul || type "sesver_log.txt"
 echo ----------------------------------------------------------------
 echo Tum ayrinti: SesVer klasorundeki sesver_log.txt dosyasi.
+echo Sorun surerse sesver_log.txt dosyasini premium.hamarat@gmail.com adresine gonderin.
 pause
 exit /b 1
 
@@ -208,6 +209,7 @@ echo.
 echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
 echo Yukaridaki hata mesajini okuyun. Internet baglantinizi kontrol edip
 echo WINDOWS_BASLAT.bat dosyasini tekrar calistirin; kurulum kaldigi yerden devam eder.
+echo Sorun surerse sesver_log.txt dosyasini premium.hamarat@gmail.com adresine gonderin.
 pause
 exit /b 1
 
