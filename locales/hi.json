@@ -371,6 +371,7 @@
  "CUDA çekirdeği bu kartta yok (kurulu PyTorch bu ekran kartını desteklemiyor)": "इस कार्ड के लिए CUDA कर्नेल उपलब्ध नहीं है (इंस्टॉल किया गया PyTorch इस ग्राफ़िक्स कार्ड को सपोर्ट नहीं करता)",
  "CUDA bellek yetersiz (ekran kartı belleği doldu)": "CUDA मेमोरी कम है (ग्राफ़िक्स कार्ड की मेमोरी भर गई)",
  "ekran kartı belleği yetersiz": "ग्राफ़िक्स कार्ड की मेमोरी कम है",
+ "Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — daha yavaş. Ayrıntı: Ayarlar.": "इस संस्करण में ग्राफ़िक्स कार्ड का उपयोग नहीं हो सका; प्रोसेसर के साथ जारी है — धीमा। विवरण: सेटिंग्स।",
  "bellek (RAM) yetersiz": "मेमोरी (RAM) कम है",
  "disk alanı yetersiz": "डिस्क में जगह कम है",
  "model indirilemedi (internet bağlantısını kontrol edin)": "मॉडल डाउनलोड नहीं हो सका (इंटरनेट कनेक्शन जाँचें)",

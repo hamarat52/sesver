@@ -104,16 +104,22 @@ REM kurar ve uretim CPU'da calisir (GPU bos durur). nvidia-smi.exe sadece
 REM NVIDIA suruculeri kuruluysa PATH'te olur, bu yuzden guvenilir bir tespit.
 set "ADIM=GPU tespiti"
 where nvidia-smi >nul 2>nul
-if errorlevel 1 (
-  echo NVIDIA ekran karti bulunamadi, CPU modunda devam edilecek.
-) else (
-  echo NVIDIA ekran karti bulundu, CUDA destekli PyTorch kuruluyor...
-  set "ADIM=CUDA destekli PyTorch kurulumu"
-  "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126 --no-warn-script-location
-  if errorlevel 1 (
-    echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
-  )
-)
+if errorlevel 1 goto :gpu_yok_islemci
+echo NVIDIA ekran karti bulundu, dogru PyTorch surumu seciliyor...
+set "ADIM=CUDA destekli PyTorch kurulumu"
+set "CUDA_ETIKET="
+for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^>nul`) do set "CUDA_ETIKET=%%T"
+if "%CUDA_ETIKET%"=="" goto :gpu_etiket_yok
+echo CUDA destekli PyTorch kuruluyor: %CUDA_ETIKET%
+"%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
+if errorlevel 1 echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
+goto :gpu_bitti
+:gpu_etiket_yok
+echo Ekran karti icin uygun CUDA surumu secilemedi, CPU surumune devam edilecek.
+goto :gpu_bitti
+:gpu_yok_islemci
+echo NVIDIA ekran karti bulunamadi, CPU modunda devam edilecek.
+:gpu_bitti
 REM --no-deps: voxcpm'in gereksiz agir bagimliliklarini (funasr, matplotlib,
 REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor)
 REM atlayip yalniz requirements.txt'teki gercekten gerekli paketleri kurar.
@@ -132,14 +138,18 @@ REM NVIDIA karti var ama PyTorch CUDA'yi kullanamiyorsa (ör. eski kurulumdan
 REM kalma CPU-only torch), bir kerelik duzeltme dener ve ikinci markla isaretler.
 set "GPU_FIX_MARK=.venv\sesver_gpu_duzeltme_denendi.txt"
 where nvidia-smi >nul 2>nul
-if not errorlevel 1 if not exist "%GPU_FIX_MARK%" (
-  "%PYEXE%" -c "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)" >nul 2>nul
-  if errorlevel 1 (
-    echo NVIDIA ekran karti var ama PyTorch CUDA kullanmiyor, duzeltiliyor...
-    "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu126 --no-warn-script-location
-  )
-  echo tamam>"%GPU_FIX_MARK%"
-)
+if errorlevel 1 goto :gpu_fix_bitti
+if exist "%GPU_FIX_MARK%" goto :gpu_fix_bitti
+"%PYEXE%" hizlandirma.py --cuda-dogrula >nul 2>nul
+if not errorlevel 1 goto :gpu_fix_isaretle
+echo NVIDIA ekran karti var ama PyTorch ekran kartini kullanamiyor, duzeltiliyor...
+set "CUDA_ETIKET="
+for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^>nul`) do set "CUDA_ETIKET=%%T"
+if "%CUDA_ETIKET%"=="" goto :gpu_fix_isaretle
+"%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
+:gpu_fix_isaretle
+echo tamam>"%GPU_FIX_MARK%"
+:gpu_fix_bitti
 set "SV_PORT=%GRADIO_SERVER_PORT%"
 if "%SV_PORT%"=="" set "SV_PORT=7860"
 REM Normal yol: konsolsuz pythonw.exe ile baslat; SesVer penceresi acilinca bu

@@ -8,7 +8,9 @@ import platform
 import sys
 import tempfile
 import unittest
+import io
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -194,6 +196,79 @@ class InstallTests(unittest.TestCase):
         self.assertIn("https://download.pytorch.org/whl/cu130", cmd)
         self.assertEqual(cmd[-2:], ["--progress-bar", "raw"])
         self.assertNotIn("raw", h.install_command("cpu", "2.14.1", None, python="py", pip_version="23.0"))
+
+
+class KernelTestTests(unittest.TestCase):
+    """Blackwell (sm_120) + cu126 gibi durumlar: cuda_ok True ama gerçek çekirdek yok."""
+
+    def test_active_backend_requires_kernel_ok(self):
+        cuda_ok_but_broken = dict(CUDA_TORCH, cuda_kernel_ok=False)
+        self.assertEqual(h.active_backend(cuda_ok_but_broken), "cpu")
+        self.assertEqual(h.active_backend(CUDA_TORCH), "cuda")  # alan hiç yoksa (eski kayıt) geriye dönük uyumlu
+
+    def test_plan_falls_back_to_broken_when_kernel_missing(self):
+        runner, which, _ = fake({"nvidia-smi": NVIDIA_SMI, "lspci": LSPCI_NVIDIA}, tools=("nvidia-smi",))
+        hw = h.detect("Linux", "x86_64", runner, which)
+        blackwell_cu126 = dict(CUDA_TORCH, cuda="12.6", cuda_kernel_ok=False,
+                               cuda_kernel_error="RuntimeError: CUDA error: no kernel image is available")
+        p = h.plan(hw, blackwell_cu126)
+        self.assertEqual(p["durum"], h.BROKEN)  # "kuruldu" denip sonra her uretimde patlamasindansa acikca soylenir
+
+    def test_probe_script_runs_a_real_op_not_just_is_available(self):
+        # _PROBE ayri bir surecte calisir (gercek CUDA olmadan calistirilamaz); burada
+        # yalniz is_available() ile yetinmedigini, gercek bir islemi dogruladigini sinariz.
+        self.assertIn("cuda_kernel_ok", h._PROBE)
+        self.assertIn("torch.cuda.synchronize()", h._PROBE)
+        self.assertIn("torch.matmul", h._PROBE)
+
+
+class RecommendedTagCliTests(unittest.TestCase):
+    """WINDOWS_BASLAT.bat'in cagirdigi --onerilen-etiket / --cuda-dogrula CLI'si."""
+
+    def test_rtx_50_blackwell_driver_580_picks_cu130(self):
+        runner, which, _ = fake({"nvidia-smi": "NVIDIA GeForce RTX 5070, 581.57, 12.0\n"},
+                                tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        self.assertEqual(h.recommended_tag(hw, None), h.CUDA_NEW)  # sm_120: yalniz cu128/cu130 destekler
+
+    def test_rtx_3060_old_driver_picks_cu126(self):
+        runner, which, _ = fake({"nvidia-smi": "NVIDIA GeForce RTX 3060, 535.98, 8.6\n"},
+                                tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        self.assertEqual(h.recommended_tag(hw, None), h.CUDA_OLD)  # 535 < 580: cu130 kosulu saglanmaz
+
+    def test_driver_520_is_too_old_for_any_cuda_tag(self):
+        runner, which, _ = fake({"nvidia-smi": "NVIDIA GeForce RTX 3060, 520.61, 8.6\n"},
+                                tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        p = h.plan(hw, None)
+        self.assertEqual(p["durum"], h.DRIVER_OLD)
+        self.assertIsNone(h.recommended_tag(hw, None))  # kurulum yapma, surucu guncellemesi gerekir
+
+    def test_no_gpu_and_already_active_and_broken_give_no_tag(self):
+        runner, which, _ = fake({})
+        hw = h.detect("Windows", "AMD64", runner, which)
+        self.assertIsNone(h.recommended_tag(hw, None))  # NO_GPU
+        runner, which, _ = fake({"nvidia-smi": NVIDIA_SMI}, tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        self.assertIsNone(h.recommended_tag(hw, CUDA_TORCH))  # ACTIVE: zaten calisiyor, yeniden kurma
+        broken = dict(CUDA_TORCH, cuda_kernel_ok=False)
+        self.assertIsNone(h.recommended_tag(hw, broken))  # BROKEN: donguye sokmaz
+
+    def test_cli_onerilen_etiket_prints_tag_or_empty_line(self):
+        with patch.object(h, "detect", return_value={"system": "Windows", "machine": "amd64", "gpus": [], "nvidia_smi": False}), \
+                patch.object(h, "probe_torch", return_value=None), \
+                patch("sys.stdout", new_callable=io.StringIO) as out:
+            self.assertEqual(h._cli(["--onerilen-etiket"]), 0)
+        self.assertEqual(out.getvalue().strip(), "")  # NO_GPU: bos satir, CPU'ya devam
+
+    def test_cli_cuda_dogrula_exit_code_reflects_kernel_test(self):
+        with patch.object(h, "probe_torch", return_value=dict(CUDA_TORCH, cuda_kernel_ok=True)), \
+                patch("sys.stdout", new_callable=io.StringIO):
+            self.assertEqual(h._cli(["--cuda-dogrula"]), 0)
+        with patch.object(h, "probe_torch", return_value=dict(CUDA_TORCH, cuda_kernel_ok=False)), \
+                patch("sys.stdout", new_callable=io.StringIO):
+            self.assertEqual(h._cli(["--cuda-dogrula"]), 1)
 
 
 class RealMachineTests(unittest.TestCase):

@@ -74,15 +74,45 @@ def _choices(options):
 # --- Üretim -------------------------------------------------------------
 
 
+_gpu_disabled = False  # True: bu oturumda CUDA hatası yaşandı, bir daha denenmez (sonsuz döngü yok)
+
+
 def get_model():
-    """Yalnız üretim kilidi içinden çağrılır; arayüz açılırken model yüklenmez."""
+    """Yalnız üretim kilidi içinden çağrılır; arayüz açılırken model yüklenmez.
+
+    ``_gpu_disabled`` True ise (bu oturumda daha önce bir CUDA çalışma zamanı hatası —
+    "no kernel image", CUDA OOM — yaşandı) model doğrudan CPU'da yüklenir: aynı oturumda
+    ekran kartı bir daha denenmez (bkz. ``_reload_model_cpu``).
+    """
     global _model
     if _model is None:
         from voxcpm import VoxCPM
         _model = VoxCPM.from_pretrained(
             hf_model_id=MODEL_ID, load_denoiser=False, optimize=False,
+            device="cpu" if _gpu_disabled else None,
         )
     return _model
+
+
+def _reload_model_cpu():
+    """Ekran kartı çalışma anında patladığında (ör. Blackwell + cu126, CUDA OOM) tek seferlik
+    CPU'ya düşüş: modeli boşaltır, ``_gpu_disabled``'ı işaretler ve CPU'da yeniden yükler.
+
+    VoxCPM ``device=\"cpu\"`` parametresini doğrudan kabul eder (bkz. voxcpm/core.py
+    ``resolve_runtime_device``); ``CUDA_VISIBLE_DEVICES`` gibi süreç çapında bir ortam
+    değişkenine gerek yoktur ve zaten bu süreçte torch zaten CUDA ile başlatıldığı için
+    işe yaramaz.
+    """
+    global _model, _gpu_disabled
+    _gpu_disabled = True
+    _model = None
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001 — bellek temizliği başarısız olsa da yeniden yükleme dener
+        pass
+    return get_model()
 
 
 _whisper_model = None
@@ -245,7 +275,23 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
             ticker = Thread(target=_tick, daemon=True)
             ticker.start()
             try:
-                wav = model.generate(**generate_kwargs)
+                try:
+                    wav = model.generate(**generate_kwargs)
+                except Exception as exc:
+                    # "no kernel image"/CUDA OOM: torch.cuda.is_available() kuruluşta True
+                    # dönmüş olabilir ama gerçek işlem burada patlar. Ekran kartı bu oturumda
+                    # bir daha denenmez (_gpu_disabled); tek seferlik CPU'ya düşüş + tek bilgi.
+                    code, _reason = hata_raporu.classify_error(exc)
+                    if code not in ("cuda_kernel", "cuda_oom") or _gpu_disabled:
+                        raise
+                    log.warning("ekran kartı hatası (%s), bu oturumda CPU'ya tek seferlik geçiliyor: %s",
+                                code, exc)
+                    model = _reload_model_cpu()
+                    fallback_msg = t("Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — "
+                                    "daha yavaş. Ayrıntı: Ayarlar.")
+                    progress(0.2, desc=fallback_msg)
+                    yield None, None, fallback_msg
+                    wav = model.generate(**generate_kwargs)
             finally:
                 stop_ticking.set()
                 ticker.join(timeout=2)

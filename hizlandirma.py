@@ -216,14 +216,23 @@ except Exception as e:
     raise SystemExit(0)
 info = {"version": torch.__version__, "cuda": torch.version.cuda,
         "hip": getattr(torch.version, "hip", None), "cuda_ok": False, "mps_ok": False,
-        "device_name": None}
+        "cuda_kernel_ok": False, "device_name": None}
 try:
     info["cuda_ok"] = bool(torch.cuda.is_available())
     if info["cuda_ok"]:
         info["device_name"] = torch.cuda.get_device_name(0)
         info["vram_total"] = int(torch.cuda.get_device_properties(0).total_memory)  # hata raporu için
-except Exception:
-    pass
+        # torch.cuda.is_available() yalnız sürücü+bağlamı denetler; derlemede bu kartın
+        # mimarisi (ör. Blackwell sm_120) için çekirdek yoksa yine True döner ve asıl
+        # hata ilk gerçek işlemde ("no kernel image is available") patlar. Bu yüzden
+        # "kuruldu" demeden önce küçük bir gerçek işlem çalıştırılır.
+        x = torch.ones(8, device="cuda") * 2
+        torch.cuda.synchronize()
+        y = torch.matmul(torch.randn(64, 64, device="cuda"), torch.randn(64, 64, device="cuda"))
+        torch.cuda.synchronize()
+        info["cuda_kernel_ok"] = bool(torch.all(x == 2).item()) and tuple(y.shape) == (64, 64)
+except Exception as e:
+    info["cuda_kernel_error"] = f"{type(e).__name__}: {e}"
 try:
     info["mps_ok"] = bool(torch.backends.mps.is_available())
 except Exception:
@@ -255,11 +264,18 @@ def build_of(info):
 
 
 def active_backend(info):
-    """Modelin bu derlemeyle kullanacağı cihaz (VoxCPM sırası: CUDA → MPS → CPU)."""
+    """Modelin bu derlemeyle kullanacağı cihaz (VoxCPM sırası: CUDA → MPS → CPU).
+
+    ``cuda_ok`` (``torch.cuda.is_available()``) yalnız sürücü/bağlamı denetler;
+    derlemede kartın mimarisi için çekirdek yoksa (ör. Blackwell sm_120 + cu126)
+    yine True döner. ``cuda_kernel_ok`` (gerçek bir işlemle doğrulanır, bkz.
+    ``_PROBE``) eksikse (eski kayıt/testler) geriye dönük uyumluluk için True
+    varsayılır; False ise derleme kurulu kabul edilir ama BROKEN'a düşülür.
+    """
     build = build_of(info)
     if build is None:
         return None
-    if info.get("cuda_ok"):
+    if info.get("cuda_ok") and info.get("cuda_kernel_ok", True):
         return "rocm" if build == "rocm" else "cuda"
     if info.get("mps_ok"):
         return "mps"
@@ -420,3 +436,42 @@ def start_install(cmd):
     return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                             encoding="utf-8", errors="replace", bufsize=1, env=pip_env(),
                             **_no_window())
+
+
+# --- Başlatıcı (WINDOWS_BASLAT.bat / MACOS_BASLAT.command) için CLI --------------------
+#
+# Başlatıcılar torch'u kendi süreçlerinde İÇE AKTARAMAZ (bkz. modül başı not) ve ayrı bir
+# batch/shell dilinde bu modülün plan() mantığını tekrarlamamalı: tek doğru seçim burada,
+# başlatıcı yalnız bu CLI'nin çıktısını kullanır.
+
+
+def recommended_tag(hw, info):
+    """Başlatıcının ilk kurulumda/GPU düzeltmede kuracağı pip index etiketi (``cu130`` …).
+
+    Yalnız ``plan()`` INSTALL derse bir etiket döner (NVIDIA/AMD algılandı, sürücü yeterli).
+    Diğer durumlarda (GPU yok, sürücü çok eski, zaten etkin, zaten BROKEN, desteklenmeyen
+    platform) None döner: başlatıcı hiçbir şey kurmaz, requirements.txt'nin sade
+    ``torch>=2.5.0``'ı PyPI'den CPU derlemesini kurar.
+    """
+    p = plan(hw, info)
+    return p["etiket"] if p["durum"] == INSTALL else None
+
+
+def _cli(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if "--onerilen-etiket" in argv:
+        # İlk kurulumda henüz torch yok: probe_torch() None döner, plan() bunu bekler.
+        print(recommended_tag(detect(), probe_torch()) or "")
+        return 0
+    if "--cuda-dogrula" in argv:
+        # torch.cuda.is_available() yetmez (bkz. _PROBE); gerçek çekirdek testi burada.
+        info = probe_torch()
+        ok = bool(info and info.get("cuda_kernel_ok"))
+        print("tamam" if ok else "basarisiz")
+        return 0 if ok else 1
+    print("Kullanım: hizlandirma.py --onerilen-etiket | --cuda-dogrula", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(_cli())

@@ -371,6 +371,7 @@
  "CUDA çekirdeği bu kartta yok (kurulu PyTorch bu ekran kartını desteklemiyor)": "此显卡没有可用的 CUDA 内核（已安装的 PyTorch 不支持此显卡）",
  "CUDA bellek yetersiz (ekran kartı belleği doldu)": "CUDA 显存不足（显卡内存已满）",
  "ekran kartı belleği yetersiz": "显卡内存不足",
+ "Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — daha yavaş. Ayrıntı: Ayarlar.": "此版本无法使用显卡，改用处理器继续 — 速度较慢。详情见“设置”。",
  "bellek (RAM) yetersiz": "内存（RAM）不足",
  "disk alanı yetersiz": "磁盘空间不足",
  "model indirilemedi (internet bağlantısını kontrol edin)": "无法下载模型（请检查网络连接）",

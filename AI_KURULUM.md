@@ -193,6 +193,15 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 - Sebep: Model çok bellek kullanır (yaklaşık 9 GB). 8 GB RAM'de bu donanım önerilmez.
 - Çözüm: SesVer'i Ctrl+C ile durdur, diğer ağır uygulamaları ve tarayıcı sekmelerini kapat, daha kısa metinle tekrar dene. 8 GB RAM'li bilgisayarda kullanım önerilmez; dürüstçe söyle.
 
+**10b. RTX 50 serisi (veya başka yeni) ekran kartıyla ses üretimi hep başarısız oluyor**
+- Belirti: Kurulum biter, SesVer açılır, ama **Üret**'e her basışta "Üretim başarısız" hatası alınır; genelde mesajda `CUDA çekirdeği bu kartta yok` ya da günlükte (`sesver_log.txt`) `no kernel image is available for execution on the device` yazar.
+- Sebep: Ekran kartının mimarisi (ör. RTX 50 serisi / Blackwell, "sm_120") kurulu PyTorch derlemesinden daha yeni. `torch.cuda.is_available()` yine de "evet" der (sürücü ve bağlam çalışıyor) ama o derlemede bu kart için derlenmiş bir çekirdek yoktur; ilk gerçek işlemde patlar. Güncel SesVer artık kurulumda gerçek bir GPU işlemiyle bunu önceden sınar ve çalışma anında otomatik olarak işlemciye (CPU) düşer; eski bir sürümdeyse veya düşüş olmadıysa aşağıdakini dene.
+- Çözüm:
+  1. **Ayarlar** sekmesine geç, **Kurulum günlüğü**nde ekran kartının adını ve durumunu gör (`⚠️ ... ekran kartı kullanılamıyor` yazıyorsa bu budur).
+  2. **İşlemci (CPU) sürümüne geri dön** düğmesine bas; SesVer'i kapatıp yeniden aç. Üretim CPU'da (daha yavaş ama güvenilir) çalışır.
+  3. Daha yeni bir ekran kartı derlemesi denemek istersen: yukarıdaki **Yedek yol — elle** adımlarını kullan, https://pytorch.org/get-started/locally/ sayfasında kartına uygun en güncel CUDA sürümünü (ör. cu128/cu130) seç.
+  4. Sorun sürerse `sesver_log.txt` dosyasını ve `nvidia-smi` çıktısını isteyip GitHub Issues'a yönlendir.
+
 **11. Mac: `MACOS_BASLAT.command` açılmıyor / "izin verilmedi" (`Permission denied`)**
 - Önce Adım M3'teki "Apple doğrulayamadı" çözümünü dene (Bitti → Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç → parola).
 - Sürmezse: Terminal uygulamasını aç, `cd ` yaz (sonunda bir boşluk), SesVer klasörünü Terminal penceresine sürükleyip bırak, Enter'a bas. Sonra şunu çalıştır:

@@ -371,6 +371,7 @@
  "CUDA çekirdeği bu kartta yok (kurulu PyTorch bu ekran kartını desteklemiyor)": "Нет ядра CUDA для этой видеокарты (установленный PyTorch не поддерживает эту видеокарту)",
  "CUDA bellek yetersiz (ekran kartı belleği doldu)": "Недостаточно памяти CUDA (память видеокарты заполнена)",
  "ekran kartı belleği yetersiz": "недостаточно памяти видеокарты",
+ "Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — daha yavaş. Ayrıntı: Ayarlar.": "Видеокарта не может использоваться в этой версии; продолжаем работу на процессоре — медленнее. Подробности: Настройки.",
  "bellek (RAM) yetersiz": "недостаточно оперативной памяти (RAM)",
  "disk alanı yetersiz": "недостаточно места на диске",
  "model indirilemedi (internet bağlantısını kontrol edin)": "не удалось загрузить модель (проверьте подключение к интернету)",
