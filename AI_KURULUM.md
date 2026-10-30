@@ -45,6 +45,8 @@ Kullanıcı 8 GB RAM'li bir bilgisayardan bahsederse, kuruluma başlamadan önce
 
 Python'u ayrıca kurmaya gerek yok; başlatıcı ilk çalıştırmada kendisi indirir.
 
+**Kullanıcı kurulum programını (`SesVer-Kurulum-Windows.exe`) kullanıyorsa** aşağıdaki W1–W5 yerine şunu anlat: **İleri → İleri → Kur**; ardından aynı pencerede **"SesVer hazırlanıyor"** sayfası ilerleme çubuğuyla Python ve paketleri indirir (5–30 dk, ~3 GB, internet gerekir; ayrı siyah pencere açılmaz). Son sayfada **"SesVer'i şimdi aç"** → **Bitir**. Son sayfa "ilk hazırlık tamamlanamadı" derse: hangi adımda durduğunu oradan oku, kullanıcıdan **Günlüğü aç** ile `kurulum_log.txt` içeriğini (`%LOCALAPPDATA%\Programs\SesVer\kurulum_log.txt`) iste; internet sorunuysa masaüstündeki **SesVer** simgesine çift tıklatması yeterli (kaldığı yerden devam eder). Sorun sürerse `kurulum_log.txt` hermes.agent.hamarat@gmail.com adresine gönderilir.
+
 **Adım W1 — SesVer'i indir.**
 1. https://github.com/hamarat52/sesver adresine git.
 2. Depo herkese açıktır (public), giriş yapmaya gerek yoktur.

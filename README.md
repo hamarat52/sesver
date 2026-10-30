@@ -13,8 +13,10 @@ Normal bir Windows programı gibi **İleri → İleri → Kur** ile kurulur; Ba�
 1. **İndirin:** [**SesVer-Kurulum-Windows.exe**](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-Kurulum-Windows.exe) (her zaman en son sürüm; tüm sürümler: [Releases](https://github.com/hamarat52/sesver/releases/latest)). GitHub hesabı gerekmez.
 2. **Çalıştırın:** İndirilen dosyaya çift tıklayın. **"Windows bilgisayarınızı korudu"** penceresi çıkarsa **Ek bilgi → Yine de çalıştır** deyin (kurulum programı kod imzasız olduğu için bu uyarı çıkar).
 3. **Kurun:** Lisansı kabul edin → **İleri → İleri → Kur**. Masaüstü simgesi istemiyorsanız ilgili kutunun işaretini kaldırın.
-4. **Bitirin:** Son sayfada **"İlk kurulumu şimdi başlat"** işaretli kalsın → **Bitir**. Siyah pencere Python'u ve paketleri indirir (ilk sefer uzun sürebilir), sonra SesVer penceresi açılır ve siyah pencere kendiliğinden kapanır.
-5. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin. Ayrıntı: `%LOCALAPPDATA%\Programs\SesVer\sesver_log.txt`.
+4. **Bekleyin:** Dosyalar kopyalanınca kurulum penceresinde **"SesVer hazırlanıyor"** sayfası açılır ve Python ile paketleri indirir; ilerleme çubuğu ve geçen süre görünür. **5–30 dakika** sürebilir, yaklaşık **3 GB** iner, internet gerekir. Ayrı bir siyah pencere açılmaz. İsterseniz **Kurulumu durdur** diyebilirsiniz; SesVer'i ilk açtığınızda kaldığı yerden devam eder.
+5. **Bitirin:** Son sayfada **"SesVer'i şimdi aç"** işaretli kalsın → **Bitir**. SesVer penceresi açılır.
+6. **Hata olursa:** Son sayfa hangi adımda durduğunu ve `kurulum_log.txt` dosyasının yerini yazar; **Günlüğü aç** düğmesiyle görebilirsiniz. İnterneti kontrol edip masaüstündeki **SesVer** simgesine çift tıklayın, kurulum kaldığı yerden devam eder. Sorun sürerse `kurulum_log.txt` dosyasını **hermes.agent.hamarat@gmail.com** adresine gönderin.
+7. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin. Ayrıntı: `%LOCALAPPDATA%\Programs\SesVer\sesver_log.txt`.
 
 ### Sonra nasıl açarım?
 
