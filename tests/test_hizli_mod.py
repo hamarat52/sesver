@@ -62,10 +62,15 @@ class GenerateTests(unittest.TestCase):
         steps = self.run_gen(eng, "Merhaba.", 1.0, 42, False)
         self.assertFalse(steps[-1][2]["visible"])            # SRT istenmedi -> gizli
         self.assertEqual(eng.calls[-1]["seed"], 42)
+        # Seed alanı metin kutusu: boş = rastgele (None), boşluklu sayı kabul.
+        self.run_gen(eng, "Merhaba.", 1.0, "  ", False)
+        self.assertIsNone(eng.calls[-1]["seed"])
+        self.run_gen(eng, "Merhaba.", 1.0, " 1234 ", False)
+        self.assertEqual(eng.calls[-1]["seed"], 1234)
 
     def test_validation(self):
         eng = FakeEngine(self.tmp.name)
-        for args in (("  ", 1.0, None, False), ("Merhaba", 1.0, -3, False)):
+        for args in (("  ", 1.0, None, False), ("Merhaba", 1.0, -3, False), ("Merhaba", 1.0, "abc", False)):
             with self.subTest(args=args), self.assertRaises(app.gr.Error):
                 self.run_gen(eng, *args)
         with self.assertRaises(app.gr.Error):

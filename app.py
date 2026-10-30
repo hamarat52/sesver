@@ -2012,7 +2012,8 @@ def _fast_generate_ui(text, speed, seed, want_srt, lang):
     if len(text) > ema_motor.MAX_TEXT_CHARS:
         raise gr.Error(t("Hızlı Mod'da en fazla {n} karakter kullanın; uzun metni bölün.", lang,
                          n=ema_motor.MAX_TEXT_CHARS))
-    if seed in (None, ""):
+    seed = "" if seed is None else str(seed).strip()
+    if not seed:
         seed = None
     else:
         try:
@@ -2097,8 +2098,9 @@ def _fast_tab():
                                         placeholder=t("Okunacak Türkçe metni yazın…"))
                     with gr.Row():
                         f_speed = gr.Slider(0.5, 2.0, value=1.0, step=0.05, label=t("Konuşma hızı"))
-                        f_seed = gr.Number(value=None, precision=0, minimum=0, label=t("Seed (isteğe bağlı)"),
-                                           info=t("Boş bırakılırsa her seferinde farklı bir okuma."))
+                        # gr.Number boşken 0 gösterip 0 gönderiyor; "boş = rastgele" için metin kutusu.
+                        f_seed = gr.Textbox(value="", max_lines=1, label=t("Seed (isteğe bağlı)"),
+                                            info=t("Boş bırakılırsa her seferinde farklı bir okuma."))
                     f_srt = gr.Checkbox(value=False, label=t("Altyazı (SRT) dosyası da oluştur"))
                     with gr.Row(elem_classes=["sv-actionbar"]):
                         _html('<div class="sv-hint">' + t("<b>Yalnız Türkçe.</b><br>"
@@ -2116,7 +2118,7 @@ def _fast_tab():
                         confirm_yes = gr.Button(t("Evet, kaldır"), size="sm", scale=0,
                                                 elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
                         confirm_no = gr.Button(t("Vazgeç"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
-                setup_status = gr.Markdown("", elem_classes=["sv-status"])
+                setup_status = gr.Markdown("", elem_classes=["sv-fine-md"])
         with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
             with gr.Column(elem_classes=["sv-card"]):
                 _head(*_result_head())
