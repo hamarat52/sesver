@@ -526,8 +526,9 @@ end;
 // kurulum_log.txt'nin sonuna sihirbazın notunu ekler (ASCII; destek için).
 procedure OrtamGunlugeEkle(const Satir: String);
 begin
+  // Satır '#' ile başlamamalı: ISPP onu önişlemci yönergesi sanıyor.
   SaveStringToFile(ExpandConstant('{app}\') + OrtamGunlukDosyasi,
-    #13#10 + '[SIHIRBAZ] ' + Satir + #13#10, True);
+    '' + #13#10 + '[SIHIRBAZ] ' + Satir + #13#10, True);
 end;
 
 // İlk kurulum süreç ağacını sonlandırır (cmd.exe + python/pip/curl alt süreçleri).
