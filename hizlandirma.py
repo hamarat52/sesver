@@ -221,6 +221,7 @@ try:
     info["cuda_ok"] = bool(torch.cuda.is_available())
     if info["cuda_ok"]:
         info["device_name"] = torch.cuda.get_device_name(0)
+        info["vram_total"] = int(torch.cuda.get_device_properties(0).total_memory)  # hata raporu için
 except Exception:
     pass
 try:
