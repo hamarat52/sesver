@@ -155,11 +155,37 @@ def _exc_text(exc_or_text):
     return str(exc_or_text or "")
 
 
+# "_ArrayMemoryError" (numpy) gibi alt çizgiyle başlayan özel sınıf adları da tür sayılır.
+_EXC_NAME = r"_*[A-Z][A-Za-z0-9_]*(?:Error|Exception|Exit|Interrupt)"
+_LEADING_EXC = re.compile(rf"\s*(?:[A-Za-z_]\w*\.)*({_EXC_NAME})\s*(?::|$)")  # "numpy.x._ArrayMemoryError:"
+
+
 def _class_name(exc_or_text):
     if isinstance(exc_or_text, BaseException):
         return type(exc_or_text).__name__
-    m = re.search(r"\b([A-Z][A-Za-z0-9_]*(?:Error|Exception|Exit|Interrupt))\b", str(exc_or_text or ""))
+    m = re.search(rf"\b({_EXC_NAME})\b", str(exc_or_text or ""))
     return m.group(1) if m else "Error"
+
+
+def _strip_kind(kind, message):
+    """Mesajın başındaki (modül önekli olabilir) "Tür:" öneklerini — tekrarlansa da — atar;
+    yalnız tür adından ibaret mesaj boş döner."""
+    pat = re.compile(rf"\s*(?:[A-Za-z_]\w*\.)*{re.escape(kind)}\s*(?::\s*|$)")
+    message = str(message or "")
+    while message and (m := pat.match(message)):
+        message = message[m.end():]
+    return message.strip()
+
+
+def exc_line(exc):
+    """Tek satır "Tür: mesaj". Mesaj zaten tür adıyla başlıyorsa (ör. bir kütüphane hatayı
+    "MemoryError: ..." metniyle yeniden fırlattıysa) tür ikinci kez eklenmez; boş mesajda yalnız tür."""
+    name = type(exc).__name__
+    try:
+        rest = _strip_kind(name, str(exc))
+    except Exception:  # noqa: BLE001 — __str__ hatası başlatma hatasını gizlemesin
+        rest = ""
+    return f"{name}: {rest}" if rest else name
 
 
 _NET_MARKERS = (
@@ -230,10 +256,12 @@ def record_text_error(message, tb="", where="startup"):
     global _error_count
     last_lines = "\n".join((tb or "").strip().splitlines()[-3:])  # çerçeve yolları sınıflandırmayı yanıltmasın
     code, reason = classify_error(f"{message}\n{last_lines}")
-    kind = _class_name(message)
     message = str(message or "")
-    if message.startswith(kind + ": "):  # "MemoryError: x" → tür ayrı satırda, mesaj "x"
-        message = message[len(kind) + 2:]
+    lead = _LEADING_EXC.match(message)  # tür, varsa mesajın başındaki addır (ortadaki bir ad değil)
+    kind = lead.group(1) if lead else _class_name(message)
+    # "MemoryError: x" → tür ayrı alanda, mesaj "x". Rapor satırı "Tür: mesaj" diye birleştirdiği
+    # için önek tekrarlansa ("MemoryError: MemoryError: x") ya da mesaj yalnız türse hepsi atılır.
+    message = _strip_kind(kind, message)
     entry = {"where": where, "code": code, "reason": reason, "type": kind,
              "message": scrub_private(message), "traceback": scrub_private(tb or ""),
              "time": datetime.datetime.now().astimezone()}

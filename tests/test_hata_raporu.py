@@ -389,5 +389,73 @@ class UiTests(unittest.TestCase):
         self.assertEqual(report["text"], text)
 
 
+class DuplicatePrefixTests(unittest.TestCase):
+    """Başlatma hatası satırı tür adını iki kez yazmasın ("MemoryError: MemoryError: …")."""
+
+    def test_exc_line_does_not_repeat_type(self):
+        class _ArrayMemoryError(MemoryError):  # numpy.core._exceptions._ArrayMemoryError taklidi
+            pass
+
+        cases = [
+            (MemoryError("Unable to allocate 2 GiB"), "MemoryError: Unable to allocate 2 GiB"),
+            (MemoryError("MemoryError: Unable to allocate 2 GiB"), "MemoryError: Unable to allocate 2 GiB"),
+            (MemoryError("MemoryError: MemoryError: x"), "MemoryError: x"),
+            (MemoryError("builtins.MemoryError: x"), "MemoryError: x"),
+            (MemoryError(), "MemoryError"),
+            (MemoryError("MemoryError"), "MemoryError"),
+            (RuntimeError("MemoryError: x"), "RuntimeError: MemoryError: x"),  # farklı tür: zincir bilgisi kalır
+            (RuntimeError("MemoryErrorish: x"), "RuntimeError: MemoryErrorish: x"),
+            (_ArrayMemoryError("Unable to allocate"), "_ArrayMemoryError: Unable to allocate"),
+        ]
+        for exc, want in cases:
+            with self.subTest(exc=repr(exc)):
+                self.assertEqual(hr.exc_line(exc), want)
+
+    def test_record_text_error_splits_type_once(self):
+        cases = [
+            ("MemoryError: MemoryError: x", ("MemoryError", "x")),
+            ("MemoryError: ", ("MemoryError", "")),
+            ("MemoryError", ("MemoryError", "")),
+            ("torch.OutOfMemoryError: CUDA out of memory", ("OutOfMemoryError", "CUDA out of memory")),
+            ("_ArrayMemoryError: Unable to allocate", ("_ArrayMemoryError", "Unable to allocate")),
+            ("RuntimeError: MemoryError while loading", ("RuntimeError", "MemoryError while loading")),
+            ("Sunucu 120 sn içinde başlatılamadı.", ("Error", "Sunucu 120 sn içinde başlatılamadı.")),
+        ]
+        for text, want in cases:
+            with self.subTest(text=text):
+                entry = hr.record_text_error(text, "", where="startup")
+                self.assertEqual((entry["type"], entry["message"]), want)
+                self.assertNotIn(f"{want[0]}: {want[0]}", f"{entry['type']}: {entry['message']}")
+
+    def test_desktop_startup_error_shows_type_once(self):
+        import desktop
+
+        class FakeWindow:
+            html = ""
+
+            def load_html(self, page):
+                self.html = page
+
+        server = desktop.Server(0)
+        with mock.patch.object(desktop.app, "build_app",
+                               side_effect=MemoryError("MemoryError: Unable to allocate 2.00 GiB")):
+            server._run()
+        self.assertEqual(server.error, "MemoryError: Unable to allocate 2.00 GiB")
+        window = FakeWindow()
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            desktop._load_ui(window, server)
+        self.assertIn("MemoryError: Unable to allocate 2.00 GiB", window.html)
+        self.assertNotIn("MemoryError: MemoryError", window.html)
+        err = hr.last_error()
+        assert err is not None
+        self.assertEqual((err["type"], err["message"], err["code"]), ("MemoryError", "Unable to allocate 2.00 GiB", "ram"))
+        with tempfile.TemporaryDirectory() as tmp:
+            text = hr.build_report(error=err, log_path=Path(tmp) / "yok.txt", prev_path=Path(tmp) / "yok2.txt",
+                                   system=FAKE_SYSTEM)["text"]
+        summary = text.split("--- Traceback ---")[0]  # traceback'in son satırı Python'un ham çıktısıdır
+        self.assertIn("Error: MemoryError: Unable to allocate 2.00 GiB", summary)
+        self.assertNotIn("MemoryError: MemoryError", summary)
+
+
 if __name__ == "__main__":
     unittest.main()

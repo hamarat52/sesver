@@ -311,7 +311,7 @@ class Server:
             )
             self.demo = demo
         except BaseException as exc:  # noqa: BLE001 — hata ana thread'e taşınır
-            self.error = f"{type(exc).__name__}: {exc}"
+            self.error = hata_raporu.exc_line(exc)  # "MemoryError: MemoryError: …" olmasın
             self.traceback = traceback.format_exc()  # hata raporu için (log'a ana thread yazar)
         finally:
             self._launched.set()
@@ -416,7 +416,7 @@ def main():
     try:
         _run_window(server)
     except Exception as exc:  # noqa: BLE001 — her türlü pencere hatasında tarayıcıya dön
-        print(f"[BILGI] Masaüstü penceresi kullanılamıyor: {type(exc).__name__}: {exc}", flush=True)
+        print(f"[BILGI] Masaüstü penceresi kullanılamıyor: {hata_raporu.exc_line(exc)}", flush=True)
         if _NO_CONSOLE:
             # Konsolsuz (pythonw) çalışıyoruz: tarayıcı modu Ctrl+C için konsol ister.
             # Başlatıcıya bildirip çık; o, uygulamayı konsollu python.exe ile yeniden açar.
