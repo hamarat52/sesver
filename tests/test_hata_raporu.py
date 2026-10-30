@@ -332,6 +332,26 @@ class SystemInfoTests(unittest.TestCase):
                        "Disk free", "UI language:"):
             self.assertIn(needle, text)
 
+    def test_sesver_version_kaynaklari(self):
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            with mock.patch.object(hr, "ROOT", root), \
+                    mock.patch.object(hr, "VERSION_FILE", root / ".sesver_payload_version"), \
+                    mock.patch.object(hr.surum, "oku", return_value="1.2.0"):
+                # Windows kurulumu: damga yok, .git yok -> VERSION
+                self.assertEqual(hr.sesver_version(), "1.2.0")
+                # Geliştirici kopyası: VERSION + git describe
+                (root / ".git").mkdir()
+                with mock.patch.object(hr, "_run", return_value="v1.1.0-12-gabc1234"):
+                    self.assertEqual(hr.sesver_version(), "1.2.0 (dev v1.1.0-12-gabc1234)")
+                # macOS DMG damgası her şeyden önce gelir
+                (root / ".sesver_payload_version").write_text("1.2.0 (abc1234)\n", encoding="utf-8")
+                self.assertEqual(hr.sesver_version(), "1.2.0 (abc1234)")
+            with mock.patch.object(hr, "ROOT", root / "yok"), \
+                    mock.patch.object(hr, "VERSION_FILE", root / "yok" / "damga"), \
+                    mock.patch.object(hr.surum, "oku", return_value=hr.surum.BILINMEYEN):
+                self.assertEqual(hr.sesver_version(), "unknown")
+
     def test_torch_is_not_imported_by_module(self):
         src = (ROOT / "hata_raporu.py").read_text(encoding="utf-8")
         self.assertNotRegex(src, r"(?m)^\s*(import torch|from torch)")

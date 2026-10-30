@@ -58,12 +58,17 @@ ZIP modu (imzasız dönem) için iki önlem:
 ## 2. Tek komut
 
 ```
-macos/release_mac.sh <sürüm> [--dry-run]      # ör. macos/release_mac.sh 1.2.0 --dry-run
+macos/release_mac.sh [<sürüm>] [--dry-run]    # ör. macos/release_mac.sh --dry-run
 ```
+
+Sürümün tek kaynağı kökteki `VERSION` dosyasıdır (HEAD'deki hâli okunur; `surum.py` ve
+`windows/SesVer.iss` de aynı dosyayı okur). Argüman isteğe bağlıdır; verilirse `VERSION` ile
+aynı olmalıdır, farklıysa betik çıkış kodu 64 ile durur. Yeni sürüm: `VERSION`'ı güncelle →
+commit → betiği argümansız çalıştır.
 
 Adımlar: önkoşullar (xcrun, notarytool, stapler, hdiutil, clang …; git kirliyse uyarı) →
 kimlik seçimi → payload (`git archive HEAD` + izin listesi) → `dist/SesVer.app` (universal
-başlatıcı, Info.plist sürümü argümandan, icns, `sesver_app.sh`, payload) → tüm Mach-O'ları içten
+başlatıcı, Info.plist sürümü VERSION'dan, icns, `sesver_app.sh`, payload) → tüm Mach-O'ları içten
 dışa `codesign --force --options runtime --timestamp` → paketi `--entitlements
 macos/SesVer.entitlements` ile imzala → (gerçek modda app notarize + staple) → DMG
 (`hdiutil create … -format UDZO`, `SesVer.app` + `Applications` kısayolu) → DMG imzası →
@@ -101,7 +106,7 @@ Payload izin listesi (başka hiçbir şey girmez): kökteki `*.py`, `requirement
 3. appleid.apple.com → Giriş ve Güvenlik → Uygulamaya özel parolalar → yeni parola.
 4. Terminal (parolayı komut isteyince kendiniz girin):
    `xcrun notarytool store-credentials sesver-notary --apple-id <apple-id> --team-id <TEAM_ID>`
-5. `macos/release_mac.sh <sürüm>`
+5. `macos/release_mac.sh` (sürüm VERSION'dan)
 
 Ajanlar `store-credentials` çalıştırmaz, parola görmez/girmez.
 

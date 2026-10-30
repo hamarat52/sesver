@@ -1,7 +1,10 @@
 #!/bin/bash
 # SesVer macOS yayın hattı — TEK KOMUT.
 #
-#   macos/release_mac.sh <sürüm> [--dry-run]
+#   macos/release_mac.sh [<sürüm>] [--dry-run]
+#
+# Sürüm: kökteki VERSION dosyası (HEAD) tek kaynaktır. Argüman isteğe bağlıdır;
+# verilirse VERSION ile aynı olmalıdır, değilse çıkış kodu 64.
 #
 # Üretir:  dist/SesVer.app                (kendi kendine yeterli, "DMG modu")
 #          dist/SesVer-<sürüm>-macOS.dmg
@@ -27,7 +30,8 @@ BUNDLE_ID="com.hamaratlabs.sesver"
 NOTARY_PROFILE="${SESVER_NOTARY_PROFILE:-sesver-notary}"
 
 kullanim() {
-  echo "Kullanım: macos/release_mac.sh <sürüm> [--dry-run]   (ör. macos/release_mac.sh 1.2.0 --dry-run)" >&2
+  echo "Kullanım: macos/release_mac.sh [<sürüm>] [--dry-run]   (ör. macos/release_mac.sh --dry-run)" >&2
+  echo "  Sürüm kökteki VERSION dosyasından okunur (HEAD'deki hâli); argüman verilirse VERSION ile aynı olmalı." >&2
   exit 64
 }
 
@@ -41,14 +45,29 @@ for a in "$@"; do
     *) [ -z "$SURUM" ] || kullanim; SURUM="$a" ;;
   esac
 done
-[ -n "$SURUM" ] || kullanim
+
+cd "$(dirname "$0")/.."
+KOK="$PWD"
+
+# Tek kaynak: VERSION (payload HEAD'den alındığı için HEAD'deki hâli okunur;
+# surum.py ve windows/SesVer.iss de aynı dosyayı okur).
+DOSYA_SURUM="$(git show HEAD:VERSION 2>/dev/null | tr -d '\r\357\273\277' | tr -d '[:space:]')" || DOSYA_SURUM=""
+if [ -z "$DOSYA_SURUM" ]; then
+  echo "[HATA] HEAD'de VERSION dosyası yok ya da boş (git show HEAD:VERSION)." >&2
+  exit 64
+fi
+if [ -z "$SURUM" ]; then
+  SURUM="$DOSYA_SURUM"
+elif [ "$SURUM" != "$DOSYA_SURUM" ]; then
+  echo "[HATA] Argümandaki sürüm ($SURUM) VERSION dosyasıyla ($DOSYA_SURUM) uyuşmuyor." >&2
+  echo "       VERSION'ı güncelleyip commit'leyin ya da sürüm argümanını vermeyin." >&2
+  exit 64
+fi
 if ! [[ "$SURUM" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
   echo "[HATA] Sürüm 1.2.0 biçiminde olmalı (CFBundleVersion en çok 3 sayı): $SURUM" >&2
   exit 64
 fi
 
-cd "$(dirname "$0")/.."
-KOK="$PWD"
 DIST="$KOK/dist"
 APP="$DIST/SesVer.app"
 DMG="$DIST/SesVer-$SURUM-macOS.dmg"
@@ -163,7 +182,7 @@ PL="$IS/payload"
 # voices/hazir/**. Başka hiçbir şey payload'a girmez.
 ( cd "$SRC"
   for f in *.py; do [ -f "$f" ] && cp -p "$f" "$PL/"; done
-  for f in requirements.txt voice_design_map.json macos_ortak.sh LICENSE README.md AI_KURULUM.md; do
+  for f in VERSION requirements.txt voice_design_map.json macos_ortak.sh LICENSE README.md AI_KURULUM.md; do
     [ -f "$f" ] || { echo "[HATA] Payload için gerekli dosya HEAD'de yok: $f" >&2; exit 1; }
     cp -p "$f" "$PL/"
   done

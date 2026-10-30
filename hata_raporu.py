@@ -29,6 +29,7 @@ import traceback
 import urllib.parse
 from pathlib import Path
 
+import surum
 from i18n import get_lang, t
 
 DESTEK_EPOSTA = "hermes.agent.hamarat@gmail.com"  # raporların tek alıcısı (yalnız burada tanımlı)
@@ -329,18 +330,21 @@ def _run(cmd, timeout=5):
 
 
 def sesver_version():
-    """Yayın damgası (.sesver_payload_version) ya da git (geliştirici kopyası); yoksa 'unknown'."""
+    """Sürüm satırı: yayın damgası (.sesver_payload_version, macOS DMG) varsa o; yoksa
+    VERSION (surum.py) + geliştirici kopyasında git describe; hiçbiri yoksa 'unknown'."""
     try:
         stamp = VERSION_FILE.read_text(encoding="utf-8").strip()
         if stamp:
             return stamp
     except OSError:
         pass
+    base = surum.oku()
+    base = "" if base == surum.BILINMEYEN else base
     if (ROOT / ".git").exists() and shutil.which("git"):
         desc = _run(["git", "-C", str(ROOT), "describe", "--tags", "--always", "--dirty"], timeout=3)
         if desc:
-            return f"dev {desc}"
-    return "unknown"
+            return f"{base} (dev {desc})" if base else f"dev {desc}"
+    return base or "unknown"
 
 
 def os_info(system=None):
