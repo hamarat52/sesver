@@ -29,6 +29,7 @@ on:
       - "WINDOWS_BASLAT.bat"
       - "requirements.txt"
       - "VERSION"
+      - "engines/**"
       - "voices/hazir/**"
 
 permissions:
@@ -120,7 +121,8 @@ jobs:
                         'surum.py','guncelleme.py','VERSION',
                         'voice_design_map.json','requirements.txt','WINDOWS_BASLAT.bat','LICENSE',
                         'README.md','AI_KURULUM.md','SesVer.ico','voices\hazir\belgesel\ses.json','voices\hazir\masalci\ref.wav',
-                        'locales\en.json','locales\ar.json','locales\ja.json')
+                        'locales\en.json','locales\ar.json','locales\ja.json',
+                        'engines\__init__.py','engines\base.py','engines\ema.py','engines\srt.py')
           foreach ($b in $beklenen) {
             if (-not (Test-Path (Join-Path $app $b))) { throw "Kurulumda eksik: $b" }
           }

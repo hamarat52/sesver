@@ -178,10 +178,13 @@ fi
 git archive --format=tar HEAD | tar -xf - -C "$IS/kaynak"
 SRC="$IS/kaynak"
 PL="$IS/payload"
-# İzin listesi. Kökteki *.py (alt klasörler HARİÇ), tekil dosyalar, locales/*.json,
-# voices/hazir/**. Başka hiçbir şey payload'a girmez.
+# İzin listesi. Kökteki *.py (alt klasörler HARİÇ), engines/*.py (Hızlı Mod motoru),
+# tekil dosyalar, locales/*.json, voices/hazir/**. Başka hiçbir şey payload'a girmez.
 ( cd "$SRC"
   for f in *.py; do [ -f "$f" ] && cp -p "$f" "$PL/"; done
+  [ -f engines/__init__.py ] || { echo "[HATA] engines/__init__.py HEAD'de yok." >&2; exit 1; }
+  mkdir -p "$PL/engines"
+  cp -p engines/*.py "$PL/engines/"
   for f in VERSION requirements.txt voice_design_map.json macos_ortak.sh LICENSE README.md AI_KURULUM.md; do
     [ -f "$f" ] || { echo "[HATA] Payload için gerekli dosya HEAD'de yok: $f" >&2; exit 1; }
     cp -p "$f" "$PL/"

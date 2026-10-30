@@ -103,6 +103,8 @@ Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm
 [Files]
 ; Uygulama kodu: kökteki tüm Python modülleri (app.py, desktop.py, hata_rehberi.py, ...).
 Source: "{#SrcRoot}\*.py"; DestDir: "{app}"; Flags: ignoreversion
+; Hızlı Mod (EMA Lightning) motoru paketi; ağırlıklar kurulumda değil, sekmedeki "indir" ile gelir.
+Source: "{#SrcRoot}\engines\*.py"; DestDir: "{app}\engines"; Flags: ignoreversion
 ; voice_designer.py'nin çalışma zamanında okuduğu eşleme dosyası.
 Source: "{#SrcRoot}\voice_design_map.json"; DestDir: "{app}"; Flags: ignoreversion
 ; Arayüz çevirileri (i18n.py okur); yoksa arayüz Türkçe kalır.
@@ -148,6 +150,10 @@ Type: filesandordirs; Name: "{app}\python-embed"
 Type: filesandordirs; Name: "{app}\.venv"
 Type: filesandordirs; Name: "{app}\pbs_tmp"
 Type: filesandordirs; Name: "{app}\__pycache__"
+; Hızlı Mod: indirilen EMA ağırlıkları (~34 MB, sekmedeki "indir" ile gelir) ve motor önbelleği.
+Type: filesandordirs; Name: "{app}\models\ema-lightning"
+Type: dirifempty; Name: "{app}\models"
+Type: filesandordirs; Name: "{app}\engines\__pycache__"
 Type: files; Name: "{app}\pbs_*"
 Type: files; Name: "{app}\sesver_log.txt"
 Type: files; Name: "{app}\sesver_durum.tmp"

@@ -10,6 +10,7 @@ import logging
 import random
 from html import escape
 from pathlib import Path
+from queue import Queue
 from threading import Event, Lock, Thread
 from time import perf_counter
 from types import SimpleNamespace
@@ -28,6 +29,7 @@ import i18n
 import surum
 import voice_designer as vdes
 import voice_library as vlib
+from engines import ema as ema_motor  # Hızlı Mod; içe aktarmak torch/ema_lightning yüklemez
 from i18n import t, tr_message
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
@@ -675,6 +677,7 @@ _IC_SHIELD = '<path d="M12 3 4.5 6v5.5c0 4.8 3.2 8.2 7.5 9.5 4.3-1.3 7.5-4.7 7.5
 _IC_LIB = '<rect x="4" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.6"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.6"/><path d="M16.75 14v5.5M14 16.75h5.5"/>'
 _IC_SPARK = '<path d="M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.5 10.2 12.6 4.5 10.8 10.2 9z"/><path d="M19 17v4M17 19h4"/>'
 _IC_FX = '<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>'
+_IC_BOLT = '<path d="M13 2.5 5 13.5h6l-1 8 8-11h-6z"/>'
 
 
 def _html(value, **kwargs):
@@ -906,6 +909,8 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 #sv-tabs [role="tab"]:nth-child(1) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><rect x='4' y='4' width='6.5' height='6.5' rx='1.6'/><rect x='13.5' y='4' width='6.5' height='6.5' rx='1.6'/><rect x='4' y='13.5' width='6.5' height='6.5' rx='1.6'/><path d='M16.75 14v5.5M14 16.75h5.5'/></svg>"); }
 #sv-tabs [role="tab"]:nth-child(2) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 3.5 13.8 9 19.5 10.8 13.8 12.6 12 18.5 10.2 12.6 4.5 10.8 10.2 9z'/></svg>"); }
 #sv-tabs [role="tab"]:nth-child(3) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'><rect x='9' y='3' width='6' height='11' rx='3'/><path d='M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21'/></svg>"); }
+#sv-tabs [role="tab"]:nth-child(4) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M13 2.5 5 13.5h6l-1 8 8-11h-6z'/></svg>"); }
+#sv-tabs [role="tab"]:nth-child(5) { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1'/></svg>"); }
 /* İç sekmeler (Ses Oluştur): ikonsuz, sola dayalı, daha küçük hap. */
 #sv-subtabs > .tab-wrapper { justify-content: flex-start; margin: 0 0 18px; }
 #sv-subtabs [role="tab"]::before { display: none !important; }
@@ -1764,6 +1769,12 @@ def _build_page(demo, lang):
             with gr.Tab(t("Ses Klonlama"), id="klon"):
                 _clone_tab()
 
+            with gr.Tab(t("Hızlı Mod"), id="hizli") as fast:
+                fast_refresh = _fast_tab()
+            # Kurulu mu? (hızlı: dosya boyutları + paket sürümü; ağa çıkmaz, torch yüklemez)
+            fast.select(**fast_refresh)
+            demo.load(**fast_refresh)
+
             with gr.Tab(t("Ayarlar"), id="ayarlar") as settings:
                 accel_refresh, accel_out = _settings_tab()
             # Tarama (~3 sn, torch ayrı süreçte okunur) yalnız sekme açılınca yapılır.
@@ -1875,6 +1886,278 @@ def _clone_tab():
         auto_transcribe, inputs=[c_reference], outputs=[c_prompt_text],
         concurrency_limit=1, show_progress="full",
     )
+
+
+# --- ⚡ Hızlı Mod (EMA Lightning) -----------------------------------------------
+# Kurulum/motor mantığı engines/ema.py'de (SHA-256 doğrulamalı indirme, iptal, geri alma).
+# Burada yalnız arayüz ve iletiler var. Paketler SesVer'in kendi Python ortamına
+# (python-embed / .venv) pip ile kurulur; ağırlıklar models/ema-lightning'e iner.
+# İletiler sabit sayfa diliyle (t(..., lang)) üretilir: üreteç olaylarında i18n.use()
+# bağlamı iş parçacıkları arasında taşınmaz.
+
+_fast = {"engine": None, "cancel": Event()}
+_fast_lock = Lock()  # kurulum / kaldırma aynı anda tek
+
+
+def _fast_engine():
+    if _fast["engine"] is None:
+        _fast["engine"] = ema_motor.EmaEngine(output_dir=OUTPUT_DIR, write_srt=False)
+    return _fast["engine"]
+
+
+def _fast_views(ready, lang, note=None):
+    """(kurulu değil sütunu, kurulu sütunu, kurulum durumu) güncellemeleri."""
+    return (gr.update(visible=not ready), gr.update(visible=ready),
+            note if note is not None else gr.update())
+
+
+def _fast_refresh_ui(lang):
+    """Sekme açılınca/sayfa yüklenince: kurulu mu? (hızlı; ağa çıkmaz, torch yüklemez)."""
+    st = ema_motor.ema_status()
+    install = gr.update(interactive=st.dependencies_ok and not _fast_lock.locked())
+    note = gr.update()
+    if not st.dependencies_ok:
+        note = t("Hızlı Mod için gereken temel paketler eksik ya da eski: {liste}. "
+                 "SesVer'i kapatıp başlatıcıyla yeniden açın.", lang,
+                 liste=escape(", ".join(st.missing_dependencies)))
+    return (*_fast_views(st.ready, lang, note), install)
+
+
+def _fast_progress_text(p, lang):
+    if p.stage == "paket":
+        return t("Paketler kuruluyor (ema-lightning, normalizer-tr)…", lang)
+    if p.stage == "indirme" and p.total_bytes:
+        return t("Model indiriliyor: {done} / {total} MB ({pct}%)", lang,
+                 done=f"{p.done_bytes / 1e6:.1f}", total=f"{p.total_bytes / 1e6:.1f}",
+                 pct=int(p.done_bytes * 100 / p.total_bytes))
+    if p.stage == "dogrulama":
+        return t("İndirilen dosyalar doğrulanıyor (SHA-256)…", lang)
+    if p.stage == "geri_alma":
+        return t("Yarım kurulum geri alınıyor…", lang)
+    return t("Kurulum denetleniyor…", lang)
+
+
+def _fast_install_ui(lang):
+    """"Hızlı Mod'u indir": arka planda ema_install; ilerleme durum satırına yazılır.
+
+    Çıktılar: durum, indir düğmesi, iptal düğmesi, kurulu değil sütunu, kurulu sütunu.
+    """
+    keep = gr.update()
+    blocked = _accel_block_reason()
+    if blocked:
+        raise gr.Error(blocked)
+    if not _fast_lock.acquire(blocking=False):
+        raise gr.Error(t("Hızlı Mod kurulumu zaten sürüyor.", lang))
+    try:
+        _fast["cancel"].clear()
+        events, box = Queue(), {}
+        started = perf_counter()
+
+        def work():
+            try:
+                box["status"] = ema_motor.ema_install(events.put, cancel=_fast["cancel"])
+            except BaseException as exc:  # noqa: BLE001 — hata ana akışa taşınır
+                box["error"] = exc
+            finally:
+                events.put(None)
+
+        Thread(target=work, name="sesver-hizli-kurulum", daemon=True).start()
+        off, on = gr.update(interactive=False), gr.update(visible=True, interactive=True)
+        yield "⏳ " + t("Kurulum denetleniyor…", lang), off, on, keep, keep
+        while True:
+            item = events.get()
+            if item is None:
+                break
+            yield "⏳ " + _fast_progress_text(item, lang), off, keep, keep, keep
+        hide_cancel, enable = gr.update(visible=False), gr.update(interactive=True)
+        exc = box.get("error")
+        if exc is None:
+            sec = f"{perf_counter() - started:.1f}"
+            log.info("Hızlı Mod kuruldu (%s sn).", sec)
+            yield (t("Hızlı Mod hazır (kurulum {sec} sn). Metninizi yazıp Üret'e basın.", lang, sec=sec),
+                   enable, hide_cancel, *_fast_views(True, lang)[:2])
+            return
+        if isinstance(exc, ema_motor.InstallCancelledError):
+            log.info("Hızlı Mod kurulumu iptal edildi.")
+            yield t("İndirme iptal edildi; yarım dosya kalmadı.", lang), enable, hide_cancel, keep, keep
+            return
+        with i18n.use(lang):
+            entry = hata_raporu.record_error(exc, where="hizli_mod_kurulum")
+        if isinstance(exc, ema_motor.EmaNetworkError):
+            msg = t("İndirme başarısız: internet bağlantınızı kontrol edip yeniden deneyin. "
+                    "Yarım dosya kalmadı; tam inen dosyalar tekrar inmez.", lang)
+        else:
+            msg = t("Hızlı Mod kurulamadı: **{neden}**. Ayrıntı: sesver_log.txt. Sorun sürerse "
+                    "“Hata raporu gönder” düğmesiyle bize bildirin.", lang, neden=escape(entry["reason"]))
+        yield msg, enable, hide_cancel, keep, keep
+    finally:
+        _fast_lock.release()
+
+
+def _fast_cancel_ui(lang):
+    _fast["cancel"].set()
+    return "⏳ " + t("İptal ediliyor…", lang)
+
+
+def _fast_generate_ui(text, speed, seed, want_srt, lang):
+    """Hızlı Mod üretimi. Çıktılar: ses, WAV indirme, SRT dosyası, durum."""
+    hide = gr.update(value=None, visible=False)
+    yield None, None, hide, t("Ses üretiliyor…", lang)
+    blocked = _accel_block_reason()
+    if blocked:
+        raise gr.Error(blocked)
+    text = (text or "").strip()
+    if not text:
+        raise gr.Error(t("Lütfen okunacak bir metin yazın.", lang))
+    if len(text) > ema_motor.MAX_TEXT_CHARS:
+        raise gr.Error(t("Hızlı Mod'da en fazla {n} karakter kullanın; uzun metni bölün.", lang,
+                         n=ema_motor.MAX_TEXT_CHARS))
+    if seed in (None, ""):
+        seed = None
+    else:
+        try:
+            seed = int(seed)
+        except (TypeError, ValueError):
+            seed = -1
+        if seed < 0:
+            raise gr.Error(t("Seed sıfır ya da pozitif bir tam sayı olmalı.", lang))
+    if not ema_motor.ema_status().ready:
+        raise gr.Error(t("Hızlı Mod kurulu değil. Önce “Hızlı Mod'u indir” düğmesine basın.", lang))
+    started = perf_counter()
+    log.info("istek kip=hizli hiz=%.2f seed=%s srt=%s karakter=%d", float(speed), "var" if seed is not None
+             else "rastgele", "evet" if want_srt else "hayir", len(text))
+    try:
+        res = _fast_engine().synthesize(text, speed=float(speed), seed=seed, srt=bool(want_srt))
+    except Exception as exc:  # noqa: BLE001 — kullanıcıya tür, ayrıntı günlüğe/rapora
+        with i18n.use(lang):
+            entry = hata_raporu.record_error(exc, redact=[text], where="hizli_mod")
+        yield None, None, hide, t(
+            "Üretim başarısız: **{neden}**. Ayrıntı: sesver_log.txt. Sorun sürerse "
+            "“Hata raporu gönder” düğmesiyle bize bildirin.", lang, neden=escape(entry["reason"]))
+        return
+    meta = res.meta
+    srt_file = gr.update(value=meta["srt_path"], visible=True) if meta.get("srt_path") else hide
+    yield res.path, res.path, srt_file, t(
+        "Tamamlandı: {sec} saniye, ses {dur} saniye (seed {seed}). AI ile üretildi.", lang,
+        sec=f"{perf_counter() - started:.1f}", dur=f"{meta['duration']:.1f}", seed=meta.get("seed"))
+
+
+def _fast_remove_ui(lang):
+    """"Hızlı Mod'u kaldır" (onaylandıktan sonra): ağırlıklar + iki paket silinir."""
+    if not _fast_lock.acquire(blocking=False):
+        raise gr.Error(t("Hızlı Mod kurulumu zaten sürüyor.", lang))
+    try:
+        result = ema_motor.ema_uninstall(packages=True)
+    except Exception as exc:  # noqa: BLE001
+        with i18n.use(lang):
+            entry = hata_raporu.record_error(exc, where="hizli_mod_kaldir")
+        return (t("Hızlı Mod kaldırılamadı: **{neden}**. SesVer'i kapatıp yeniden açın, sonra tekrar "
+                  "deneyin.", lang, neden=escape(entry["reason"])), gr.update(), gr.update())
+    finally:
+        _fast_lock.release()
+    _fast["engine"] = None
+    log.info("Hızlı Mod kaldırıldı: %s, paketler: %s", ema_motor.format_size(result["freed_bytes"]),
+             ", ".join(result["packages_removed"]) or "-")
+    return (t("Hızlı Mod kaldırıldı ({size} boşaldı). İsterseniz yeniden indirebilirsiniz.", lang,
+              size=ema_motor.format_size(result["freed_bytes"])), *_fast_views(False, lang)[:2])
+
+
+def _fast_tab():
+    """⚡ Hızlı Mod sekmesi. Sayfa yüklenince/sekme seçilince çağrılacak (fn, outputs) döndürür."""
+    lang = i18n.get_lang()
+    st = ema_motor.ema_status()
+    with gr.Row(equal_height=False, elem_classes=["sv-grid"]):
+        with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
+            _html(
+                f'<div class="sv-frame-bar"><div class="sv-chips">'
+                f'<span class="sv-chip">{_svg(_IC_BOLT)}{t("Hızlı Mod")}</span>'
+                f'<span class="sv-chip">EMA Lightning</span></div>'
+                f'<span class="sv-chip sv-chip-dark">{_svg(_IC_LOCK)}{t("Yerel")}</span></div>'
+            )
+            with gr.Column(elem_classes=["sv-panel"]):
+                with gr.Column(visible=not st.ready) as setup_col:
+                    _head(_IC_BOLT, t("Hızlı Mod'u indirin"),
+                          t("Saniyeler içinde Türkçe seslendirme. <b>Yalnız Türkçe</b> ve <b>tek bir ses</b> "
+                            "vardır; ses klonu, ses tarifi ve duygu seçimi yoktur (bunlar için diğer "
+                            "sekmeleri kullanın). Bir kez yaklaşık <b>35 MB</b> indirilir, sonra internetsiz "
+                            "çalışır. “Kalite: Hızlı” ayarından farklı, ayrı bir ses motorudur (EMA Lightning)."))
+                    with gr.Row():
+                        install = gr.Button(t("Hızlı Mod'u indir"), variant="primary",
+                                            interactive=st.dependencies_ok,
+                                            elem_classes=["sv-btn", "sv-btn-primary", "sv-ic-download"])
+                        cancel = gr.Button(t("İptal"), visible=False, elem_classes=["sv-btn", "sv-btn-soft"])
+                    _html('<p class="sv-fine">' + t(
+                        "İndirilen dosyalar SHA-256 ile doğrulanır. Model: EMA Lightning (Apache-2.0).") + "</p>")
+                with gr.Column(visible=st.ready) as ready_col:
+                    _head(_IC_TEXT, t("Metni yazın"),
+                          t("Tek Türkçe ses okur. Hızı ayarlayabilir, beğendiğiniz okumayı seed ile sabitleyebilirsiniz."))
+                    # Örnek metin bilerek Türkçe kalır: Hızlı Mod yalnız Türkçe okur.
+                    f_text = gr.Textbox(label=t("Metin"), lines=5, max_length=ema_motor.MAX_TEXT_CHARS,
+                                        value="Merhaba, bu SesVer Hızlı Mod denemesidir.",
+                                        placeholder=t("Okunacak Türkçe metni yazın…"))
+                    with gr.Row():
+                        f_speed = gr.Slider(0.5, 2.0, value=1.0, step=0.05, label=t("Konuşma hızı"))
+                        f_seed = gr.Number(value=None, precision=0, minimum=0, label=t("Seed (isteğe bağlı)"),
+                                           info=t("Boş bırakılırsa her seferinde farklı bir okuma."))
+                    f_srt = gr.Checkbox(value=False, label=t("Altyazı (SRT) dosyası da oluştur"))
+                    with gr.Row(elem_classes=["sv-actionbar"]):
+                        _html('<div class="sv-hint">' + t("<b>Yalnız Türkçe.</b><br>"
+                                                          "En fazla 5000 karakter.") + "</div>")
+                        f_button = gr.Button(t("Üret"), variant="primary", scale=0, min_width=190,
+                                             elem_classes=["sv-btn", "sv-btn-primary"])
+                    _html('<div class="sv-divider"></div>')
+                    with gr.Row():
+                        remove = gr.Button(t("Hızlı Mod'u kaldır"), size="sm", scale=0,
+                                           elem_classes=["sv-btn", "sv-mini"])
+                    with gr.Row(visible=False) as confirm_row:
+                        _html('<p class="sv-fine">' + t(
+                            "Model dosyaları (~34 MB) ve Hızlı Mod paketleri silinecek. Ürettiğiniz sesler "
+                            "kalır.") + "</p>")
+                        confirm_yes = gr.Button(t("Evet, kaldır"), size="sm", scale=0,
+                                                elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
+                        confirm_no = gr.Button(t("Vazgeç"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                setup_status = gr.Markdown("", elem_classes=["sv-status"])
+        with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
+            with gr.Column(elem_classes=["sv-card"]):
+                _head(*_result_head())
+                f_status = gr.Markdown(t("Hazır. Metni yazıp Üret'e basın."), elem_classes=["sv-status"])
+                f_report = _report_panel(lang)
+                f_audio = gr.Audio(label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
+                                   buttons=["download"], elem_classes=["sv-audio"])
+                f_download = gr.DownloadButton(t("⬇ WAV indir"), variant="secondary",
+                                               elem_classes=["sv-btn", "sv-btn-ghost"])
+                f_srt_file = gr.File(label=t("Altyazı (SRT)"), visible=False, interactive=False)
+                _html(_result_note())
+
+    views = [setup_col, ready_col]
+
+    def do_install():
+        yield from _fast_install_ui(lang)
+
+    def do_generate(text, speed, seed, want_srt):
+        yield from _fast_generate_ui(text, speed, seed, want_srt, lang)
+
+    _watch_failures(
+        install.click, f_report,
+        fn=do_install, outputs=[setup_status, install, cancel, *views],
+        concurrency_limit=1, concurrency_id="sv-hizli-kurulum", show_progress="hidden",
+    )
+    cancel.click(lambda: _fast_cancel_ui(lang), outputs=setup_status, queue=False, show_progress="hidden")
+    _watch_failures(
+        f_button.click, f_report,
+        fn=do_generate, inputs=[f_text, f_speed, f_seed, f_srt],
+        outputs=[f_audio, f_download, f_srt_file, f_status],
+        concurrency_limit=1, concurrency_id="sv-hizli", api_name="fast_audio", show_progress="full",
+    )
+    remove.click(lambda: gr.update(visible=True), outputs=confirm_row, queue=False, show_progress="hidden")
+    confirm_no.click(lambda: gr.update(visible=False), outputs=confirm_row, queue=False, show_progress="hidden")
+    _watch_failures(
+        confirm_yes.click(lambda: gr.update(visible=False), outputs=confirm_row, queue=False,
+                          show_progress="hidden").then, f_report,
+        fn=lambda: _fast_remove_ui(lang), outputs=[setup_status, *views], show_progress="minimal",
+    )
+    return dict(fn=lambda: _fast_refresh_ui(lang), outputs=[*views, setup_status, install],
+                queue=False, show_progress="hidden")
 
 
 # --- Ayarlar: ekran kartı (GPU) hızlandırma ---------------------------------
