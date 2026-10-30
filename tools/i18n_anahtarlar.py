@@ -8,6 +8,7 @@ Kaynaklar:
   * voice_library / audio_prep / voice_designer'ın kullanıcıya dönen hata/uyarı
     iletileri (f-string'ler {yer tutucu} kalıbına çevrilir; i18n.tr_message eşler)
   * hata_rehberi metinleri
+  * hata_raporu.py içindeki t("...") çağrıları (hata türleri, rapor/e-posta iletileri)
 Kullanım: python tools/i18n_anahtarlar.py [--check]
 --check: her locales/<dil>.json dosyasında eksik/fazla anahtar ve yer tutucu uyuşmazlığı arar.
 """
@@ -103,6 +104,7 @@ def collect():
     keys += module_messages(ROOT / "voice_designer.py")
     keys += [hata_rehberi._ADIMLAR, hata_rehberi._OLASI_EK]
     keys += t_literals(ROOT / "desktop.py")
+    keys += t_literals(ROOT / "hata_raporu.py")
     seen, out = set(), []
     for k in keys:
         if k and k not in seen:
