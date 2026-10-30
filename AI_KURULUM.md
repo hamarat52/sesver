@@ -196,10 +196,11 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 **10b. RTX 50 serisi (veya başka yeni) ekran kartıyla ses üretimi hep başarısız oluyor**
 - Belirti: Kurulum biter, SesVer açılır, ama **Üret**'e her basışta "Üretim başarısız" hatası alınır; genelde mesajda `CUDA çekirdeği bu kartta yok` ya da günlükte (`sesver_log.txt`) `no kernel image is available for execution on the device` yazar.
 - Sebep: Ekran kartının mimarisi (ör. RTX 50 serisi / Blackwell, "sm_120") kurulu PyTorch derlemesinden daha yeni. `torch.cuda.is_available()` yine de "evet" der (sürücü ve bağlam çalışıyor) ama o derlemede bu kart için derlenmiş bir çekirdek yoktur; ilk gerçek işlemde patlar. Güncel SesVer artık kurulumda gerçek bir GPU işlemiyle bunu önceden sınar ve çalışma anında otomatik olarak işlemciye (CPU) düşer; eski bir sürümdeyse veya düşüş olmadıysa aşağıdakini dene.
+  - Blackwell (RTX 50xx) için `hizlandirma.py` doğru CUDA etiketini sürücü sürümüne göre seçer: sürücü ≥ 580 → `cu130`, sürücü 570-579 → `cu128` (cu126'da bu mimari için hiç çekirdek yok), sürücü < 570 → sürücü güncellemesi istenir. Eşik, NVIDIA'nın CUDA 12.8 GA için yayınladığı en düşük sürücü sürümünden (Linux ≥570.26 / Windows ≥570.65) gelir — bkz. https://docs.nvidia.com/cuda/archive/12.8.0/cuda-toolkit-release-notes/ (Table 3) ve cu128 cp311/win_amd64 tekerleklerinin varlığı için https://download.pytorch.org/whl/cu128/torch/ .
 - Çözüm:
   1. **Ayarlar** sekmesine geç, **Kurulum günlüğü**nde ekran kartının adını ve durumunu gör (`⚠️ ... ekran kartı kullanılamıyor` yazıyorsa bu budur).
   2. **İşlemci (CPU) sürümüne geri dön** düğmesine bas; SesVer'i kapatıp yeniden aç. Üretim CPU'da (daha yavaş ama güvenilir) çalışır.
-  3. Daha yeni bir ekran kartı derlemesi denemek istersen: yukarıdaki **Yedek yol — elle** adımlarını kullan, https://pytorch.org/get-started/locally/ sayfasında kartına uygun en güncel CUDA sürümünü (ör. cu128/cu130) seç.
+  3. Daha yeni bir ekran kartı derlemesi denemek istersen: yukarıdaki **Yedek yol — elle** adımlarını kullan, https://pytorch.org/get-started/locally/ sayfasında kartına uygun en güncel CUDA sürümünü (RTX 50xx + sürücü 570-579 ise `cu128`, sürücü ≥ 580 ise `cu130`) seç.
   4. Sorun sürerse `sesver_log.txt` dosyasını ve `nvidia-smi` çıktısını isteyip GitHub Issues'a yönlendir.
 
 **11. Mac: `MACOS_BASLAT.command` açılmıyor / "izin verilmedi" (`Permission denied`)**
