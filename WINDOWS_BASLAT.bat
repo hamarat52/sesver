@@ -109,19 +109,26 @@ REM SesVer guncellenmis: ortam silinmez, yalniz eksik/degisen paketler kurulur.
 REM Basarisizsa isaret ESKI haliyle kalir (sonraki acilista yeniden denenir)
 REM ve :hata ile ilk kurulumdaki hata yolu gosterilir.
 echo SesVer guncellenmis: paketler esitleniyor - yalniz eksik/degisen paketler kurulur...
-REM CUDA korumasi: NVIDIA kartta CUDA'li torch calisiyorsa kurulu torch/torchaudio
-REM surumleri kisit dosyasina (-c) yazilir; pip onlari PyPI'nin CPU derlemesiyle
-REM degistiremez. Yeni requirements daha yeni torch isterse esitleme hata verir
-REM (sessizce CPU'ya dusmek yerine). --upgrade kullanilmaz: gereksinimi zaten
-REM karsilayan paketlere dokunulmaz.
+REM CUDA korumasi: NVIDIA kartta CUDA'li torch GERCEKTEN calisiyorsa (hizlandirma.py
+REM --cuda-dogrula: kucuk bir gercek islemle sinar) kurulu torch/torchaudio surumleri
+REM kisit dosyasina (-c) yazilir; pip onlari PyPI'nin CPU derlemesiyle degistiremez.
+REM torch.cuda.is_available() TEK BASINA yeterli degildir: Blackwell + cu126 gibi
+REM durumlarda surucu/baglam calisir gorunur ama bu mimari icin derlenmis cekirdek
+REM yoktur ("no kernel image is available") - is_available True doner, ilk uretimde
+REM patlar. Boyle bozuk bir kurulumu "koru" diye kisitlamak hatayi kalicilastirirdi.
+REM Yeni requirements daha yeni torch isterse esitleme hata verir (sessizce CPU'ya
+REM dusmek yerine). --upgrade kullanilmaz: gereksinimi zaten karsilayan paketlere
+REM dokunulmaz.
 set "SV_KISIT="
 del "%MARK%.kisit" >nul 2>nul
 where nvidia-smi >nul 2>nul
 if errorlevel 1 goto :esitle_voxcpm
-"%PYEXE%" -c "import sys,torch,torchaudio;c=torch.cuda.is_available();c and open(sys.argv[1],'w').write('torch=='+torch.__version__+chr(10)+'torchaudio=='+torchaudio.__version__+chr(10));sys.exit(0 if c else 1)" "%MARK%.kisit" >nul 2>nul
+"%PYEXE%" hizlandirma.py --cuda-dogrula >nul 2>nul
+if errorlevel 1 goto :esitle_voxcpm
+"%PYEXE%" -c "import sys,torch,torchaudio;open(sys.argv[1],'w').write('torch=='+torch.__version__+chr(10)+'torchaudio=='+torchaudio.__version__+chr(10))" "%MARK%.kisit" >nul 2>nul
 if errorlevel 1 goto :esitle_voxcpm
 set SV_KISIT=-c "%MARK%.kisit"
-echo CUDA destekli PyTorch korunuyor.
+echo CUDA destekli PyTorch korunuyor (gercek cekirdek testi basarili).
 :esitle_voxcpm
 REM voxcpm yalniz pini degistiyse ya da eski "tamam" isaretinde (pin bilinmiyor) kurulur.
 set "SV_ESKI_VOX="
@@ -199,11 +206,20 @@ echo Kurulum tamamlandi.
 :baslat
 REM Kurulum atlanmis olsa bile (MARK zaten vardi) her acilista ucuz bir kontrol:
 REM NVIDIA karti var ama PyTorch CUDA'yi kullanamiyorsa (ör. eski kurulumdan
-REM kalma CPU-only torch), bir kerelik duzeltme dener ve ikinci markla isaretler.
-set "GPU_FIX_MARK=.venv\sesver_gpu_duzeltme_denendi.txt"
+REM kalma CPU-only torch, ya da Blackwell + cu126 gibi "cuda_ok=True ama cekirdek
+REM yok" durumu), bir kerelik duzeltme dener ve ikinci markla isaretler.
+REM Isaret MARK ile AYNI klasorde tutulur (python-embed\ ya da .venv\): .venv
+REM sabitlenirse python-embed kurulumunda klasor hic olusmayabilir ve "echo >"
+REM sessizce basarisiz olur - bir sonraki acilista kontrol gereksiz yere tekrar
+REM calisir (zararsiz ama MARK ile tutarsiz). Isaret ayrica v2 ile adlandirilir:
+REM v1.1.0'dan kalma eski ".venv\sesver_gpu_duzeltme_denendi.txt" isareti varsa
+REM bile yeni kontrolu ENGELLEMEZ (dosya adi farkli).
+set "GPU_FIX_MARK="
+for %%I in ("%MARK%") do set "GPU_FIX_MARK=%%~dpIsesver_gpu_duzeltme_v2.txt"
 where nvidia-smi >nul 2>nul
 if errorlevel 1 goto :gpu_fix_bitti
 if exist "%GPU_FIX_MARK%" goto :gpu_fix_bitti
+set "CUDA_ETIKET="
 "%PYEXE%" hizlandirma.py --cuda-dogrula >nul 2>nul
 if not errorlevel 1 goto :gpu_fix_isaretle
 echo NVIDIA ekran karti var ama PyTorch ekran kartini kullanamiyor, duzeltiliyor...
@@ -212,7 +228,7 @@ for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^
 if "%CUDA_ETIKET%"=="" goto :gpu_fix_isaretle
 "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
 :gpu_fix_isaretle
-echo tamam>"%GPU_FIX_MARK%"
+echo %CUDA_ETIKET%>"%GPU_FIX_MARK%"
 :gpu_fix_bitti
 set "SV_PORT=%GRADIO_SERVER_PORT%"
 if "%SV_PORT%"=="" set "SV_PORT=7860"
