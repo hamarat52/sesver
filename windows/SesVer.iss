@@ -629,8 +629,10 @@ begin
     // içinde kalır (cmd /c tırnak soyma kuralına girilmez).
     // ">nul 2>&1" dıştaki cmd'nin "start" komutuna uygulanır; başlatılan cmd.exe bu
     // tutamaçları devralır. Olmazsa ExecAndLogOutput'un çıktı borusunu devralır: dış
-    // cmd ~15 ms'de çıkınca Inno borunun okuma ucunu kapatır ve bat ilk satırlarda
-    // (durum/PID/günlük dosyası yazılmadan) sessizce biter — CI 41060202136/41073828284.
+    // cmd ~20 ms'de çıkar, Inno borunun okuma ucunu kapatır ve bat ilk "echo"yu geçemeden, hiçbir
+    // dosya (günlük/PID/durum) yazmadan biter; sihirbaz durum satırını sonsuza dek bekler.
+    // Kanıt: CI 41073828284 (askı) ve 41075564237 deneyi (boru kapalı: bat ölür; boru
+    // açık ya da >nul: bat sonuna dek çalışır).
     Komut := '/d /c start "" /b "' + Cmd + '" /d /c call "' + App + '\WINDOWS_BASLAT.bat" ' +
       OrtamYalnizKurulumArg + ' >nul 2>&1';
     Log('İlk kurulum başlatılıyor: ' + Cmd + ' ' + Komut);
