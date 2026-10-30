@@ -477,8 +477,30 @@ jobs:
           }
           '@
 
+          # Teşhis: ilk kurulum askıda kalırsa süreç ağacı, kurulum_* dosyaları ve
+          # kurulum_log.txt (yazılırken de: FileShare.ReadWrite) basılır, kanıta kopyalanır.
+          function Show-OrtamTeshis([string]$etiket) {
+            Write-Host "----- [$etiket] TEŞHİS: ilgili süreçler -----"
+            Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^(cmd|powershell|pwsh|conhost|OpenConsole|python|pythonw|pip|curl|tar|SesVer-Kurulum.*)\.(exe|tmp)$' } |
+              Sort-Object CreationDate | ForEach-Object { Write-Host ("  pid={0} ppid={1} {2} {3:HH:mm:ss} {4}" -f $_.ProcessId, $_.ParentProcessId, $_.Name, $_.CreationDate, $_.CommandLine) }
+            Write-Host "----- [$etiket] TEŞHİS: $app\kurulum_* -----"
+            Get-ChildItem $app -Filter 'kurulum_*' -ErrorAction SilentlyContinue | ForEach-Object { Write-Host ("  {0} {1} bayt {2:HH:mm:ss}" -f $_.Name, $_.Length, $_.LastWriteTime) }
+            foreach ($f in @($ykLog, (Join-Path $app 'kurulum_pid.txt'), $durum)) {
+              if (-not (Test-Path $f)) { Write-Host "  (yok) $f"; continue }
+              try {
+                $fs = [System.IO.File]::Open($f, 'Open', 'Read', 'ReadWrite')
+                $sr = New-Object System.IO.StreamReader($fs); $icerik = $sr.ReadToEnd(); $sr.Close()
+                Write-Host "----- [$etiket] TEŞHİS: $f ($($icerik.Length) karakter, son 40 satır) -----"
+                ($icerik -split "`r?`n") | Select-Object -Last 40 | ForEach-Object { Write-Host "  | $_" }
+                Set-Content -Path (Join-Path $env:RUNNER_TEMP ("sesver-teshis-$etiket-" + (Split-Path $f -Leaf) + ".log")) -Value $icerik
+              } catch { Write-Host "  okunamadı: $f : $_" }
+            }
+          }
+
           # Sessiz /ORTAMKUR kurulumunu çalıştırır; sürerken durum dosyasını ve yeni açılan
           # görünür konsol pencerelerini 0,5 sn'de bir gözler. Döner: gözlenen durum satırları.
+          # Bat ilk durum satırını ("0/6|Basliyor") saniyeler içinde yazar; 4 dk'da hiç durum
+          # satırı yoksa başlatma askıdadır: teşhis basılır ve 90 dk beklenmeden düşülür.
           function Kur-OrtamKur([string]$etiket, [int]$dakika) {
             $kurLog = Join-Path $env:RUNNER_TEMP "sesver-kurulum-$etiket.log"
             $onceki = @([SvPencere]::Konsollar())
@@ -494,7 +516,8 @@ jobs:
                 if ($onceki -notcontains $w -and $yeni -notcontains $w) { $yeni += $w; Write-Host "::warning::[$etiket] kurulum sırasında görünür konsol penceresi: $w" }
               }
               if (((Get-Date) - $sonRapor).TotalMinutes -ge 5) { $sonRapor = Get-Date; Get-Content $ykLog -Tail 3 -ErrorAction SilentlyContinue | Out-Host }
-              if (((Get-Date) - $bas).TotalMinutes -ge $dakika) { & taskkill.exe /T /F /PID $kp.Id | Out-Host; throw "[$etiket] $dakika dk içinde sessiz /ORTAMKUR kurulumu bitmedi" }
+              if ($gorulen.Count -eq 0 -and ((Get-Date) - $bas).TotalMinutes -ge 4) { Show-OrtamTeshis $etiket; & taskkill.exe /T /F /PID $kp.Id | Out-Host; throw "[$etiket] 4 dk içinde hiç durum satırı yok: ilk kurulum başlatılamadı/askıda (teşhis yukarıda)" }
+              if (((Get-Date) - $bas).TotalMinutes -ge $dakika) { Show-OrtamTeshis $etiket; & taskkill.exe /T /F /PID $kp.Id | Out-Host; throw "[$etiket] $dakika dk içinde sessiz /ORTAMKUR kurulumu bitmedi" }
             }
             $kp.WaitForExit()
             Write-Host ("[{0}] kurulum çıkış kodu {1}, süre {2:hh\:mm\:ss}" -f $etiket, $kp.ExitCode, ((Get-Date) - $bas))

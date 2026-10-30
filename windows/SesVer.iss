@@ -628,6 +628,7 @@ begin
     Basladi := False;
     try
       Basladi := ExecAndLogOutput(Cmd, Komut, App, SW_HIDE, ewWaitUntilTerminated, RC, @BaslaticiCiktisi);
+      Log('İlk kurulum başlatıcısı döndü: çıkış kodu ' + IntToStr(RC));
       if not Basladi then
         OrtamHataAdimi := FmtMessage(CustomMessage('OrtamBaslatilamadi'), [SysErrorMessage(RC)])
       else if RC <> 0 then
