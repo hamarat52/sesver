@@ -371,6 +371,7 @@
  "CUDA çekirdeği bu kartta yok (kurulu PyTorch bu ekran kartını desteklemiyor)": "Kein CUDA-Kernel für diese Karte (das installierte PyTorch unterstützt diese Grafikkarte nicht)",
  "CUDA bellek yetersiz (ekran kartı belleği doldu)": "CUDA-Speicher reicht nicht aus (Grafikspeicher ist voll)",
  "ekran kartı belleği yetersiz": "Grafikspeicher reicht nicht aus",
+ "Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — daha yavaş. Ayrıntı: Ayarlar.": "Die Grafikkarte konnte in dieser Version nicht verwendet werden; es wird mit dem Prozessor fortgefahren — langsamer. Details: Einstellungen.",
  "bellek (RAM) yetersiz": "Arbeitsspeicher (RAM) reicht nicht aus",
  "disk alanı yetersiz": "Speicherplatz reicht nicht aus",
  "model indirilemedi (internet bağlantısını kontrol edin)": "Modell konnte nicht heruntergeladen werden (Internetverbindung prüfen)",

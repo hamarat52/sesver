@@ -12,6 +12,7 @@
  "İşleniyor… İlk kullanımda model indiriliyor/yükleniyor (internet ve birkaç dakika gerekebilir).",
  "Ses üretiliyor…",
  "Ses üretiliyor… Metninizin uzunluğuna göre tahmini {min}-{max} dakika sürebilir (başka ağır uygulamalar açıksa daha uzun sürer). **Pencereyi kapatmayın, bu normal** — bittiğinde burada 'Tamamlandı' yazacak.",
+ "Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — daha yavaş. Ayrıntı: Ayarlar.",
  "Ses dosyası kaydediliyor…",
  "Üretim başarısız: **{neden}**. Diğer ağır uygulamaları kapatıp kısa bir metinle tekrar deneyin; bellek hatasında SesVer'i yeniden başlatın. Ayrıntı: sesver_log.txt. Sorun sürerse “Hata raporu gönder” düğmesiyle bize bildirin.",
  "Tamamlandı",

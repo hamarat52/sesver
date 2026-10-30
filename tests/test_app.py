@@ -62,6 +62,41 @@ class AppTests(unittest.TestCase):
             self.assertIn("Üretim başarısız", last[2])
             self.assertNotIn("private details", last[2])
 
+    def test_cuda_kernel_error_falls_back_to_cpu_once_with_notice(self):
+        """Blackwell + eski cu126 gibi durumlar: is_available() True ama ilk işlemde patlar."""
+        import app
+        from unittest.mock import Mock
+        cpu_model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                    generate=Mock(return_value=np.zeros(4800, dtype=np.float32)))
+        gpu_model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                    generate=Mock(side_effect=RuntimeError(
+                                        "CUDA error: no kernel image is available for execution on the device")))
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(app, "OUTPUT_DIR", Path(directory)), \
+                patch.object(app, "_gpu_disabled", False), \
+                patch.object(app, "get_model", side_effect=[gpu_model, cpu_model]) as load:
+            events = list(app.generate_audio("Merhaba.", None))
+            self.assertEqual(load.call_count, 2)  # GPU denemesi + CPU'ya tek seferlik yeniden yükleme
+            self.assertTrue(app._gpu_disabled)  # bu oturumda bir daha GPU denenmez
+        gpu_model.generate.assert_called_once()
+        cpu_model.generate.assert_called_once()
+        messages = [e[2] for e in events]
+        self.assertTrue(any("işlemciyle devam ediliyor" in m for m in messages))  # tek seferlik bilgi
+        self.assertIn("saniye", events[-1][2])  # yeniden denemeden sonra üretim normal tamamlanır
+        self.assertIsNotNone(events[-1][0])  # CPU'da üretilen ses de kullanıcıya ulaşır
+
+    def test_gpu_fallback_does_not_retry_in_same_session(self):
+        """_gpu_disabled zaten True ise ikinci bir GPU/yeniden-yükleme denemesi yapılmaz."""
+        import app
+        from unittest.mock import Mock
+        model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000),
+                                generate=Mock(side_effect=RuntimeError("CUDA error: out of memory")))
+        with patch.object(app, "_gpu_disabled", True), \
+                patch.object(app, "get_model", return_value=model) as load:
+            last = list(app.generate_audio("Merhaba.", None))[-1]
+            load.assert_called_once()  # ikinci bir deneme/yeniden yükleme yok
+        self.assertIn("Üretim başarısız", last[2])  # döngüye girmeden normal hata olarak raporlanır
+
     def test_invalid_request_clears_previous_audio_first(self):
         import app
         events = app.generate_audio("", None)
