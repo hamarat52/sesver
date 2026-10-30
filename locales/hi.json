@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "ईमेल ड्राफ़्ट खुल गया। रिपोर्ट फ़ाइल अपने फ़ोल्डर में चुनी हुई है: {yol} — इसे ईमेल में खींचकर संलग्न करें और ख़ुद भेजें।",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "ईमेल ऐप नहीं खुल सका। “क्लिपबोर्ड पर कॉपी करें” दबाएँ, Gmail में नया संदेश खोलें, पेस्ट करें और {adres} पर भेजें। रिपोर्ट फ़ाइल: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "रिपोर्ट क्लिपबोर्ड पर कॉपी हो गई। Gmail में नया संदेश खोलकर पेस्ट करें; प्राप्तकर्ता: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "क्लिपबोर्ड पर कॉपी नहीं हो सका; बॉक्स का टेक्स्ट चुनकर कॉपी करें (Ctrl+A, Ctrl+C) और {adres} पर भेजें।"
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "क्लिपबोर्ड पर कॉपी नहीं हो सका; बॉक्स का टेक्स्ट चुनकर कॉपी करें (Ctrl+A, Ctrl+C) और {adres} पर भेजें।",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "सहेजा गया: शुरू होने पर अपडेट जाँचे जाएँगे।",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "सहेजा गया: शुरू होने पर अपडेट नहीं जाँचे जाएँगे।",
+ "Güncellemeler": "अपडेट",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "यह संस्करण: <b>v{surum}</b>। शुरू होने पर केवल GitHub पर नवीनतम संस्करण संख्या देखी जाती है (एक ही अनुरोध, अधिकतम 3 सेकंड); कोई व्यक्तिगत डेटा नहीं भेजा जाता।",
+ "Açılışta güncellemeleri denetle": "शुरू होने पर अपडेट जाँचें",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "अपडेट करने के लिए रिलीज़ पेज से नया इंस्टॉलर (SesVer-Kurulum-Windows.exe) डाउनलोड करके चलाएँ; आपकी सेटिंग्स और आवाज़ें सुरक्षित रहती हैं।",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "Mac पर अभी नया संस्करण रिलीज़ पेज से डाउनलोड करें; विवरण README के “Güncelleme” (अपडेट) अनुभाग में है।",
+ "Yeni sürüm var: v{surum}": "नया संस्करण उपलब्ध है: v{surum}",
+ "Release sayfası": "रिलीज़ पेज"
 }

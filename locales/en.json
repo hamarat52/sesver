@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "Email draft opened. The report file is selected in its folder: {yol} — drag it into the email to attach it, then send it yourself.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "Could not open the email app. Press “Copy to clipboard”, open a new message in Gmail, paste it and send it to {adres}. Report file: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "Report copied to the clipboard. Open a new message in Gmail and paste it; recipient: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Could not copy to the clipboard; select the text in the box, copy it (Ctrl+A, Ctrl+C) and send it to {adres}."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Could not copy to the clipboard; select the text in the box, copy it (Ctrl+A, Ctrl+C) and send it to {adres}.",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "Saved: updates will be checked at startup.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "Saved: updates will not be checked at startup.",
+ "Güncellemeler": "Updates",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "This version: <b>v{surum}</b>. At startup only the latest version number on GitHub is checked (a single request, at most 3 s); no personal data is sent.",
+ "Açılışta güncellemeleri denetle": "Check for updates at startup",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "To update, download and run the new installer (SesVer-Kurulum-Windows.exe) from the release page; your settings and voices are kept.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "On a Mac, for now download the new version from the release page; details are in the “Güncelleme” (Update) section of the README.",
+ "Yeni sürüm var: v{surum}": "New version available: v{surum}",
+ "Release sayfası": "Release page"
 }

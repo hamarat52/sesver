@@ -12,6 +12,19 @@ from unittest.mock import patch
 import guncelleme as g
 import surum
 
+_AYAR_DIZINI = tempfile.TemporaryDirectory()
+_ayar_yamasi = patch.dict("os.environ", {"SESVER_AYARLAR": str(Path(_AYAR_DIZINI.name) / "ayarlar.json")})
+
+
+def setUpModule():
+    # Testler gerçek ayarlar.json'a bağlı olmasın (kullanıcı kontrolü kapatmış olabilir).
+    _ayar_yamasi.start()
+
+
+def tearDownModule():
+    _ayar_yamasi.stop()
+    _AYAR_DIZINI.cleanup()
+
 
 def _yanit(**alanlar):
     veri = {"tag_name": "v1.2.0", "draft": False, "prerelease": False,
@@ -56,15 +69,35 @@ class KontrolTests(unittest.TestCase):
     def test_yeni_surum_bildirimi(self):
         bilgi = g.kontrol_et(yerel="1.0.0", istek=_yanit(tag_name="v1.10.0"))
         self.assertEqual(bilgi, g.YeniSurum("1.10.0", "https://github.com/hamarat52/sesver/releases/tag/v1.2.0"))
-        win = g.bildirim_html(bilgi, platform="win32")
+        win = g.bildirim_html(bilgi, platform="win32", lang="tr")
         self.assertIn("Yeni sürüm var: v1.10.0", win)
         self.assertIn('href="https://github.com/hamarat52/sesver/releases/tag/v1.2.0"', win)
         self.assertIn("kurulum programını", win)
         self.assertIn("sesleriniz korunur", win)
-        mac = g.bildirim_html(bilgi, platform="darwin")
+        mac = g.bildirim_html(bilgi, platform="darwin", lang="tr")
         self.assertIn("Yeni sürüm var: v1.10.0", mac)
         self.assertIn("release sayfasından", mac)
         self.assertNotIn("Kurulum-Windows", mac)
+
+    def test_bildirim_arayuz_dilinde(self):
+        bilgi = g.YeniSurum("9.9.9", g.RELEASES_URL)
+        en = g.bildirim_html(bilgi, platform="win32", lang="en")
+        self.assertIn("New version available: v9.9.9", en)
+        self.assertIn("Release page", en)
+        self.assertIn("SesVer-Kurulum-Windows.exe", en)
+        self.assertNotIn("Yeni sürüm", en)
+        ja = g.bildirim_html(bilgi, platform="darwin", lang="ja")
+        self.assertIn("v9.9.9", ja)
+        self.assertNotIn("Yeni sürüm", ja)
+
+    def test_github_son_surumu_eskiyse_bildirim_cikmaz(self):
+        # Kabul kriteri: GitHub'daki son sürüm v1.1.0, yerel VERSION 1.2.0 -> bildirim yok.
+        self.assertEqual(surum.__version__, "1.2.0")
+        self.assertIsNone(g.kontrol_et(istek=_yanit(tag_name="v1.1.0")))
+        # Sahte daha yeni sürümle (v1.3.0) bildirim çıkar.
+        bilgi = g.kontrol_et(istek=_yanit(tag_name="v1.3.0"))
+        self.assertEqual(bilgi.surum, "1.3.0")
+        self.assertIn("v1.3.0", g.bildirim_html(bilgi, lang="tr"))
 
     def test_guncelse_veya_eskiyse_bildirim_yok(self):
         self.assertIsNone(g.kontrol_et(yerel="1.2.0", istek=_yanit(tag_name="v1.2.0")))
@@ -135,6 +168,28 @@ class KontrolTests(unittest.TestCase):
         self.assertIsNone(k.sonuc())
         self.assertEqual(cagri, [])
 
+    def test_ayarlar_sekmesiyle_kapatma(self):
+        self.assertTrue(g.ayar_acik_mi())  # ayarlar.json yok -> varsayılan açık
+        try:
+            g.ayar_degistir(False)
+            self.assertFalse(g.ayar_acik_mi())
+            self.assertFalse(g.kontrol_acik_mi({}))
+            cagri = []
+            k = g.ArkaPlanKontrol(kontrol=lambda **kw: cagri.append(kw))
+            k.baslat(ortam={})
+            self.assertIsNone(k.sonuc())
+            self.assertEqual(cagri, [])  # ağ isteği yapılmadı
+            # Diğer ayarlar (arayüz dili) korunur.
+            import i18n
+            i18n.set_setting("arayuz_dili", "en")
+            self.assertFalse(g.ayar_acik_mi())
+            g.ayar_degistir(True)
+            self.assertTrue(g.kontrol_acik_mi({}))
+            self.assertEqual(i18n.get_setting("arayuz_dili"), "en")
+            # Ortam değişkeni ayardan önce gelir.
+            self.assertFalse(g.kontrol_acik_mi({g.ORTAM_DEGISKENI: "0"}))
+        finally:
+            Path(g.i18n.settings_path()).unlink(missing_ok=True)
 
 class ArkaPlanTests(unittest.TestCase):
     def test_baslatilmadiysa_beklemeden_none(self):
@@ -200,6 +255,22 @@ class ArayuzTests(unittest.TestCase):
         baslat.assert_not_called()
         ids = [c["props"].get("elem_id") for c in demo.config["components"]]
         self.assertIn("sv-update-note", ids)
+        # Ayarlar sekmesinde "Açılışta güncellemeleri denetle" (11 dilin her sayfasında bir tane).
+        etiketler = [c["props"].get("label") for c in demo.config["components"]
+                     if "sv-update-toggle" in (c["props"].get("elem_classes") or [])]
+        self.assertEqual(len(etiketler), 11)
+        self.assertIn("Açılışta güncellemeleri denetle", etiketler)
+        self.assertIn("Check for updates at startup", etiketler)
+
+    def test_ayar_dugmesi_kaydeder(self):
+        import app
+        try:
+            self.assertIn("yapılmayacak", app._update_toggle_ui(False))
+            self.assertFalse(g.ayar_acik_mi())
+            self.assertIn("denetlenecek", app._update_toggle_ui(True))
+            self.assertTrue(g.ayar_acik_mi())
+        finally:
+            Path(g.i18n.settings_path()).unlink(missing_ok=True)
 
 
 if __name__ == "__main__":

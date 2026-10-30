@@ -106,6 +106,15 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 - **Sağdan sola (Arapça):** Pragmatik orta yol seçildi: metinler sağdan sola okunur ve sağa hizalanır, sayfa düzeni (ızgara, kart yerleri, sekmeler) soldan sağa kalır. Metin kutuları yazılan içeriğin yönünü izler (Arapça arayüzde Türkçe metin yine soldan sağa yazılır). Tam ayna düzen, Gradio bileşenlerinin RTL desteği tutarsız olduğu için bu sürümde yapılmadı.
 - **Çeviriler:** `locales/<dil>.json` dosyalarındadır; anahtar, Türkçe kaynak metnin kendisidir. Çeviriler yapay zekâ yardımıyla hazırlandı, ana dil konuşanlarca henüz gözden geçirilmedi; düzeltme katkıları memnuniyetle karşılanır. Yeni/değişen metinlerden sonra `python tools/i18n_anahtarlar.py` anahtar listesini (`locales/_kaynak.json`) yeniler, `--check` eksik çeviri ve `{yer_tutucu}`/HTML etiketi uyuşmazlığı arar. Çevirisi olmayan metin Türkçe görünür (arayüz boş kalmaz).
 
+## Güncelleme
+
+SesVer açılışta, arka planda GitHub'daki son sürüm numarasına bakar (tek bir istek, en fazla 3 saniye; hiçbir kişisel veri gönderilmez). Daha yeni bir sürüm varsa sayfanın üstünde **"Yeni sürüm var"** bildirimi çıkar; internet yoksa hiçbir şey göstermez. Kapatmak için: **Ayarlar → Açılışta güncellemeleri denetle**.
+
+- **Windows:** release sayfasındaki yeni `SesVer-Kurulum-Windows.exe`'yi indirip çalıştırın. Ayarlarınız ve sesleriniz korunur.
+- **Mac:** release sayfasından yeni sürümü indirin. DMG kullanıyorsanız yeni `SesVer.app`'i Uygulamalar klasörüne sürükleyip eskisinin yerine koyun (sesleriniz ve ayarlarınız `~/Library/Application Support/SesVer` içinde olduğu için korunur). ZIP/klasör kurulumu kullanıyorsanız yeni klasörü açıp `voices/seslerim` klasörünüzü (kendi sesleriniz) ve `ayarlar.json`'u eski klasörden yenisine kopyalayın. Yeni klasörde ilk açılış, Python ve paket kurulumunu bir kez yeniden yapar.
+
+Bu sürüm numarası kökteki `VERSION` dosyasındadır.
+
 ## Sorun giderme
 
 - **"Windows bilgisayarınızı korudu" penceresinde "Yine de çalıştır" yok:** Önce **Ek bilgi** bağlantısına tıklayın. Hâlâ yoksa indirilen `.exe`'ye sağ tık → **Özellikler** → alttaki **Engellemeyi kaldır** kutusunu işaretleyin → **Tamam**, sonra tekrar çift tıklayın.
@@ -238,6 +247,7 @@ Test metni: “Merhaba, bugün Türkçe ses üretimini deniyoruz.” Her iki WAV
 - Ses üretimi bilgisayarınızda yapılır; metin ve referans ses bulut servisine gönderilmez.
 - Gradio analitiği ve Hugging Face telemetrisi kapalıdır. Sunucu yalnız `127.0.0.1` dinler, herkese açık paylaşım bağlantısı oluşturmaz.
 - İlk model/paket indirmeleri için dış sunuculara bağlanılır. İlk kurulumdan sonra yukarıdaki çevrimdışı seçeneği kullanabilirsiniz.
+- Açılıştaki güncelleme denetimi yalnız `api.github.com/repos/hamarat52/sesver/releases/latest` adresine gövdesiz bir GET isteğidir (başlıklar: `User-Agent: SesVer/<sürüm>`, `Accept`). Ayarlar'dan ya da `SESVER_GUNCELLEME_KONTROLU=0` ile kapatılabilir.
 - Üretilen dosyalar `outputs/` içinde, yüklemelerin/oynatmanın geçici kopyaları Gradio'nun yerel geçici klasöründe saklanabilir. Otomatik silinmez; hassas kayıtları işiniz bitince kendiniz temizleyin. Hugging Face model önbelleği genellikle `~/.cache/huggingface/hub` altındadır.
 - Kişisel sesler ve model ağırlıkları Git'e dahil edilmez. Depo hiçbir hazır kişisel ses içermez.
 

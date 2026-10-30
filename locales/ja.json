@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "メールの下書きを開きました。レポート ファイルがフォルダー内で選択されています: {yol} — メールにドラッグして添付し、ご自身で送信してください。",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "メール アプリを開けませんでした。「クリップボードにコピー」を押し、Gmail で新しいメッセージを開いて貼り付け、{adres} 宛てに送信してください。レポート ファイル: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "レポートをクリップボードにコピーしました。Gmail で新しいメッセージを開いて貼り付けてください。宛先: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "クリップボードにコピーできませんでした。ボックス内のテキストを選択してコピー（Ctrl+A、Ctrl+C）し、{adres} 宛てに送信してください。"
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "クリップボードにコピーできませんでした。ボックス内のテキストを選択してコピー（Ctrl+A、Ctrl+C）し、{adres} 宛てに送信してください。",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "保存しました：起動時に更新を確認します。",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "保存しました：起動時に更新を確認しません。",
+ "Güncellemeler": "アップデート",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "このバージョン：<b>v{surum}</b>。起動時に GitHub の最新バージョン番号だけを確認します（1 回のリクエスト、最大 3 秒）。個人データは一切送信されません。",
+ "Açılışta güncellemeleri denetle": "起動時に更新を確認する",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "更新するには、リリースページから新しいインストーラー（SesVer-Kurulum-Windows.exe）をダウンロードして実行してください。設定と音声はそのまま保持されます。",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "Mac では当面、リリースページから新しいバージョンをダウンロードしてください。詳細は README の「Güncelleme」（更新）セクションにあります。",
+ "Yeni sürüm var: v{surum}": "新しいバージョンがあります：v{surum}",
+ "Release sayfası": "リリースページ"
 }

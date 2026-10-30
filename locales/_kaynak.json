@@ -233,6 +233,8 @@
  "Rapor önizlemesi",
  "E-posta uygulamasında aç",
  "Panoya kopyala",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.",
  "Donanım",
  "Ekran kartı hızlandırma",
  "SesVer ekran kartınızı otomatik algılar; uygunsa doğru PyTorch sürümünü buradan kurar. Hiçbir şeye dokunmazsanız SesVer bugünkü gibi çalışmaya devam eder.",
@@ -244,6 +246,9 @@
  "<b>Neden yeniden başlatma?</b> PyTorch'un işlemci (CPU), NVIDIA (CUDA) ve AMD (ROCm) sürümleri ayrı paketlerdir; çalışan uygulama kullandığı sürümü değiştiremez. Apple Silicon Mac'te ekran kartı zaten kullanılır.",
  "Sorun bildir / Hata raporu gönder",
  "Bir sorun yaşarsanız teknik raporu (sistem bilgisi ve günlüğün son satırları) e-postayla geliştiriciye gönderebilirsiniz. Önce raporu görürsünüz; hiçbir şey kendiliğinden gönderilmez.",
+ "Güncellemeler",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.",
+ "Açılışta güncellemeleri denetle",
  "Merhaba! Bu ses, bilgisayarımda yerel olarak çalışan bir yapay zekâ ile üretildi.",
  "Duygu seçmek sesin benzerliğini biraz azaltır.",
  "Kısa örnek: bu sesle yapılan sonraki üretimlerde benzerlik düşebilir. Daha uzun bir örnek cümleyle yeniden tasarlamanı öneririz.",
@@ -382,5 +387,9 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.",
+ "Yeni sürüm var: v{surum}",
+ "Release sayfası"
 ]

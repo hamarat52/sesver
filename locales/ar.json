@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "فُتحت مسودة البريد. ملف التقرير محدَّد في مجلده: {yol} — اسحبه إلى الرسالة لإرفاقه ثم أرسلها بنفسك.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "تعذّر فتح تطبيق البريد. اضغط “نسخ إلى الحافظة”، وافتح رسالة جديدة في Gmail، والصق التقرير وأرسله إلى {adres}. ملف التقرير: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "نُسخ التقرير إلى الحافظة. افتح رسالة جديدة في Gmail والصقه؛ المستلم: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "تعذّر النسخ إلى الحافظة؛ حدّد النص في المربع وانسخه (Ctrl+A، Ctrl+C) وأرسله إلى {adres}."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "تعذّر النسخ إلى الحافظة؛ حدّد النص في المربع وانسخه (Ctrl+A، Ctrl+C) وأرسله إلى {adres}.",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "تم الحفظ: سيتم التحقق من التحديثات عند بدء التشغيل.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "تم الحفظ: لن يتم التحقق من التحديثات عند بدء التشغيل.",
+ "Güncellemeler": "التحديثات",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "هذا الإصدار: <b>v{surum}</b>. عند بدء التشغيل يتم التحقق فقط من رقم أحدث إصدار على GitHub (طلب واحد، 3 ثوانٍ كحد أقصى)؛ لا يتم إرسال أي بيانات شخصية.",
+ "Açılışta güncellemeleri denetle": "التحقق من التحديثات عند بدء التشغيل",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "للتحديث، نزّل برنامج التثبيت الجديد (SesVer-Kurulum-Windows.exe) من صفحة الإصدار وشغّله؛ ستُحفظ إعداداتك وأصواتك.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "على Mac، نزّل الإصدار الجديد من صفحة الإصدار حاليًا؛ التفاصيل في قسم “Güncelleme” (التحديث) في ملف README.",
+ "Yeni sürüm var: v{surum}": "يتوفر إصدار جديد: v{surum}",
+ "Release sayfası": "صفحة الإصدار"
 }

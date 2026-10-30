@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "已打开邮件草稿。报告文件已在其文件夹中选中：{yol} — 将其拖入邮件作为附件，然后由您自己发送。",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "无法打开邮件应用。请点击“复制到剪贴板”，在 Gmail 中新建邮件，粘贴后发送至 {adres}。报告文件：{yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "报告已复制到剪贴板。请在 Gmail 中新建邮件并粘贴；收件人：{adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "无法复制到剪贴板；请选中文本框中的文字并复制（Ctrl+A、Ctrl+C），然后发送至 {adres}。"
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "无法复制到剪贴板；请选中文本框中的文字并复制（Ctrl+A、Ctrl+C），然后发送至 {adres}。",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "已保存：启动时将检查更新。",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "已保存：启动时将不检查更新。",
+ "Güncellemeler": "更新",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "当前版本：<b>v{surum}</b>。启动时仅查询 GitHub 上的最新版本号（单次请求，最多 3 秒）；不会发送任何个人数据。",
+ "Açılışta güncellemeleri denetle": "启动时检查更新",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "如需更新，请从发布页面下载并运行新的安装程序（SesVer-Kurulum-Windows.exe）；您的设置和声音会被保留。",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "在 Mac 上，目前请从发布页面下载新版本；详情见 README 中的“Güncelleme”（更新）部分。",
+ "Yeni sürüm var: v{surum}": "有新版本：v{surum}",
+ "Release sayfası": "发布页面"
 }

@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "Rascunho de e-mail aberto. O arquivo do relatório está selecionado na pasta: {yol} — arraste-o para o e-mail para anexá-lo e envie você mesmo.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "Não foi possível abrir o aplicativo de e-mail. Clique em “Copiar para a área de transferência”, abra uma nova mensagem no Gmail, cole e envie para {adres}. Arquivo do relatório: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "Relatório copiado para a área de transferência. Abra uma nova mensagem no Gmail e cole; destinatário: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Não foi possível copiar para a área de transferência; selecione o texto da caixa, copie (Ctrl+A, Ctrl+C) e envie para {adres}."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Não foi possível copiar para a área de transferência; selecione o texto da caixa, copie (Ctrl+A, Ctrl+C) e envie para {adres}.",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "Salvo: as atualizações serão verificadas ao iniciar.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "Salvo: as atualizações não serão verificadas ao iniciar.",
+ "Güncellemeler": "Atualizações",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "Esta versão: <b>v{surum}</b>. Ao iniciar, apenas o número da versão mais recente no GitHub é consultado (uma única solicitação, no máximo 3 s); nenhum dado pessoal é enviado.",
+ "Açılışta güncellemeleri denetle": "Verificar atualizações ao iniciar",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "Para atualizar, baixe e execute o novo instalador (SesVer-Kurulum-Windows.exe) na página da versão; suas configurações e vozes são mantidas.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "No Mac, por enquanto baixe a nova versão na página da versão; detalhes na seção “Güncelleme” (Atualização) do README.",
+ "Yeni sürüm var: v{surum}": "Nova versão disponível: v{surum}",
+ "Release sayfası": "Página da versão"
 }

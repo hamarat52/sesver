@@ -25,6 +25,7 @@ import guncelleme
 import hata_raporu
 import hizlandirma as hiz
 import i18n
+import surum
 import voice_designer as vdes
 import voice_library as vlib
 from i18n import t, tr_message
@@ -1734,7 +1735,7 @@ def _guncelleme_bildirimi(lang):
     kuyruğunu bekletmez.
     """
     def goster():
-        metin = guncelleme.bildirim_html(guncelleme.sonuc())
+        metin = guncelleme.bildirim_html(guncelleme.sonuc(), lang=lang)
         return gr.update(value=metin, visible=bool(metin))
     return goster
 
@@ -2170,6 +2171,13 @@ def _watch_failures(trigger, button, **run):
     return event
 
 
+def _update_toggle_ui(acik):
+    """Ayarlar → "Açılışta güncellemeleri denetle" değişince ayarlar.json'a yazar."""
+    acik = guncelleme.ayar_degistir(acik)
+    return t("Kaydedildi: açılışta güncellemeler denetlenecek.") if acik else \
+        t("Kaydedildi: açılışta güncelleme denetimi yapılmayacak.")
+
+
 def _settings_tab():
     """Ayarlar sekmesi: ekran kartı algılama ve hızlandırmalı PyTorch kurulumu + sorun bildirme."""
     lang = i18n.get_lang()
@@ -2206,6 +2214,17 @@ def _settings_tab():
                         "e-postayla geliştiriciye gönderebilirsiniz. Önce raporu görürsünüz; hiçbir şey "
                         "kendiliğinden gönderilmez."))
                 _report_panel(lang, visible=True)
+            with gr.Column(elem_classes=["sv-card"]):
+                _head(_IC_CLOUD, t("Güncellemeler"),
+                      t("Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına "
+                        "bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.",
+                        surum=escape(surum.__version__)))
+                update_check = gr.Checkbox(
+                    label=t("Açılışta güncellemeleri denetle"), value=guncelleme.ayar_acik_mi,
+                    elem_classes=["sv-update-toggle"])
+                update_msg = gr.Markdown("", elem_classes=["sv-fine-md"])
+    update_check.input(_in_lang(_update_toggle_ui, lang), inputs=update_check, outputs=update_msg,
+                       queue=False, show_progress="hidden")
     refresh_out = [status, install, rollback, need]
 
     def enable_gpu():

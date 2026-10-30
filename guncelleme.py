@@ -10,7 +10,9 @@ Gizlilik: istek yalnız GET'tir; gövdesi yoktur. Başlıklarda yalnız User-Age
 (SesVer/<sürüm>) ve Accept vardır. Kullanıcının sesleri, metinleri ve dosya
 yolları hiçbir şekilde gönderilmez.
 
-Kapatmak için: SESVER_GUNCELLEME_KONTROLU=0 (ayrıca false/hayir/no/off).
+Kapatmak için: Ayarlar → "Açılışta güncellemeleri denetle" (ayarlar.json:
+"guncelleme_kontrolu": false) ya da SESVER_GUNCELLEME_KONTROLU=0 (ayrıca
+false/hayir/no/off; ortam değişkeni ayardan önce gelir).
 Yalnız standart kütüphane kullanır.
 """
 import html
@@ -24,7 +26,9 @@ import time
 import urllib.request
 from dataclasses import dataclass
 
+import i18n
 import surum
+from i18n import t
 
 log = logging.getLogger("sesver")
 
@@ -33,6 +37,7 @@ API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
 _GUVENLI_SAYFA_ONEKI = f"https://github.com/{REPO}/releases/"
 ORTAM_DEGISKENI = "SESVER_GUNCELLEME_KONTROLU"
+AYAR_ANAHTARI = "guncelleme_kontrolu"  # ayarlar.json; yoksa açık
 ZAMAN_ASIMI_SN = 3.0  # ağ isteği + bekleme için TOPLAM üst sınır
 _KAPALI = {"0", "false", "hayir", "hayır", "no", "off"}
 _SURUM_RE = re.compile(r"^[vV]?(\d+)\.(\d+)\.(\d+)$")
@@ -58,9 +63,25 @@ def daha_yeni_mi(uzak, yerel):
     return bool(u and y and u > y)
 
 
-def kontrol_acik_mi(ortam=None):
+def ayar_acik_mi():
+    """Ayarlar'daki "Açılışta güncellemeleri denetle" (varsayılan: açık)."""
+    return i18n.get_setting(AYAR_ANAHTARI, True) is not False
+
+
+def ayar_degistir(acik):
+    """Ayarı ayarlar.json'a yazar; bir sonraki açılıştan itibaren geçerlidir."""
+    acik = bool(acik)
+    i18n.set_setting(AYAR_ANAHTARI, acik)
+    log.info("Güncelleme kontrolü ayarı: %s.", "açık" if acik else "kapalı")
+    return acik
+
+
+def kontrol_acik_mi(ortam=None, ayar=None):
+    """Ortam değişkeni kapalıysa hayır; değilse Ayarlar'daki seçim (ayar=None → ayarlar.json)."""
     deger = (os.environ if ortam is None else ortam).get(ORTAM_DEGISKENI, "")
-    return deger.strip().lower() not in _KAPALI
+    if deger.strip().lower() in _KAPALI:
+        return False
+    return ayar_acik_mi() if ayar is None else bool(ayar)
 
 
 def _istek_yap(url, zaman_asimi):
@@ -107,21 +128,22 @@ def kontrol_et(yerel=None, zaman_asimi=ZAMAN_ASIMI_SN, istek=_istek_yap, kayit=N
         return None
 
 
-def bildirim_html(bilgi, platform=None):
-    """Arayüzde gösterilecek küçük bildirim. bilgi None ise boş metin."""
+def bildirim_html(bilgi, platform=None, lang=None):
+    """Arayüzde gösterilecek küçük bildirim (``lang`` dilinde). bilgi None ise boş metin."""
     if bilgi is None:
         return ""
     platform = sys.platform if platform is None else platform
     if platform.startswith("win"):
-        talimat = ("Güncellemek için release sayfasındaki yeni kurulum programını "
-                   "(SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.")
+        talimat = t("Güncellemek için release sayfasındaki yeni kurulum programını "
+                    "(SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.", lang)
     else:
-        talimat = ("Mac'te şimdilik yeni sürümü release sayfasından indirin; "
-                   "ayrıntı README'deki “Güncelleme” bölümünde.")
-    s, sayfa = html.escape(bilgi.surum), html.escape(bilgi.sayfa, quote=True)
+        talimat = t("Mac'te şimdilik yeni sürümü release sayfasından indirin; "
+                    "ayrıntı README'deki “Güncelleme” bölümünde.", lang)
+    sayfa = html.escape(bilgi.sayfa, quote=True)
+    baslik = html.escape(t("Yeni sürüm var: v{surum}", lang, surum=bilgi.surum))
     return (
-        f'<div class="sv-update" role="status"><b>Yeni sürüm var: v{s}</b> '
-        f'<a href="{sayfa}" target="_blank" rel="noopener noreferrer">Release sayfası</a>'
+        f'<div class="sv-update" role="status"><b>{baslik}</b> '
+        f'<a href="{sayfa}" target="_blank" rel="noopener noreferrer">{html.escape(t("Release sayfası", lang))}</a>'
         f'<span class="sv-update-note">{html.escape(talimat)}</span></div>'
     )
 
@@ -138,14 +160,15 @@ class ArkaPlanKontrol:
         self._kilit = threading.Lock()
         self._gec_kaldi_yazildi = False
 
-    def baslat(self, ortam=None):
-        """Thread'i başlatır (idempotent). Kapalıysa hiçbir istek yapılmaz."""
+    def baslat(self, ortam=None, ayar=None):
+        """Thread'i başlatır (idempotent). Kapalıysa (ortam değişkeni ya da Ayarlar) hiçbir
+        istek yapılmaz. ayar=None → ayarlar.json'daki seçim."""
         with self._kilit:
             if self._baslangic is not None:
                 return
             self._baslangic = time.monotonic()
-            if not kontrol_acik_mi(ortam):
-                log.info("Güncelleme kontrolü kapalı (%s=0).", ORTAM_DEGISKENI)
+            if not kontrol_acik_mi(ortam, ayar):
+                log.info("Güncelleme kontrolü kapalı (Ayarlar ya da %s=0).", ORTAM_DEGISKENI)
                 self._bitti.set()
                 return
             threading.Thread(target=self._calis, name="sesver-guncelleme", daemon=True).start()

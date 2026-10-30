@@ -181,21 +181,35 @@ def set_lang(lang, persist=True):
     global _current
     _current = normalize(lang)
     if persist:
-        path = settings_path()
-        try:
-            data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
-            if not isinstance(data, dict):
-                data = {}
-        except (OSError, ValueError):
-            data = {}
-        data["arayuz_dili"] = _current
-        try:
-            tmp = path.with_name(path.name + ".yaz")
-            tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            os.replace(tmp, path)
-        except OSError:
-            pass  # salt okunur klasör: dil yalnız bu oturum için geçerli kalır
+        set_setting("arayuz_dili", _current)
     return _current
+
+
+def _read_settings():
+    path = settings_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    except (OSError, ValueError):
+        data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def get_setting(key, default=None):
+    """ayarlar.json'daki bir ayar; dosya/anahtar yoksa ya da okunamazsa ``default``."""
+    return _read_settings().get(key, default)
+
+
+def set_setting(key, value):
+    """ayarlar.json'a tek bir ayar yazar (diğer ayarlar korunur); hata sessizce yutulur."""
+    path = settings_path()
+    data = _read_settings()
+    data[key] = value
+    try:
+        tmp = path.with_name(path.name + ".yaz")
+        tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        pass  # salt okunur klasör: ayar yalnız bu oturum için geçerli kalır
 
 
 @contextmanager

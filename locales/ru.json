@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "Черновик письма открыт. Файл отчёта выделен в своей папке: {yol} — перетащите его в письмо, чтобы прикрепить, и отправьте письмо сами.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "Не удалось открыть почтовое приложение. Нажмите «Копировать в буфер обмена», создайте новое письмо в Gmail, вставьте отчёт и отправьте на адрес {adres}. Файл отчёта: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "Отчёт скопирован в буфер обмена. Создайте новое письмо в Gmail и вставьте его; получатель: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Не удалось скопировать в буфер обмена; выделите текст в поле, скопируйте его (Ctrl+A, Ctrl+C) и отправьте на адрес {adres}."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Не удалось скопировать в буфер обмена; выделите текст в поле, скопируйте его (Ctrl+A, Ctrl+C) и отправьте на адрес {adres}.",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "Сохранено: обновления будут проверяться при запуске.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "Сохранено: обновления не будут проверяться при запуске.",
+ "Güncellemeler": "Обновления",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "Эта версия: <b>v{surum}</b>. При запуске проверяется только номер последней версии на GitHub (один запрос, не более 3 с); личные данные не отправляются.",
+ "Açılışta güncellemeleri denetle": "Проверять обновления при запуске",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "Чтобы обновиться, скачайте и запустите новый установщик (SesVer-Kurulum-Windows.exe) со страницы релиза; ваши настройки и голоса сохранятся.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "На Mac пока скачайте новую версию со страницы релиза; подробности — в разделе «Güncelleme» (Обновление) в README.",
+ "Yeni sürüm var: v{surum}": "Доступна новая версия: v{surum}",
+ "Release sayfası": "Страница релиза"
 }

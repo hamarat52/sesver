@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "E-Mail-Entwurf geöffnet. Die Berichtsdatei ist in ihrem Ordner markiert: {yol} — ziehen Sie sie in die E-Mail, um sie anzuhängen, und senden Sie sie selbst.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "Die E-Mail-App konnte nicht geöffnet werden. Klicken Sie auf „In die Zwischenablage kopieren“, öffnen Sie in Gmail eine neue Nachricht, fügen Sie den Bericht ein und senden Sie ihn an {adres}. Berichtsdatei: {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "Bericht in die Zwischenablage kopiert. Öffnen Sie in Gmail eine neue Nachricht und fügen Sie ihn ein; Empfänger: {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Kopieren in die Zwischenablage fehlgeschlagen; markieren Sie den Text im Feld, kopieren Sie ihn (Strg+A, Strg+C) und senden Sie ihn an {adres}."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Kopieren in die Zwischenablage fehlgeschlagen; markieren Sie den Text im Feld, kopieren Sie ihn (Strg+A, Strg+C) und senden Sie ihn an {adres}.",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "Gespeichert: Beim Start wird nach Updates gesucht.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "Gespeichert: Beim Start wird nicht nach Updates gesucht.",
+ "Güncellemeler": "Updates",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "Diese Version: <b>v{surum}</b>. Beim Start wird nur die neueste Versionsnummer auf GitHub abgefragt (eine einzige Anfrage, höchstens 3 s); es werden keine persönlichen Daten gesendet.",
+ "Açılışta güncellemeleri denetle": "Beim Start nach Updates suchen",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "Zum Aktualisieren das neue Installationsprogramm (SesVer-Kurulum-Windows.exe) von der Release-Seite herunterladen und ausführen; Ihre Einstellungen und Stimmen bleiben erhalten.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "Auf dem Mac laden Sie die neue Version vorerst von der Release-Seite herunter; Details im Abschnitt „Güncelleme“ (Aktualisierung) der README.",
+ "Yeni sürüm var: v{surum}": "Neue Version verfügbar: v{surum}",
+ "Release sayfası": "Release-Seite"
 }

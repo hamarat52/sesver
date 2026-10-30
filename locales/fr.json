@@ -384,5 +384,14 @@
  "E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya sürükleyip ekleyin ve kendiniz gönderin.": "Brouillon d'e-mail ouvert. Le fichier du rapport est sélectionné dans son dossier : {yol} — glissez-le dans l'e-mail pour le joindre, puis envoyez-le vous-même.",
  "E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}": "Impossible d'ouvrir l'application de messagerie. Appuyez sur « Copier dans le presse-papiers », ouvrez un nouveau message dans Gmail, collez-le et envoyez-le à {adres}. Fichier du rapport : {yol}",
  "Rapor panoya kopyalandı. Gmail'de yeni ileti açıp yapıştırın; alıcı: {adres}": "Rapport copié dans le presse-papiers. Ouvrez un nouveau message dans Gmail et collez-le ; destinataire : {adres}",
- "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Impossible de copier dans le presse-papiers ; sélectionnez le texte de la zone, copiez-le (Ctrl+A, Ctrl+C) et envoyez-le à {adres}."
+ "Panoya kopyalanamadı; kutudaki metni seçip kopyalayın (Ctrl+A, Ctrl+C) ve {adres} adresine gönderin.": "Impossible de copier dans le presse-papiers ; sélectionnez le texte de la zone, copiez-le (Ctrl+A, Ctrl+C) et envoyez-le à {adres}.",
+ "Kaydedildi: açılışta güncellemeler denetlenecek.": "Enregistré : les mises à jour seront vérifiées au démarrage.",
+ "Kaydedildi: açılışta güncelleme denetimi yapılmayacak.": "Enregistré : les mises à jour ne seront pas vérifiées au démarrage.",
+ "Güncellemeler": "Mises à jour",
+ "Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.": "Cette version : <b>v{surum}</b>. Au démarrage, seul le numéro de la dernière version sur GitHub est consulté (une seule requête, 3 s maximum) ; aucune donnée personnelle n'est envoyée.",
+ "Açılışta güncellemeleri denetle": "Vérifier les mises à jour au démarrage",
+ "Güncellemek için release sayfasındaki yeni kurulum programını (SesVer-Kurulum-Windows.exe) indirip çalıştırın; ayarlarınız ve sesleriniz korunur.": "Pour mettre à jour, téléchargez et lancez le nouveau programme d'installation (SesVer-Kurulum-Windows.exe) depuis la page de la version ; vos réglages et vos voix sont conservés.",
+ "Mac'te şimdilik yeni sürümü release sayfasından indirin; ayrıntı README'deki “Güncelleme” bölümünde.": "Sur Mac, téléchargez pour l'instant la nouvelle version depuis la page de la version ; détails dans la section « Güncelleme » (Mise à jour) du README.",
+ "Yeni sürüm var: v{surum}": "Nouvelle version disponible : v{surum}",
+ "Release sayfası": "Page de la version"
 }
