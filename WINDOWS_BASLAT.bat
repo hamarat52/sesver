@@ -7,6 +7,43 @@ REM blok icinde errorlevel acilimi klasik batch tuzaklaridir. Duz satir + goto k
 setlocal
 cd /d "%~dp0"
 
+REM ---- Yalniz kurulum kipi (Windows kurulum sihirbazi kullanir) ----
+REM SESVER_YALNIZ_KURULUM=1 ortam degiskeni ya da /yalniz-kurulum argumani ile:
+REM ilk kurulum/esitleme yapilir, SesVer BASLATILMAZ, hicbir pause beklenmez;
+REM basarida 0, hatada 1 ile cikilir. Her adimda kurulum_durum.txt dosyasina tek
+REM satir yazilir: "<adim>/<toplam>|<ASCII kisa metin>", son satir "tamam" ya da
+REM "hata:<ADIM>" (bicim tek yerde: tools/kurulum_durum_bicimi.py; sihirbaz
+REM windows\SesVer.iss ayni bicimi okur). Tum cikti kurulum_log.txt dosyasina gider;
+REM sihirbazin iptal edebilmesi icin bu cmd.exe surecinin PID'i kurulum_pid.txt'ye
+REM yazilir. Normal (cift tik) calismada bu bolum atlanir ve :durum hicbir sey yazmaz.
+set "SV_TOPLAM_ADIM=6"
+set "SV_ADIM_NO=0"
+set "SV_YK=0"
+if /i "%~1"=="/yalniz-kurulum" set "SESVER_YALNIZ_KURULUM=1"
+if "%SESVER_YALNIZ_KURULUM%"=="1" set "SV_YK=1"
+if not "%SV_YK%"=="1" goto :yk_hazir
+REM 32 bit bir cagiran (32 bit kurulum programi) 32 bit cmd.exe acmis olabilir; o
+REM zaman System32 (nvidia-smi, tar, curl) SysWOW64'e yonlenir ve ekran karti
+REM gorulmez. Bu durumda betik 64 bit cmd.exe ile yeniden calistirilir.
+if not defined PROCESSOR_ARCHITEW6432 goto :yk_mimari_tamam
+if not exist "%SystemRoot%\Sysnative\cmd.exe" goto :yk_mimari_tamam
+"%SystemRoot%\Sysnative\cmd.exe" /d /c call "%~f0" /yalniz-kurulum
+exit /b %errorlevel%
+:yk_mimari_tamam
+REM Betik kendini bir kez daha cagirir; tum ciktisi kurulum_log.txt'ye yazilir.
+if "%SESVER_YK_GUNLUK%"=="1" goto :yk_gunluk_acik
+set "SESVER_YK_GUNLUK=1"
+call "%~f0" /yalniz-kurulum >"kurulum_log.txt" 2>&1
+exit /b %errorlevel%
+:yk_gunluk_acik
+echo [BILGI] Yalniz kurulum kipi: SesVer kurulumdan sonra baslatilmaz.
+del /f /q "kurulum_pid.txt" >nul 2>nul
+REM PowerShell'in ust sureci bu betigi calistiran cmd.exe'dir (dogrudan cagri).
+powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "(Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID)).ParentProcessId" >"kurulum_pid.txt" 2>nul
+if errorlevel 1 echo [UYARI] Surec numarasi yazilamadi; sihirbaz iptal dugmesi yedek yontemi kullanir.
+call :durum 0 "Basliyor"
+:yk_hazir
+
 REM Python ortami secim sirasi:
 REM  1. python-embed\python.exe: bu klasore indirilmis tasinabilir Python
 REM     - astral-sh/python-build-standalone. Kurulum ve venv gerekmez; paketler
@@ -34,6 +71,7 @@ echo [UYARI] python-embed klasorundeki Python calismiyor; silinip yeniden indiri
 rd /s /q "python-embed" >nul 2>nul
 :embed_yok
 if exist ".venv\Scripts\python.exe" if exist ".venv\sesver_kurulum_tamam.txt" goto :venv_kullan
+call :durum 1 "Python indiriliyor"
 call :embed_kur
 if not errorlevel 1 goto :embed_kullan
 echo.
@@ -54,6 +92,7 @@ goto :kurulum
 
 :sistem_python
 REM ---- Yedek yontem: sistem Python + .venv ----
+call :durum 1 "Bilgisayardaki Python araniyor"
 REM Python secimi: once "py -3.11", sonra "py", sonra "python".
 REM where ile varlik, --version ile gercekten calistigi kontrol edilir
 REM (Microsoft Store'un sahte python.exe kisayolu where'de gorunur ama calismaz).
@@ -65,6 +104,8 @@ py --version >nul 2>nul && set "PY=py" && goto :py_bulundu
 where python >nul 2>nul || goto :python_yok
 python --version >nul 2>nul && set "PY=python" && goto :py_bulundu
 :python_yok
+set "ADIM=Python hazirlama"
+if "%SV_YK%"=="1" goto :yk_hata
 echo.
 echo [HATA] Python hazirlanamadi.
 echo Otomatik Python indirmesi basarisiz oldu ve bilgisayarda calisan Python bulunamadi.
@@ -96,7 +137,9 @@ REM   isaret ayni                      -> kurulum atlanir
 REM   farkli ya da eski bicim "tamam"  -> :esitle (yalniz pip install -r ...)
 if not exist "%MARK%" goto :ilk_kurulum
 call :isaret_hesapla
-REM Ozet hesaplanamadiysa (Python bozuk vb.) eskisi gibi dogrudan baslatilir.
+REM Ozet hesaplanamadiysa (Python bozuk vb.) eskisi gibi dogrudan baslatilir;
+REM yalniz kurulum kipinde bu bir hatadir (Python calismiyor, SesVer de acilmaz).
+if errorlevel 1 if "%SV_YK%"=="1" goto :yk_isaret_hata
 if errorlevel 1 goto :baslat
 set "SV_ISARET="
 set /p SV_ISARET=<"%MARK%"
@@ -119,6 +162,7 @@ REM patlar. Boyle bozuk bir kurulumu "koru" diye kisitlamak hatayi kalicilastiri
 REM Yeni requirements daha yeni torch isterse esitleme hata verir (sessizce CPU'ya
 REM dusmek yerine). --upgrade kullanilmaz: gereksinimi zaten karsilayan paketlere
 REM dokunulmaz.
+call :durum 3 "Ekran karti kontrol ediliyor"
 set "SV_KISIT="
 del "%MARK%.kisit" >nul 2>nul
 where nvidia-smi >nul 2>nul
@@ -134,10 +178,12 @@ REM voxcpm yalniz pini degistiyse ya da eski "tamam" isaretinde (pin bilinmiyor)
 set "SV_ESKI_VOX="
 for /f "tokens=2 delims= " %%v in ("%SV_ISARET%") do set "SV_ESKI_VOX=%%v"
 if "%SV_ESKI_VOX%"=="voxcpm=%VOXCPM_SURUM%" goto :esitle_req
+call :durum 5 "voxcpm esitleniyor"
 set "ADIM=voxcpm esitleme"
 "%PYEXE%" -m pip install --no-deps voxcpm==%VOXCPM_SURUM% --no-warn-script-location
 if errorlevel 1 goto :esitle_hata
 :esitle_req
+call :durum 6 "Paketler esitleniyor (requirements.txt)"
 set "ADIM=requirements.txt esitleme"
 "%PYEXE%" -m pip install -r requirements.txt %SV_KISIT% --no-warn-script-location
 if errorlevel 1 goto :esitle_hata
@@ -153,6 +199,7 @@ goto :hata
 
 :ilk_kurulum
 echo Ilk kurulum yapiliyor - bu sadece bir kere calisir...
+call :durum 2 "pip hazirlaniyor"
 set "ADIM=pip kontrolu"
 "%PYEXE%" -m pip --version >nul 2>nul
 if not errorlevel 1 goto :pip_var
@@ -166,6 +213,7 @@ REM NVIDIA ekran karti varsa CUDA destekli PyTorch kurulur; yoksa normal
 REM "pip install torch" (PyPI varsayilani) sessizce SADECE CPU derlemesini
 REM kurar ve uretim CPU'da calisir (GPU bos durur). nvidia-smi.exe sadece
 REM NVIDIA suruculeri kuruluysa PATH'te olur, bu yuzden guvenilir bir tespit.
+call :durum 3 "Ekran karti algilaniyor"
 set "ADIM=GPU tespiti"
 where nvidia-smi >nul 2>nul
 if errorlevel 1 goto :gpu_yok_islemci
@@ -174,22 +222,27 @@ set "ADIM=CUDA destekli PyTorch kurulumu"
 set "CUDA_ETIKET="
 for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^>nul`) do set "CUDA_ETIKET=%%T"
 if "%CUDA_ETIKET%"=="" goto :gpu_etiket_yok
+call :durum 4 "PyTorch kuruluyor (%CUDA_ETIKET%)"
 echo CUDA destekli PyTorch kuruluyor: %CUDA_ETIKET%
 "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
 if errorlevel 1 echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
 goto :gpu_bitti
 :gpu_etiket_yok
+call :durum 4 "PyTorch (CPU) paketlerle kurulacak"
 echo Ekran karti icin uygun CUDA surumu secilemedi, CPU surumune devam edilecek.
 goto :gpu_bitti
 :gpu_yok_islemci
+call :durum 4 "PyTorch (CPU) paketlerle kurulacak"
 echo NVIDIA ekran karti bulunamadi, CPU modunda devam edilecek.
 :gpu_bitti
 REM --no-deps: voxcpm'in gereksiz agir bagimliliklarini (funasr, matplotlib,
 REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor)
 REM atlayip yalniz requirements.txt'teki gercekten gerekli paketleri kurar.
+call :durum 5 "voxcpm kuruluyor"
 set "ADIM=voxcpm kurulumu"
 "%PYEXE%" -m pip install --no-deps voxcpm==%VOXCPM_SURUM% --no-warn-script-location
 if errorlevel 1 goto :hata
+call :durum 6 "Paketler kuruluyor (requirements.txt)"
 set "ADIM=requirements.txt kurulumu"
 "%PYEXE%" -m pip install -r requirements.txt --no-warn-script-location
 if errorlevel 1 goto :hata
@@ -219,6 +272,7 @@ for %%I in ("%MARK%") do set "GPU_FIX_MARK=%%~dpIsesver_gpu_duzeltme_v2.txt"
 where nvidia-smi >nul 2>nul
 if errorlevel 1 goto :gpu_fix_bitti
 if exist "%GPU_FIX_MARK%" goto :gpu_fix_bitti
+call :durum 6 "Ekran karti dogrulaniyor"
 set "CUDA_ETIKET="
 "%PYEXE%" hizlandirma.py --cuda-dogrula >nul 2>nul
 if not errorlevel 1 goto :gpu_fix_isaretle
@@ -226,10 +280,13 @@ echo NVIDIA ekran karti var ama PyTorch ekran kartini kullanamiyor, duzeltiliyor
 set "CUDA_ETIKET="
 for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^>nul`) do set "CUDA_ETIKET=%%T"
 if "%CUDA_ETIKET%"=="" goto :gpu_fix_isaretle
+call :durum 6 "PyTorch ekran karti icin yeniden kuruluyor (%CUDA_ETIKET%)"
 "%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
 :gpu_fix_isaretle
 echo %CUDA_ETIKET%>"%GPU_FIX_MARK%"
 :gpu_fix_bitti
+REM Yalniz kurulum kipi: SesVer baslatilmaz (sihirbaz kisayollari ayarlar).
+if "%SV_YK%"=="1" goto :yk_tamam
 set "SV_PORT=%GRADIO_SERVER_PORT%"
 if "%SV_PORT%"=="" set "SV_PORT=7860"
 REM Normal yol: konsolsuz pythonw.exe ile baslat; SesVer penceresi acilinca bu
@@ -295,6 +352,7 @@ pause
 exit /b 0
 
 :hata
+if "%SV_YK%"=="1" goto :yk_hata
 echo.
 echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
 echo Yukaridaki hata mesajini okuyun. Internet baglantinizi kontrol edip
@@ -303,7 +361,30 @@ echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adres
 pause
 exit /b 1
 
+REM ---- Yalniz kurulum kipinin sonlari: pause YOK, cikis kodu dondurulur ----
+:yk_tamam
+echo Kurulum tamamlandi. Yalniz kurulum kipi: SesVer baslatilmadi.
+call :durum %SV_TOPLAM_ADIM% "tamam"
+exit /b 0
+:yk_isaret_hata
+set "ADIM=kurulum isareti hesaplama - Python calismiyor"
+:yk_hata
+echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
+echo Kurulum kaldigi yerden devam eder: SesVer simgesine ya da WINDOWS_BASLAT.bat dosyasina tekrar cift tiklayin.
+call :durum %SV_ADIM_NO% "hata:%ADIM%"
+exit /b 1
+
 REM ================= Alt yordamlar =================
+
+:durum
+REM %1 = adim no, %2 = ASCII kisa metin. Yalniz kurulum kipinde kurulum_durum.txt
+REM dosyasini tek satirla degistirir: "<adim>/<toplam>|<metin>". Sihirbaz bos ya da
+REM yarim okunan satiri yok sayar. Normal kipte hicbir sey yapmaz.
+if not "%SV_YK%"=="1" exit /b 0
+set "SV_ADIM_NO=%~1"
+>"kurulum_durum.txt" echo %~1/%SV_TOPLAM_ADIM%^|%~2
+echo [DURUM] %~1/%SV_TOPLAM_ADIM%^|%~2
+exit /b 0
 
 :isaret_hesapla
 REM Beklenen kurulum isaretini "%MARK%.yeni" dosyasina yazar, SV_BEKLENEN'e okur.
