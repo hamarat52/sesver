@@ -189,6 +189,9 @@ class InstallTests(unittest.TestCase):
                          ("2.14.1", "2.11.0"))
         # torchaudio'nun aynı sürümü yoksa ona dokunulmaz
         self.assertEqual(h.resolve("cu130", {"torch": "2.14.1", "torchaudio": "2.9.0"}, fetch), ("2.14.1", None))
+        # cu128 (Blackwell): resolve/wheel_versions etiket parametreli, cu128'i de taniyor
+        # (kurulu surum listede yoksa en yenisi secilir, cu130/cu126 ile ayni davranis).
+        self.assertEqual(h.resolve("cu128", {"torch": "2.9.1"}, fetch), ("2.14.1", None))
 
     def test_install_command(self):
         cmd = h.install_command("cu130", "2.14.1", "2.11.0", python="py", pip_version="26.2.1")
@@ -244,6 +247,42 @@ class RecommendedTagCliTests(unittest.TestCase):
         p = h.plan(hw, None)
         self.assertEqual(p["durum"], h.DRIVER_OLD)
         self.assertIsNone(h.recommended_tag(hw, None))  # kurulum yapma, surucu guncellemesi gerekir
+
+    def test_blackwell_driver_570_to_579_picks_cu128(self):
+        # RTX 5070, surucu 572, cc 12.0: cu126'da cekirdek yok; cu130 henuz gerekmez (580 alti).
+        runner, which, _ = fake({"nvidia-smi": "NVIDIA GeForce RTX 5070, 572.16, 12.0\n"},
+                                tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        p = h.plan(hw, None)
+        self.assertEqual((p["durum"], p["hedef"], p["etiket"]), (h.INSTALL, "cuda", h.CUDA_BLACKWELL))
+        self.assertEqual(h.recommended_tag(hw, None), "cu128")
+
+    def test_blackwell_driver_580_plus_picks_cu130(self):
+        # RTX 5060 Laptop, surucu 581: Blackwell + driver>=580 -> cu130 (genel yolla ayni).
+        runner, which, _ = fake({"nvidia-smi": "NVIDIA GeForce RTX 5060 Laptop GPU, 581.80, 12.0\n"},
+                                tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        self.assertEqual(h.recommended_tag(hw, None), h.CUDA_NEW)
+
+    def test_blackwell_driver_below_570_is_driver_old_not_cu126(self):
+        # RTX 5090, surucu 560: >=525 (genel esik) ama Blackwell icin 570 sarti saglanmaz;
+        # cu126 onerilirse "no kernel image is available" ile patlar - DRIVER_OLD donulmeli.
+        runner, which, _ = fake({"nvidia-smi": "NVIDIA GeForce RTX 5090, 560.94, 12.0\n"},
+                                tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        p = h.plan(hw, None)
+        self.assertEqual((p["durum"], p["min_surucu"]), (h.DRIVER_OLD, 570))
+        self.assertIsNone(h.recommended_tag(hw, None))
+
+    def test_blackwell_without_compute_cap_detected_by_name(self):
+        # Eski nvidia-smi compute_cap alanini desteklemiyor; ad "RTX 50xx" deseniyle taninir.
+        def smi(cmd):
+            return None if "compute_cap" in cmd[-1] else "NVIDIA GeForce RTX 5070 Laptop GPU, 575.64\n"
+        runner, which, _ = fake({"nvidia-smi": smi}, tools=("nvidia-smi",))
+        hw = h.detect("Windows", "AMD64", runner, which)
+        self.assertIsNone(hw["gpus"][0]["compute_cap"])
+        p = h.plan(hw, None)
+        self.assertEqual((p["durum"], p["etiket"]), (h.INSTALL, h.CUDA_BLACKWELL))
 
     def test_no_gpu_and_already_active_and_broken_give_no_tag(self):
         runner, which, _ = fake({})

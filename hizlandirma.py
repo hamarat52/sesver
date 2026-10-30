@@ -11,6 +11,16 @@ de ``torch.cuda`` arayüzünü kullandığından AMD (Linux) kartlar aynı yolda
 Desteklenen kurulum yolları (2026-10 itibarıyla doğrulandı):
   * NVIDIA, Windows/Linux x86-64: download.pytorch.org/whl/cu130 (sürücü >= 580,
     compute capability >= 7.5) veya cu126 (sürücü >= 525, daha eski kartlar).
+  * NVIDIA Blackwell (RTX 50 serisi, compute capability >= 12.0 ya da sürücüde
+    compute_cap alanı yoksa kart adı "RTX 50xx"): cu126'da bu mimari için çekirdek
+    YOK ("no kernel image is available"). cu128 CUDA 12.8 GA'dan beri gerekli en
+    düşük sürücü Linux >=570.26 / Windows >=570.65'tir (NVIDIA CUDA 12.8 Release
+    Notes, Table 3: https://docs.nvidia.com/cuda/archive/12.8.0/cuda-toolkit-release-notes/ ;
+    cu128 cp311 win_amd64 tekerlekleri doğrulandı: https://download.pytorch.org/whl/cu128/torch/ ,
+    ör. torch-2.9.1+cu128-cp311-cp311-win_amd64.whl). Bu yüzden Blackwell için:
+    sürücü >= 580 → cu130, sürücü 570-579 → cu128, sürücü < 570 → DRIVER_OLD
+    (genel kartların 525 alt sınırından farklı: Blackwell çekirdekleri cu126'da
+    hiç yok, 525-569 sürücüyle de çalışan bir etiket kurulamaz).
   * AMD, Linux x86-64: download.pytorch.org/whl/rocm7.2.
 Desteklenmeyen (algılanır ve nedeni açıklanır):
   * AMD, Windows: torch-directml en son torch 2.4.1'e bağlı (VoxCPM2 >= 2.5 ister,
@@ -34,7 +44,7 @@ from pathlib import Path
 NVIDIA, AMD, INTEL, APPLE, OTHER = "nvidia", "amd", "intel", "apple", "other"
 INDEX = "https://download.pytorch.org/whl/{tag}"
 PYPI = "https://pypi.org/simple"
-CUDA_NEW, CUDA_OLD, ROCM, CPU = "cu130", "cu126", "rocm7.2", "cpu"
+CUDA_NEW, CUDA_OLD, CUDA_BLACKWELL, ROCM, CPU = "cu130", "cu126", "cu128", "rocm7.2", "cpu"
 MIN_TORCH = (2, 5, 0)  # voxcpm 2.0.3: torch>=2.5.0
 
 # Planın durum kodları (arayüz metni app.py'de, i18n ile)
@@ -154,6 +164,21 @@ def sysfs_gpus(root="/sys/class/drm"):
 def _driver_major(driver):
     m = re.match(r"\s*(\d+)", driver or "")
     return int(m.group(1)) if m else None
+
+
+_RTX_50_RE = re.compile(r"\brtx\s*50\d\d\b", re.I)
+
+
+def is_blackwell(gpu):
+    """Blackwell (RTX 50 serisi, sm_120+): cc biliniyorsa cc >= 12.0; bilinmiyorsa
+
+    (ör. eski nvidia-smi ``compute_cap`` alanını desteklemiyor) kart adından
+    "RTX 50xx" deseni aranır. cu126'da bu mimari için derlenmiş çekirdek yok;
+    cu128/cu130 gerekir (bkz. modül başındaki not + kaynak linkler)."""
+    cc = (gpu or {}).get("compute_cap")
+    if cc is not None:
+        return cc >= 12.0
+    return bool(_RTX_50_RE.search((gpu or {}).get("name") or ""))
 
 
 # --- Algılama --------------------------------------------------------------------
@@ -288,9 +313,10 @@ def _x86(machine):
 
 def plan(hw, info):
     """Ne yapılabileceği: {"durum", "hedef" (cuda/rocm/None), "etiket" (cu130…), "gpu"}."""
-    def out(durum, hedef=None, etiket=None, gpu=None):
+    def out(durum, hedef=None, etiket=None, gpu=None, min_surucu=None):
         return {"durum": durum, "hedef": hedef, "etiket": etiket,
-                "gpu": gpu["name"] if gpu else None, "surucu": (gpu or {}).get("driver")}
+                "gpu": gpu["name"] if gpu else None, "surucu": (gpu or {}).get("driver"),
+                "min_surucu": min_surucu}
 
     if hw["system"] == "Darwin":
         return out(MAC, gpu=hw["gpus"][0] if hw["gpus"] else None)
@@ -314,7 +340,14 @@ def plan(hw, info):
             return out(NO_DRIVER, gpu=gpu)
         major = _driver_major(gpu["driver"])
         if major is None or major < 525:
-            return out(DRIVER_OLD, gpu=gpu)
+            return out(DRIVER_OLD, gpu=gpu, min_surucu=525)
+        if is_blackwell(gpu):
+            # cu126'da bu mimari icin cekirdek yok (bkz. modul basi notu); cu128'in
+            # gerektirdigi en dusuk surucu 570'tir (CUDA 12.8 GA), genel 525 degil.
+            if major < 570:
+                return out(DRIVER_OLD, gpu=gpu, min_surucu=570)
+            tag = CUDA_NEW if major >= 580 else CUDA_BLACKWELL
+            return out(INSTALL, "cuda", tag, gpu)
         cc = gpu["compute_cap"]
         new = major >= 580 and (cc is None or cc >= 7.5)
         return out(INSTALL, "cuda", CUDA_NEW if new else CUDA_OLD, gpu)
