@@ -92,8 +92,8 @@ class MailtoTests(unittest.TestCase):
         rep = _report(tail_lines=3)
         url = hr.mailto_url(rep)
         addr, subject, body = self._parts(url)
-        self.assertEqual(addr, "premium.hamarat@gmail.com")
-        self.assertEqual(hr.DESTEK_EPOSTA, "premium.hamarat@gmail.com")
+        self.assertEqual(addr, "hermes.agent.hamarat@gmail.com")
+        self.assertEqual(hr.DESTEK_EPOSTA, "hermes.agent.hamarat@gmail.com")
         self.assertRegex(subject, r"^SesVer hata raporu \S+.* \((Windows|macOS|Linux)\b.*\)$")
         self.assertEqual(rep["filename"], "SesVer-hata-raporu-20261030-120005.txt")
         self.assertIn("SesVer-hata-raporu-20261030-120005.txt", body)
@@ -312,8 +312,8 @@ class PlatformActionTests(unittest.TestCase):
             self.assertRegex(path.name, r"^SesVer-hata-raporu-\d{8}-\d{6}\.txt$")
             self.assertEqual(path.read_text(encoding="utf-8"), rep["text"])
             reveal.assert_called_once_with(path)
-            self.assertTrue(open_mailto.call_args[0][0].startswith("mailto:premium.hamarat@gmail.com?subject="))
-        self.assertIn("premium.hamarat@gmail.com", hr.clipboard_text(rep))
+            self.assertTrue(open_mailto.call_args[0][0].startswith("mailto:hermes.agent.hamarat@gmail.com?subject="))
+        self.assertIn("hermes.agent.hamarat@gmail.com", hr.clipboard_text(rep))
 
 
 class SystemInfoTests(unittest.TestCase):
@@ -335,7 +335,7 @@ class SystemInfoTests(unittest.TestCase):
     def test_torch_is_not_imported_by_module(self):
         src = (ROOT / "hata_raporu.py").read_text(encoding="utf-8")
         self.assertNotRegex(src, r"(?m)^\s*(import torch|from torch)")
-        self.assertEqual(src.count("premium.hamarat@gmail.com"), 1)  # alıcı tek yerde tanımlı
+        self.assertEqual(src.count("hermes.agent.hamarat@gmail.com"), 1)  # alıcı tek yerde tanımlı
 
 
 class UiTests(unittest.TestCase):
@@ -345,7 +345,7 @@ class UiTests(unittest.TestCase):
         self.assertEqual((entry["type"], entry["message"], entry["code"]), ("MemoryError", "yapay", "ram"))
         page = desktop._report_html()
         for needle in ("Hata raporu gönder", "E-posta uygulamasında aç", "Panoya kopyala",
-                       "metnim ve seslerim dahil değil", "premium.hamarat@gmail.com", "pywebview.api"):
+                       "metnim ve seslerim dahil değil", "hermes.agent.hamarat@gmail.com", "pywebview.api"):
             self.assertIn(needle, page)
         self.assertNotRegex(page, r"\{(send|consent|details|prev|mail|copy|to|wait|noapi|title)\}")
         api = desktop.ReportApi()
@@ -359,11 +359,11 @@ class UiTests(unittest.TestCase):
 
     def test_launchers_tell_where_to_send_log(self):
         bat = (ROOT / "WINDOWS_BASLAT.bat").read_bytes()
-        line = b"echo Sorun surerse sesver_log.txt dosyasini premium.hamarat@gmail.com adresine gonderin.\r\n"
+        line = b"echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.\r\n"
         self.assertEqual(bat.count(line), 2)  # :baslat_durum ve :hata
         line.decode("ascii")  # eklenen satır ASCII (bat'ın echo satırlarında Türkçe karakter yok)
         sh = (ROOT / "macos_ortak.sh").read_text(encoding="utf-8")
-        self.assertEqual(sh.count("premium.hamarat@gmail.com adresine gönderin."), 2)
+        self.assertEqual(sh.count("hermes.agent.hamarat@gmail.com adresine gönderin."), 2)
 
     def test_settings_and_result_cards_have_report_button(self):
         import app

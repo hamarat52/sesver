@@ -31,7 +31,7 @@ from pathlib import Path
 
 from i18n import get_lang, t
 
-DESTEK_EPOSTA = "premium.hamarat@gmail.com"  # raporların tek alıcısı (yalnız burada tanımlı)
+DESTEK_EPOSTA = "hermes.agent.hamarat@gmail.com"  # raporların tek alıcısı (yalnız burada tanımlı)
 ROOT = Path(__file__).resolve().parent
 LOG_PATH = ROOT / "sesver_log.txt"
 PREV_LOG_PATH = ROOT / "sesver_log_onceki.txt"
