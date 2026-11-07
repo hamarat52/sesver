@@ -325,6 +325,15 @@ const
   AyarDosyasi = 'ayarlar.json';
   GuncellemeAyarAnahtari = 'guncelleme_kontrolu';
   GizlilikPolitikasiAdresi = '{#AppURL}#privacy-policy';
+  // ayarlar.json'un biçimi (GuncellemeYazimBicimi). Uygulamanın yazdığı biçim dışındaki bir
+  // dosya yerinde düzenlenmez: bozuksa önce olduğu gibi yedeklenir (uygulama da aynı adla
+  // yedekler: i18n._keep_unreadable), anahtarın değeri boolean değilse dosyaya dokunulmaz.
+  AyarYok = 0;
+  AyarTanidik = 1;
+  AyarBozuk = 2;
+  AyarDegerBeklenmedik = 3;
+  AyarYedekEki = '.bozuk';
+  AyarYedekSiniri = 20;
 
 type
   TOrtamSonuc = (osDenenmedi, osTamam, osHata, osIptal);
@@ -834,20 +843,33 @@ end;
 // JSON ayrıştırıcı yok; yalnız uygulamanın yazdığı düz nesnede tek bir boolean anahtar
 // okunur/değiştirilir. Python karşılıkları tools/kurulum_durum_bicimi.py'dedir.
 
-// ayarlar.json metni (UTF-8; değilse ANSI okunur). Dosya yoksa ya da okunamazsa ''.
+// ayarlar.json'un ham baytları. Dosya yoksa True ve Ham = ''; var ama okunamadıysa False
+// (o durumda dosyaya hiç dokunulmaz).
+function AyarDosyasiniOku(const Yol: String; var Ham: AnsiString): Boolean;
+begin
+  Ham := '';
+  Result := True;
+  if FileExists(Yol) then
+    Result := LoadStringFromFile(Yol, Ham);
+end;
+
+// Ham baytların metni (UTF-8; değilse ANSI).
+function AyarMetni(const Ham: AnsiString): String;
+begin
+  if GecerliUtf8(Ham) then
+    Result := Utf8Decode(Ham)
+  else
+    Result := String(Ham);
+end;
+
+// ayarlar.json metni. Dosya yoksa ya da okunamazsa ''.
 function AyarMetniniOku(const Yol: String): String;
 var
   Ham: AnsiString;
 begin
   Result := '';
-  if not FileExists(Yol) then
-    Exit;
-  if not LoadStringFromFile(Yol, Ham) then
-    Exit;
-  if GecerliUtf8(Ham) then
-    Result := Utf8Decode(Ham)
-  else
-    Result := String(Ham);
+  if AyarDosyasiniOku(Yol, Ham) then
+    Result := AyarMetni(Ham);
 end;
 
 // Metin bir JSON nesnesi gibi görünüyor mu ({ ile başlayıp } ile bitiyor). Değilse uygulama
@@ -892,6 +914,61 @@ begin
   P := GuncellemeDegerKonumu(Metin);
   if P > 0 then
     Result := Copy(Metin, P, 5) <> 'false';
+end;
+
+// I. karakter bir değerin bitişi mi (sınırlayıcı ya da metnin sonu).
+function DegerSinirindaMi(const Metin: String; I: Integer): Boolean;
+begin
+  if I > Length(Metin) then
+    Result := True
+  else
+    Result := Pos(Copy(Metin, I, 1), ',}] ' + #9 + #10 + #13) > 0;
+end;
+
+// Dosya yerinde düzenlenebilir mi? AyarYok: boş/yok (yeni nesne yazılır); AyarTanidik:
+// uygulamanın yazdığı gibi bir nesne, anahtar yok ya da değeri true/false; AyarBozuk: nesne
+// değil (uygulama da yok sayar; önce yedeklenir); AyarDegerBeklenmedik: anahtarın değeri
+// true/false değil (dokunulmaz). Python karşılığı: pascal_guncelleme_yazim_bicimi.
+function GuncellemeYazimBicimi(const Metin: String): Integer;
+var
+  P: Integer;
+begin
+  if Trim(Metin) = '' then
+    Result := AyarYok
+  else if not AyarGovdesiGecerli(Metin) then
+    Result := AyarBozuk
+  else
+  begin
+    Result := AyarTanidik;
+    P := GuncellemeDegerKonumu(Metin);
+    if P = 0 then
+      Exit;
+    if (Copy(Metin, P, 4) = 'true') and DegerSinirindaMi(Metin, P + 4) then
+      Exit;
+    if (Copy(Metin, P, 5) = 'false') and DegerSinirindaMi(Metin, P + 5) then
+      Exit;
+    Result := AyarDegerBeklenmedik;
+  end;
+end;
+
+// Bozuk dosyanın yedeği için boş bir ad: ayarlar.json.bozuk, sonra .bozuk-2 ... .bozuk-20.
+// Hepsi doluysa ''. Uygulamadaki karşılığı: i18n._backup_path.
+function AyarYedekAdi(const Yol: String): String;
+var
+  N: Integer;
+begin
+  Result := Yol + AyarYedekEki;
+  N := 2;
+  while FileExists(Result) do
+  begin
+    if N > AyarYedekSiniri then
+    begin
+      Result := '';
+      Exit;
+    end;
+    Result := Yol + AyarYedekEki + '-' + IntToStr(N);
+    N := N + 1;
+  end;
 end;
 
 // Metne "guncelleme_kontrolu": true|false yazar; diğer anahtarlar ve biçim korunur.
@@ -957,14 +1034,22 @@ begin
   Result := Yeni <> Mevcut;
 end;
 
-// ssPostInstall: seçimi {app}\ayarlar.json'a yansıtır (gerekirse).
+// ssPostInstall: seçimi {app}\ayarlar.json'a yansıtır (gerekirse). Dosya okunamıyorsa ya da
+// anahtarın değeri beklenmedikse dokunulmaz; bozuksa önce olduğu gibi yedeklenir.
 procedure GuncellemeTercihiniUygula();
 var
-  Yol, Metin: String;
+  Yol, Yedek, Metin: String;
+  Ham: AnsiString;
   Sessiz, Mevcut, Yeni: Boolean;
+  Bicim: Integer;
 begin
   Yol := ExpandConstant('{app}\') + AyarDosyasi;
-  Metin := AyarMetniniOku(Yol);
+  if not AyarDosyasiniOku(Yol, Ham) then
+  begin
+    Log('Açılışta güncelleme denetimi: ' + AyarDosyasi + ' okunamadı, dosyaya dokunulmadı.');
+    Exit;
+  end;
+  Metin := AyarMetni(Ham);
   Mevcut := GuncellemeAyariAcikMi(Metin);
   // Sayfa hiç gösterilmediyse (sessiz kurulum) kutu değil, yalnız parametre geçerlidir.
   Sessiz := WizardSilent() or (GuncellemeKutusuKlasoru = '');
@@ -972,6 +1057,22 @@ begin
   begin
     Log('Açılışta güncelleme denetimi ayarı değişmedi (' + IntToStr(Ord(Mevcut)) + ').');
     Exit;
+  end;
+  Bicim := GuncellemeYazimBicimi(Metin);
+  if Bicim = AyarDegerBeklenmedik then
+  begin
+    Log('Açılışta güncelleme denetimi: ' + GuncellemeAyarAnahtari + ' değeri true/false değil, dosyaya dokunulmadı.');
+    Exit;
+  end;
+  if Bicim = AyarBozuk then
+  begin
+    Yedek := AyarYedekAdi(Yol);
+    if (Yedek = '') or not SaveStringToFile(Yedek, Ham, False) then
+    begin
+      Log('Açılışta güncelleme denetimi: bozuk ' + AyarDosyasi + ' yedeklenemedi, dosyaya dokunulmadı.');
+      Exit;
+    end;
+    Log('Bozuk ' + AyarDosyasi + ' olduğu gibi yedeklendi: ' + ExtractFileName(Yedek));
   end;
   if SaveStringToFile(Yol, Utf8Encode(GuncellemeAyariniYerlestir(Metin, Yeni)), False) then
     Log('Açılışta güncelleme denetimi ayarı yazıldı: ' + AyarDosyasi + ' ' + GuncellemeAyarAnahtari + '=' + IntToStr(Ord(Yeni)))

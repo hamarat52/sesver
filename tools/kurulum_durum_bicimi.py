@@ -324,6 +324,66 @@ def pascal_guncelleme_ayarini_yerlestir(metin, acik):
     return metin[:p] + "\n" + anahtar + "," + kalan
 
 
+# GuncellemeYazimBicimi sonuçları (SesVer.iss const bölümü).
+AYAR_YOK, AYAR_TANIDIK, AYAR_BOZUK, AYAR_DEGER_BEKLENMEDIK = 0, 1, 2, 3
+AYAR_YEDEK_EKI = ".bozuk"
+AYAR_YEDEK_SINIRI = 20
+
+
+def _pascal_deger_sinirinda_mi(metin, i):
+    return i > len(metin) or metin[i - 1] in ",}] \t\n\r"
+
+
+def pascal_guncelleme_yazim_bicimi(metin):
+    """Dosya yerinde düzenlenebilir mi (AYAR_* değerlerinden biri)."""
+    if _pascal_trim(metin) == "":
+        return AYAR_YOK
+    if not pascal_ayar_govdesi_gecerli(metin):
+        return AYAR_BOZUK
+    p = pascal_guncelleme_deger_konumu(metin)
+    if p == 0:
+        return AYAR_TANIDIK
+    for kelime in ("true", "false"):
+        if metin[p - 1:p - 1 + len(kelime)] == kelime and _pascal_deger_sinirinda_mi(metin, p + len(kelime)):
+            return AYAR_TANIDIK
+    return AYAR_DEGER_BEKLENMEDIK
+
+
+def pascal_ayar_yedek_adi(yol, var_mi):
+    """AyarYedekAdi: ``yol`` + .bozuk, sonra .bozuk-2 ... .bozuk-20; hepsi doluysa ''."""
+    sonuc = yol + AYAR_YEDEK_EKI
+    n = 2
+    while var_mi(sonuc):
+        if n > AYAR_YEDEK_SINIRI:
+            return ""
+        sonuc = f"{yol}{AYAR_YEDEK_EKI}-{n}"
+        n += 1
+    return sonuc
+
+
+def pascal_guncelleme_tercihini_uygula(ham, okunabildi, sessiz, parametre, kutu, var_mi):
+    """GuncellemeTercihiniUygula'nın dosya sonucu: (yeni ayar baytları ya da None, yedek adı ya da None).
+
+    ``ham``: dosyanın baytları (yoksa b''); ``okunabildi``: LoadStringFromFile sonucu.
+    """
+    if not okunabildi:
+        return None, None
+    metin = ham.decode("utf-8") if pascal_gecerli_utf8(ham) else ansi_coz(ham)
+    mevcut = pascal_guncelleme_ayari_acik_mi(metin)
+    yaz, yeni = pascal_guncelleme_karari(sessiz, parametre, kutu, mevcut)
+    if not yaz:
+        return None, None
+    bicim = pascal_guncelleme_yazim_bicimi(metin)
+    if bicim == AYAR_DEGER_BEKLENMEDIK:
+        return None, None
+    yedek = None
+    if bicim == AYAR_BOZUK:
+        yedek = pascal_ayar_yedek_adi(AYAR_DOSYASI, var_mi)
+        if not yedek:
+            return None, None
+    return pascal_guncelleme_ayarini_yerlestir(metin, yeni).encode("utf-8"), yedek
+
+
 def pascal_guncelleme_karari(sessiz, parametre, kutu, mevcut):
     """(yazılsın mı, yeni değer). parametre: 0/1, verilmediyse -1."""
     if sessiz:

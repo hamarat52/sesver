@@ -668,6 +668,92 @@ class GuncellemeSecenegiTests(unittest.TestCase):
         self.assertEqual(karar(False, -1, False, True), (True, False))
         self.assertEqual(karar(False, -1, True, False), (True, True))
 
+    def test_beklenmedik_bicimdeki_dosya_yerinde_duzenlenmez(self):
+        """Siberguvenlik 1.2.1 G: metin üzerinde düzenleme yalnız uygulamanın yazdığı biçimde yapılır."""
+        import json
+        bicim = kd.pascal_guncelleme_yazim_bicimi
+        beklenen = {
+            "": kd.AYAR_YOK, " \r\n": kd.AYAR_YOK,
+            "bozuk": kd.AYAR_BOZUK, "[1, 2]": kd.AYAR_BOZUK, '{"guncelleme_kontrolu": false': kd.AYAR_BOZUK,
+            '{"guncelleme_kontrolu": 0}': kd.AYAR_DEGER_BEKLENMEDIK,
+            '{"guncelleme_kontrolu": null}': kd.AYAR_DEGER_BEKLENMEDIK,
+            '{"guncelleme_kontrolu": "false"}': kd.AYAR_DEGER_BEKLENMEDIK,
+            '{"guncelleme_kontrolu": falsey}': kd.AYAR_DEGER_BEKLENMEDIK,
+            '{"guncelleme_kontrolu": "a, b"}': kd.AYAR_DEGER_BEKLENMEDIK,
+            '{"guncelleme_kontrolu":false}': kd.AYAR_TANIDIK, '{"guncelleme_kontrolu": true }': kd.AYAR_TANIDIK,
+        }
+        for metin, sonuc in beklenen.items():
+            with self.subTest(metin=metin):
+                self.assertEqual(bicim(metin), sonuc)
+        for metin in AYAR_ORNEKLERI:
+            with self.subTest(ornek=metin):
+                b = bicim(metin)
+                if b == kd.AYAR_BOZUK:  # uygulama da bu dosyayı yok sayar (boş ayar)
+                    try:
+                        self.assertNotIsInstance(json.loads(metin), dict)
+                    except ValueError:
+                        pass
+                if b == kd.AYAR_TANIDIK:  # geçerli nesne, anahtar yok ya da boolean
+                    self.assertIn(json.loads(metin).get("guncelleme_kontrolu", True), (True, False))
+
+    def test_tercih_bozuk_dosyayi_once_yedekler_beklenmedik_degere_dokunmaz(self):
+        import json
+        uygula = kd.pascal_guncelleme_tercihini_uygula
+        yok = lambda ad: False  # noqa: E731
+        # Bozuk dosya + kapalı seçim: önce olduğu gibi yedek, sonra yeni nesne.
+        ham = b'{"arayuz_dili": "en", '
+        yeni, yedek = uygula(ham, True, False, -1, False, yok)
+        self.assertEqual(yedek, "ayarlar.json.bozuk")
+        self.assertEqual(json.loads(yeni), {"guncelleme_kontrolu": False})
+        dolu = {"ayarlar.json.bozuk"} | {f"ayarlar.json.bozuk-{n}" for n in range(2, 21)}
+        self.assertEqual(uygula(ham, True, False, -1, False, dolu.__contains__), (None, None))  # yedek yeri yok
+        dolu.discard("ayarlar.json.bozuk-7")
+        self.assertEqual(uygula(ham, True, False, -1, False, dolu.__contains__)[1], "ayarlar.json.bozuk-7")
+        # Bozuk dosya + varsayılan (açık) seçim: uygulama zaten açık sayar, dosyaya dokunulmaz.
+        self.assertEqual(uygula(ham, True, False, -1, True, yok), (None, None))
+        # Okunamayan dosya ve boolean olmayan değer: dokunulmaz.
+        self.assertEqual(uygula(b"", False, True, 0, True, yok), (None, None))
+        self.assertEqual(uygula(b'{"guncelleme_kontrolu": null, "a": 1}', True, True, 0, True, yok), (None, None))
+        # Uygulamanın biçimi: yerinde, diğer ayar korunur, yedek yok.
+        yeni, yedek = uygula(_json({"arayuz_dili": "ja"}).encode("utf-8"), True, True, 0, True, yok)
+        self.assertIsNone(yedek)
+        self.assertEqual(json.loads(yeni), {"guncelleme_kontrolu": False, "arayuz_dili": "ja"})
+        # Dosya yok: yeni nesne.
+        yeni, yedek = uygula(b"", True, True, 0, True, yok)
+        self.assertEqual((json.loads(yeni), yedek), ({"guncelleme_kontrolu": False}, None))
+
+    def test_iss_yazim_bicimi_ve_yedek_python_karsiligiyla_ayni(self):
+        kod = iss_bolumu("Code")
+        for ad, deger in (("AyarYok", str(kd.AYAR_YOK)), ("AyarTanidik", str(kd.AYAR_TANIDIK)),
+                          ("AyarBozuk", str(kd.AYAR_BOZUK)), ("AyarDegerBeklenmedik", str(kd.AYAR_DEGER_BEKLENMEDIK)),
+                          ("AyarYedekEki", f"'{kd.AYAR_YEDEK_EKI}'"), ("AyarYedekSiniri", str(kd.AYAR_YEDEK_SINIRI))):
+            m = re.search(r"^\s*" + ad + r"\s*=\s*(.+?);", kod, re.M)
+            self.assertTrue(m, ad)
+            self.assertEqual(m.group(1), deger, ad)
+        bicim = pascal_govde(kod, "function", "GuncellemeYazimBicimi")
+        for parca in ("if Trim(Metin) = '' then", "Result := AyarYok", "else if not AyarGovdesiGecerli(Metin) then",
+                      "Result := AyarBozuk", "if P = 0 then",
+                      "(Copy(Metin, P, 4) = 'true') and DegerSinirindaMi(Metin, P + 4)",
+                      "(Copy(Metin, P, 5) = 'false') and DegerSinirindaMi(Metin, P + 5)",
+                      "Result := AyarDegerBeklenmedik;"):
+            self.assertIn(parca, bicim)
+        self.assertIn("Pos(Copy(Metin, I, 1), ',}] ' + #9 + #10 + #13) > 0",
+                      pascal_govde(kod, "function", "DegerSinirindaMi"))
+        yedek = pascal_govde(kod, "function", "AyarYedekAdi")
+        for parca in ("Result := Yol + AyarYedekEki;", "while FileExists(Result) do", "if N > AyarYedekSiniri then",
+                      "Result := Yol + AyarYedekEki + '-' + IntToStr(N);"):
+            self.assertIn(parca, yedek)
+        uygula = pascal_govde(kod, "procedure", "GuncellemeTercihiniUygula")
+        sira = [uygula.index(p) for p in (
+            "if not AyarDosyasiniOku(Yol, Ham) then", "Metin := AyarMetni(Ham);",
+            "if not GuncellemeKarari(", "Bicim := GuncellemeYazimBicimi(Metin);",
+            "if Bicim = AyarDegerBeklenmedik then", "if Bicim = AyarBozuk then",
+            "if (Yedek = '') or not SaveStringToFile(Yedek, Ham, False) then",
+            "SaveStringToFile(Yol, Utf8Encode(GuncellemeAyariniYerlestir(Metin, Yeni)), False)")]
+        self.assertEqual(sira, sorted(sira))
+        oku = pascal_govde(kod, "function", "AyarDosyasiniOku")
+        self.assertIn("Result := LoadStringFromFile(Yol, Ham);", oku)
+
     def test_iss_sayfa_kutu_ve_ayar_kurallari_python_karsiligiyla_ayni(self):
         import guncelleme
         kod = iss_bolumu("Code")
