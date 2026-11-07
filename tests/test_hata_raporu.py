@@ -418,6 +418,7 @@ class UiTests(unittest.TestCase):
             self.assertIn(needle, page)
         self.assertNotRegex(page, r"\{(send|consent|details|prev|mail|copy|to|wait|noapi|title)\}")
         api = desktop.ReportApi()
+        api._arm()  # başlatma hatası ekranı (bkz. _load_ui)
         self.assertIn("raporu hazırlayın", api.eposta())  # önizleme olmadan taslak açılmaz
         with mock.patch.object(hr, "system_lines", return_value=FAKE_SYSTEM):
             data = api.hazirla(False)
@@ -425,6 +426,54 @@ class UiTests(unittest.TestCase):
         with mock.patch.object(hr, "send", return_value=(Path("/tmp/r.txt"), True)) as send:
             self.assertIn("E-posta taslağı açıldı", api.eposta())
             send.assert_called_once()
+
+    def test_report_api_is_closed_on_gradio_page(self):
+        """Bulgu 4: js_api aynı penceredeki 127.0.0.1 Gradio sayfasından çağrılamaz."""
+        import desktop
+
+        class FakeWindow:
+            url = html = ""
+
+            def load_url(self, url):
+                self.url = url
+
+            def load_html(self, page):
+                self.html = page
+
+        # pywebview js_api'ye alt çizgisiz, çağrılabilir öznitelikleri açar (webview/util.py
+        # get_functions). Sayfanın görebildiği yöntemler bunlardır; kilidi açan _arm değil.
+        api = desktop.ReportApi()
+        exposed = sorted(n for n in dir(api) if not n.startswith("_") and callable(getattr(api, n)))
+        self.assertEqual(exposed, ["eposta", "hazirla", "kopyala"])
+
+        # Başarılı açılış: Gradio sayfası yüklenir, API kapalı kalır; hiçbir yan etki olmaz.
+        server = mock.Mock(url="http://127.0.0.1:7860")
+        server.wait_ready.return_value = True
+        window = FakeWindow()
+        with mock.patch.object(desktop, "_report_status"):
+            desktop._load_ui(window, server, api)
+        self.assertTrue(window.url.startswith("http://127.0.0.1:7860"))
+        with mock.patch.object(hr, "build_report") as build, mock.patch.object(hr, "send") as send, \
+                mock.patch.object(hr, "copy_to_clipboard") as copy:
+            for call in (lambda: api.hazirla(True), api.eposta, api.kopyala):
+                with self.assertRaises(PermissionError):
+                    call()
+            build.assert_not_called()
+            send.assert_not_called()
+            copy.assert_not_called()
+
+        # Başlatma hatası: hata ekranı açılırken API etkinleşir.
+        api2 = desktop.ReportApi()
+        server2 = mock.Mock(error="RuntimeError: yapay", traceback="")
+        server2.wait_ready.return_value = False
+        window2 = FakeWindow()
+        with mock.patch.object(desktop, "_report_status"), contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            desktop._load_ui(window2, server2, api2)
+        self.assertEqual(window2.url, "")
+        self.assertIn("pywebview.api", window2.html)
+        with mock.patch.object(hr, "system_lines", return_value=FAKE_SYSTEM):
+            self.assertIn("SesVer error report", api2.hazirla(False)["text"])
 
     def test_launchers_tell_where_to_send_log(self):
         bat = (ROOT / "WINDOWS_BASLAT.bat").read_bytes()

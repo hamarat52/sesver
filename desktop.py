@@ -242,13 +242,30 @@ border-radius:10px;padding:10px;font:12px ui-monospace,Menlo,Consolas,monospace}
 
 
 class ReportApi:
-    """pywebview js_api: başlatma hatası ekranındaki rapor düğmeleri (yalnız kullanıcı tıklayınca)."""
+    """pywebview js_api: başlatma hatası ekranındaki rapor düğmeleri (yalnız kullanıcı tıklayınca).
+
+    js_api pencereye bağlıdır; aynı pencerede sonradan açılan 127.0.0.1 Gradio sayfası da
+    ``window.pywebview.api``'yi görür. Bu yüzden yöntemler yalnız ``_load_ui`` başlatma hatası
+    ekranını açarken ``_arm()`` çağırdıysa çalışır; Gradio sayfası açıldıysa (başarılı açılış)
+    hiçbiri rapor yazmaz, taslak açmaz, panoya dokunmaz (``PermissionError``).
+    """
 
     def __init__(self):
         self._report = None
+        self._armed = False
+
+    def _arm(self):
+        """Yalnız _load_ui'nin hata dalı çağırır (Gradio sayfası hiç açılmayacak). Alt çizgili:
+        pywebview js_api'ye yalnız alt çizgisiz yöntemleri açar, sayfa bunu çağıramaz."""
+        self._armed = True
+
+    def _require_armed(self):
+        if not self._armed:
+            raise PermissionError("ReportApi yalnız SesVer başlatma hatası ekranında kullanılabilir.")
 
     def hazirla(self, prev=None):
         """Raporu kurar ve önizleme için döndürür; hiçbir şey açılmaz/gönderilmez."""
+        self._require_armed()
         prev_exists = os.path.isfile(PREV_LOG_PATH)
         if prev is None:
             prev = prev_exists and hata_raporu.log_has_error(PREV_LOG_PATH)
@@ -257,6 +274,7 @@ class ReportApi:
         return {"text": self._report["text"], "prev_exists": prev_exists, "prev_checked": prev}
 
     def eposta(self):
+        self._require_armed()
         if not self._report:
             return t("Önce “Hata raporu gönder” ile raporu hazırlayın.")
         try:
@@ -266,6 +284,7 @@ class ReportApi:
         return hata_raporu.send_message(path, opened)
 
     def kopyala(self):
+        self._require_armed()
         if not self._report:
             return t("Önce “Hata raporu gönder” ile raporu hazırlayın.")
         return hata_raporu.copy_message(hata_raporu.copy_to_clipboard(hata_raporu.clipboard_text(self._report)))
@@ -377,8 +396,11 @@ def _check_webview_backend(webview):
             )
 
 
-def _load_ui(window, server):
-    """pywebview GUI döngüsü başladıktan sonra ayrı thread'de çalışır."""
+def _load_ui(window, server, api=None):
+    """pywebview GUI döngüsü başladıktan sonra ayrı thread'de çalışır.
+
+    ``api``: pencerenin ReportApi'si. Yalnız başlatma hatası ekranında etkinleşir
+    (``_arm``); Gradio arayüzü yüklenirse kapalı kalır."""
     # Pencere ekranda (yükleniyor görünümü): başlatıcı konsolu artık kapanabilir.
     _report_status("acildi")
     if server.wait_ready():
@@ -390,6 +412,8 @@ def _load_ui(window, server):
         print(f"Ayrıntı için: {hata_raporu.sanitize(LOG_PATH)}", flush=True)  # ev klasörü yolu gizli
         hata_raporu.record_text_error(server.error or "", server.traceback, where="startup")
         guide = _print_guide(server.error)
+        if api is not None:
+            api._arm()  # rapor düğmeleri yalnız bu ekranda; Gradio sayfası bu pencerede hiç açılmaz
         window.load_html(
             _ERROR_HTML.replace("{title}", html.escape(t("SesVer başlatılamadı")))
             .replace("{see_log}", html.escape(t("Ayrıntı için SesVer klasöründeki sesver_log.txt dosyasına bakın:")))
@@ -407,12 +431,13 @@ def _run_window(server):
 
     _check_webview_backend(webview)
     webview.settings["ALLOW_DOWNLOADS"] = True  # "WAV indir" düğmeleri için
+    api = ReportApi()  # kapalı başlar; yalnız başlatma hatası ekranı açar (bkz. _load_ui)
     window = webview.create_window(
         "SesVer", html=_LOADING_HTML.replace("{opening}", html.escape(t("SesVer açılıyor…"))),
         width=1280, height=860, min_size=(900, 600),
-        background_color="#0f1115", js_api=ReportApi(),
+        background_color="#0f1115", js_api=api,
     )
-    webview.start(_load_ui, (window, server))
+    webview.start(_load_ui, (window, server, api))
 
 
 def _run_browser(server):
