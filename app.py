@@ -1391,6 +1391,9 @@ body:has(#sv-tab-ayarlar-button[aria-selected="true"]) .sv-btn.sv-top-ayarlar {
 .sv-btn-soft.sv-ic-upload { width: 100%; }
 .sv-btn.sv-template { align-self: flex-start; color: var(--sv-coral) !important; }
 .sv-qview { display: flex; flex-direction: column; gap: 14px; }
+/* Kuyruk eylem çubuğu: "Kuyruğu boşalt" görününce açıklama daralmasın, düğmeler alt satıra geçsin. */
+.sv-actionbar.sv-qactions { flex-wrap: wrap !important; justify-content: flex-end; row-gap: 12px !important; }
+.sv-actionbar.sv-qactions > :first-child { flex: 1 1 240px !important; min-width: 240px !important; }
 .sv-qview .sv-qwarnbox { margin-top: 0; }
 .sv-qsummary { display: flex; flex-wrap: wrap; gap: 8px; }
 .sv-qstat { display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 12px; border-radius: 999px;
@@ -1487,6 +1490,8 @@ body.sv-rtl .sv-itable { direction: rtl; text-align: right; }
   .sv-import-top { flex-wrap: wrap !important; }
 }
 @media (max-width: 480px) {
+  .sv-qrow { grid-template-columns: 22px minmax(0, 1fr); }
+  .sv-qact { grid-column: 2; grid-row: 3; justify-content: flex-start; }
   .sv-langbar > .form { flex: 1 1 130px !important; width: auto !important; }
   .sv-btn.sv-topbtn { padding: 0 11px !important; font-size: .8rem !important; }
   .sv-btn.sv-topbtn::before { display: none; }
@@ -3184,7 +3189,7 @@ def _queue_tab(lang, lib):
                     confirm_yes = gr.Button(t("Evet, boşalt"), size="sm", scale=0,
                                             elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
                     confirm_no = gr.Button(t("Vazgeç"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
-                with gr.Row(elem_classes=["sv-actionbar"]):
+                with gr.Row(elem_classes=["sv-actionbar", "sv-qactions"]):
                     _html('<div class="sv-hint">' + t("<b>Durdur:</b> şu anki parça bitince durur.<br>"
                                                       "Kalan öğeler kaybolmaz; “Devam et” ile sürer.") + "</div>")
                     clear_all = gr.Button(t("Kuyruğu boşalt"), size="sm", scale=0, visible=False,
