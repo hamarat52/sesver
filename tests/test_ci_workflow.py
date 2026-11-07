@@ -35,6 +35,16 @@ class PinnedActionsTests(unittest.TestCase):
         for ref in uses:
             self.assertRegex(ref, r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")  # YAML yorumu değere girmez
 
+    def test_build_checks_product_name_and_version_of_exe(self):
+        """SignPath ön koşulu CI'da gerçek .exe üzerinde doğrulanır (bu Mac'te derlenemez)."""
+        data = _workflow()
+        step = next(s for s in data["jobs"]["build"]["steps"] if s.get("name") == "Kurulum programını derle")
+        run = step["run"]
+        self.assertIn('& $env:ISCC "/DAppVersion=$env:APP_VERSION" "windows\\SesVer.iss"', run)
+        self.assertIn("$vi = $f.VersionInfo", run)
+        self.assertIn("if ($vi.ProductName -ne 'SesVer') { throw", run)
+        self.assertIn("if ($vi.ProductVersion -ne $env:APP_VERSION) { throw", run)
+
     def test_write_token_only_in_release_job_without_checkout(self):
         data = _workflow()
         self.assertEqual(data["permissions"], {"contents": "read"})

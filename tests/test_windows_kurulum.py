@@ -340,6 +340,21 @@ class IssTests(unittest.TestCase):
         self.assertEqual(yigin, [], "kapanmamış blok")
         self.assertGreater(derinlik, 2)
 
+    def test_dosya_ozellikleri_signpath_icin_sabit(self):
+        """SignPath: ürün adı = proje adı, ürün sürümü = VERSION (her derlemede aynı kaynaktan)."""
+        setup = iss_bolumu("Setup")
+        metin = iss_metni()
+        self.assertIn('#define AppName "SesVer"', metin)
+        self.assertRegex(metin, r'(?m)^\s*#define AppVersion Trim\(FileRead\(VersionFile\)\)$')  # VERSION'dan
+        for satir in ("VersionInfoProductName={#AppName}", "VersionInfoProductVersion={#AppVersion}",
+                      "VersionInfoProductTextVersion={#AppVersion}", "VersionInfoVersion={#AppVersion}",
+                      "VersionInfoTextVersion={#AppVersion}", "VersionInfoCompany={#AppPublisher}",
+                      "VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of Hamaratlabs"):
+            self.assertIn(satir + "\n", setup)
+        # Kaldırma korunur: Kaldır/Ekle kaydı var, kullanıcı verisi silinenler listesinde yok.
+        self.assertNotIn("Uninstallable=no", setup)
+        self.assertNotRegex(iss_bolumu("UninstallDelete"), r'(?m)^Type:.*Name: "\{app\}\\(outputs|voices)')
+
     def test_ozel_mesajlar_tr_ve_en(self):
         mesajlar = iss_bolumu("CustomMessages")
         diller = {"turkish": set(), "english": set()}

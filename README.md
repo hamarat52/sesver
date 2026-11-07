@@ -4,14 +4,14 @@ HamaratLabs tarafından geliştirilmiştir.
 
 **Yerel Türkçe ses üretimi + ses klonlama; açık kaynak (MIT) ve tamamen ücretsiz.** Metninizi yazın, **Üret**'e basın, sonucu dinleyip WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
 
-**İçindekiler:** [Windows Kurulum](#-windows-kurulum) · [Mac Kurulum](#-mac-kurulum) · [Yapay Zeka Destekli Kurulum](#-yapay-zeka-destekli-kurulum) · [Özellikler](#özellikler) · [Sorun giderme](#sorun-giderme) · [Lisans](#lisans-atıf-ve-sorumlu-kullanım) · [Teknik Detaylar](#teknik-detaylar-ileri-seviye)
+**İçindekiler:** [Windows Kurulum](#-windows-kurulum) · [Mac Kurulum](#-mac-kurulum) · [Yapay Zeka Destekli Kurulum](#-yapay-zeka-destekli-kurulum) · [Özellikler](#özellikler) · [Sorun giderme](#sorun-giderme) · [Code signing policy](#code-signing-policy) · [Privacy policy / Gizlilik](#privacy-policy) · [Lisans](#lisans-atıf-ve-sorumlu-kullanım) · [Teknik Detaylar](#teknik-detaylar-ileri-seviye)
 
 ## 🪟 Windows Kurulum
 
 Normal bir Windows programı gibi **İleri → İleri → Kur** ile kurulur; Başlat menüsüne ve masaüstüne **SesVer** simgesi eklenir. Yönetici izni gerekmez. En az **20 GB boş alan** ve **internet** gerekir.
 
 1. **İndirin:** [**SesVer-Kurulum-Windows.exe**](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-Kurulum-Windows.exe) (her zaman en son sürüm; tüm sürümler: [Releases](https://github.com/hamarat52/sesver/releases/latest)). GitHub hesabı gerekmez.
-2. **Çalıştırın:** İndirilen dosyaya çift tıklayın. **"Windows bilgisayarınızı korudu"** penceresi çıkarsa **Ek bilgi → Yine de çalıştır** deyin (kurulum programı kod imzasız olduğu için bu uyarı çıkar).
+2. **Çalıştırın:** İndirilen dosyaya çift tıklayın. **"Windows bilgisayarınızı korudu"** penceresi çıkarsa **Ek bilgi → Yine de çalıştır** deyin (kurulum programı kod imzasız olduğu için bu uyarı çıkar; ayrıntı: [Code signing policy](#code-signing-policy)).
 3. **Kurun:** Lisansı kabul edin → **İleri → İleri → Kur**. Masaüstü simgesi istemiyorsanız ilgili kutunun işaretini kaldırın.
 4. **Bekleyin:** Dosyalar kopyalanınca kurulum penceresinde **"SesVer hazırlanıyor"** sayfası açılır ve Python ile paketleri indirir; ilerleme çubuğu ve geçen süre görünür. **5–30 dakika** sürebilir, yaklaşık **3 GB** iner, internet gerekir. Ayrı bir siyah pencere açılmaz. İsterseniz **Kurulumu durdur** diyebilirsiniz; SesVer'i ilk açtığınızda kaldığı yerden devam eder.
 5. **Bitirin:** Son sayfada **"SesVer'i şimdi aç"** işaretli kalsın → **Bitir**. SesVer penceresi açılır.
@@ -138,6 +138,41 @@ Bu sürüm numarası kökteki `VERSION` dosyasındadır.
 
 Çözemediyseniz [AI_KURULUM.md](AI_KURULUM.md) dosyasını yapay zeka asistanınıza verin ya da [issue açın](https://github.com/hamarat52/sesver/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın.
 
+## Code signing policy
+
+Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)
+
+- **Status:** SesVer is preparing to apply to the free SignPath Foundation program for open source projects. Until the application is accepted and signing is set up, the Windows installer is **not signed** and Windows SmartScreen shows a warning (see [Windows Kurulum](#-windows-kurulum), step 2). Each release page states whether its files are signed.
+- **What will be signed:** only the Windows installer (`SesVer-Kurulum-<version>.exe` and its copy `SesVer-Kurulum-Windows.exe`), built by GitHub Actions ([`.github/workflows/windows-installer.yml`](.github/workflows/windows-installer.yml)) from the source code in this repository. Components that the installer downloads on first run (Python, PyTorch and other packages, model files) come from their own publishers and are not signed by this project.
+- **Publisher name:** the certificate is issued to SignPath Foundation, so a signed SesVer installer shows **"SignPath Foundation"** as the publisher, not HamaratLabs.
+- **Team roles:** SesVer has a single maintainer, Muhammed Yusuf Hamarat - Founder of Hamaratlabs, who holds every role.
+  - Committers and reviewers: [Muhammed Yusuf Hamarat](https://github.com/hamarat52)
+  - Approvers: [Muhammed Yusuf Hamarat](https://github.com/hamarat52)
+- **Approval:** every signing request is approved manually by an approver before the file is signed.
+- **Privacy policy:** see [Privacy policy](#privacy-policy) below.
+
+**Türkçe:** Windows kurulum programının, SignPath Foundation'ın açık kaynak projelere ücretsiz imza programıyla imzalanması planlanıyor. Başvuru kabul edilip imzalama kurulana kadar dosya **imzasızdır** ve Windows uyarı gösterir. İmzalı dosyada yayıncı olarak HamaratLabs değil, sertifikanın sahibi **"SignPath Foundation"** görünür.
+
+## Privacy policy
+
+SesVer runs on your computer. Your text, your voice recordings and the audio you generate are never uploaded. SesVer has no account, no telemetry and no analytics: Gradio analytics and Hugging Face telemetry are turned off, and the interface server listens only on `127.0.0.1` (no public share link). SesVer contacts the following servers, and only in these situations:
+
+| When | Server | What is sent | How to avoid |
+|---|---|---|---|
+| Every start (background, at most 3 s) | `api.github.com` (GitHub) | One GET request without a body for the latest SesVer release. Headers: `User-Agent: SesVer/<version>`, `Accept`. | Settings → "Açılışta güncellemeleri denetle" off, or `SESVER_GUNCELLEME_KONTROLU=0` |
+| First-time setup (Windows installer page, `WINDOWS_BASLAT.bat`, `MACOS_BASLAT.command`) | `raw.githubusercontent.com`, `github.com` (python-build-standalone) | Downloads of a portable Python and its SHA256SUMS file | Install Python 3.10-3.12 yourself (fallback path) |
+| First-time setup, and after an update that changes `requirements.txt` | `pypi.org`, `files.pythonhosted.org` (PyPI) | Package downloads by pip | No; SesVer cannot run without these packages |
+| First-time setup on Windows with an NVIDIA card; once more at start if the installed PyTorch cannot use the card | `download.pytorch.org` | PyTorch (CUDA build) download by pip | No NVIDIA card: not contacted |
+| First **Generate** (Üret): about 5 GB once; afterwards a short "is the cached model current?" check on the first generation of each session | `huggingface.co` (model `openbmb/VoxCPM2`) | Model file requests | `HF_HUB_OFFLINE=1` after the model is downloaded |
+| First use of **Otomatik yazıya dök** (transcription) | `huggingface.co` (faster-whisper `small` model) | Model file requests | Do not use automatic transcription |
+| Only when you click **Hızlı Mod'u indir** | `pypi.org` / `files.pythonhosted.org`, `huggingface.co` (model `canberkkkkkk/ema-lightning`, fixed revision) | Two pinned packages and about 34 MB of weights, checked with SHA-256 | Do not install Fast Mode |
+| Only when you click **Hızlandırmayı etkinleştir** (Ayarlar → Ekran kartı hızlandırma) or its CPU rollback | `download.pytorch.org`, `pypi.org` | Package index listing and PyTorch download | Do not use it |
+| Only when you click **Hata raporu gönder** and then **E-posta uygulamasında aç** | none by SesVer | A draft opens in your own e-mail app, addressed to hermes.agent.hamarat@gmail.com. You see the full report first and you send it yourself. It contains only technical data; home folder paths, e-mail addresses and access keys are masked. | Do not send it |
+
+Links you click (for example the release page in the "new version" notice) open in your web browser. The servers above see your IP address and the requested file names; their own privacy policies apply: [GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement), [PyPI](https://policies.python.org/pypi.org/Privacy-Notice/), [PyTorch / Linux Foundation](https://www.linuxfoundation.org/legal/privacy-policy), [Hugging Face](https://huggingface.co/privacy).
+
+**Türkçe özet:** Metniniz, ses kayıtlarınız ve ürettiğiniz sesler hiçbir yere gönderilmez; hesap, telemetri ve analitik yoktur. SesVer yalnız şu durumlarda internete çıkar: açılışta GitHub'a sürüm denetimi (Ayarlar'dan kapatılır), ilk kurulumda ve paket güncellemesinde Python ile paketlerin indirilmesi (GitHub, PyPI; NVIDIA kartlı Windows'ta PyTorch için download.pytorch.org), ilk **Üret**'te ses modelinin Hugging Face'ten indirilmesi (sonraki oturumlarda kısa bir güncellik denetimi), **Otomatik yazıya dök** ilk kullanılınca yazıya dökme modeli, yalnız siz tıklarsanız Hızlı Mod ve GPU hızlandırma indirmeleri. Hata raporu otomatik gönderilmez: siz tıklarsanız e-posta uygulamanızda bir taslak açılır, gönderen sizsiniz.
+
 ## Lisans, atıf ve sorumlu kullanım
 
 **SesVer'un kendi kodu (bu arayüz, `app.py`, testler) [MIT License](LICENSE) ile lisanslıdır.** Serbestçe kullanılabilir, değiştirilebilir, ticari ürünlere dahil edilebilir — tek şart lisans ve telif bildirimini korumak. Telif sahibi **HamaratLabs**'tir. MIT, OSI tarafından tanımlı bir "open source" lisansıdır.
@@ -247,6 +282,8 @@ M1 iMac / 16 GB RAM / Python 3.11.1 üzerinde `python app.py` başlatılıp Grad
 Test metni: “Merhaba, bugün Türkçe ses üretimini deniyoruz.” Her iki WAV sessiz olmayan, sonlu örneklerden oluştu; kırpılma saptanmadı. Yerel Whisper small ile konuşma içeriği geri çözüldü (küçük yazım/bölütleme farklarıyla). Bu, insan dinlemesi veya ses benzerliği puanı değildir. Test sırasında sistemde yoğun swap kullanımı vardı; bu oturumun süreleri yukarıdaki önceki M1 ölçümünden belirgin şekilde kötüdür. **16 GB RAM tek başına hızlı çalışmayı garanti etmez.** Windows/Linux ve NVIDIA performansı bu sürümde ayrıca test edilmedi.
 
 ### Yerellik ve gizlilik
+
+Tam liste ve kapatma yolları: [Privacy policy](#privacy-policy).
 
 - Ses üretimi bilgisayarınızda yapılır; metin ve referans ses bulut servisine gönderilmez.
 - Gradio analitiği ve Hugging Face telemetrisi kapalıdır. Sunucu yalnız `127.0.0.1` dinler, herkese açık paylaşım bağlantısı oluşturmaz.

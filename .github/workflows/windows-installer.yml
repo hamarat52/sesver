@@ -110,6 +110,11 @@ jobs:
           if (-not (Test-Path $exe)) { throw "Beklenen çıktı yok: $exe" }
           $f = Get-Item $exe
           Write-Host ("Üretildi: {0} ({1:N0} bayt)" -f $f.FullName, $f.Length)
+          # SignPath ön koşulu: ürün adı ve ürün sürümü her derlemede SesVer ve VERSION olmalı.
+          $vi = $f.VersionInfo
+          Write-Host "Dosya özellikleri: ProductName='$($vi.ProductName)' ProductVersion='$($vi.ProductVersion)' FileVersion='$($vi.FileVersion)' CompanyName='$($vi.CompanyName)' FileDescription='$($vi.FileDescription)' LegalCopyright='$($vi.LegalCopyright)'"
+          if ($vi.ProductName -ne 'SesVer') { throw "ProductName 'SesVer' olmalı: '$($vi.ProductName)'" }
+          if ($vi.ProductVersion -ne $env:APP_VERSION) { throw "ProductVersion $env:APP_VERSION olmalı: '$($vi.ProductVersion)'" }
           Get-FileHash -Algorithm SHA256 $exe | Format-List
           "INSTALLER=$($f.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -346,7 +351,9 @@ jobs:
             "$h2  SesVer-Kurulum-Windows.exe",
             '```',
             '',
-            "Her zaman en son sürüm: https://github.com/$env:REPO/releases/latest/download/SesVer-Kurulum-Windows.exe"
+            "Her zaman en son sürüm: https://github.com/$env:REPO/releases/latest/download/SesVer-Kurulum-Windows.exe",
+            '',
+            "Code signing policy (imza politikası) ve gizlilik politikası: https://github.com/$env:REPO#code-signing-policy"
           )
           [IO.File]::WriteAllLines((Join-Path $PWD 'windows\Output\RELEASE_NOTES.md'), $notlar, [Text.UTF8Encoding]::new($false))
           Get-ChildItem windows\Output | Format-Table Name, Length -AutoSize | Out-Host

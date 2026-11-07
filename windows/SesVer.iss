@@ -108,6 +108,18 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#AppName}
+; Kurulum programının dosya özellikleri (Özellikler → Ayrıntılar). SignPath Foundation imzası
+; ürün adı ve ürün sürümü özniteliklerinin her derlemede proje adı ve VERSION ile aynı olmasını
+; şart koşar (file metadata restrictions). Inno varsayılanı VersionInfoVersion için 0.0.0.0
+; olduğundan hepsi açıkça verilir; CI derlemeden sonra .exe'de ProductName/ProductVersion'ı denetler.
+VersionInfoProductName={#AppName}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}
+VersionInfoTextVersion={#AppVersion}
+VersionInfoCompany={#AppPublisher}
+VersionInfoDescription={#AppName} kurulum programı
+VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of Hamaratlabs
 CloseApplications=yes
 SetupLogging=yes
 
