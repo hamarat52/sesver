@@ -35,6 +35,11 @@ on:
 permissions:
   contents: read
 
+# Üçüncü taraf action'lar etiket (@v7) yerine 40 karakterlik commit SHA'sına sabittir; yanındaki
+# yorum o commit'in sürüm etiketidir. Etiket sonradan başka commit'e taşınsa da burada çalışan
+# kod değişmez (release job'u contents: write taşır). Güncellerken: git ls-remote --tags
+# https://github.com/actions/<ad> ile yeni etiketin commit'ini bulup SHA'yı ve yorumu birlikte
+# değiştirin; tests/test_ci_workflow.py biçimi denetler.
 jobs:
   build:
     runs-on: windows-latest
@@ -45,7 +50,7 @@ jobs:
       version: ${{ steps.surum.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Sürümü belirle (tag == VERSION → girdi → VERSION)
         id: surum
@@ -104,7 +109,41 @@ jobs:
           $exe = "windows\Output\SesVer-Kurulum-$env:APP_VERSION.exe"
           if (-not (Test-Path $exe)) { throw "Beklenen çıktı yok: $exe" }
           $f = Get-Item $exe
+          $boy = $f.Length
           Write-Host ("Üretildi: {0} ({1:N0} bayt)" -f $f.FullName, $f.Length)
+          # SignPath ön koşulu: ürün adı ve ürün sürümü her derlemede SesVer ve VERSION olmalı.
+          # Inno Setup sürüm dizgilerini yükleyicideki sabit uzunluklu boşluk yer tutucularının
+          # üstüne yazar ve kalan boşlukları dosyada bırakır (issrc Projects/Res/SetupLdr.version.rc,
+          # Compiler.ExeUpdateFunc.pas UpdateStringValue): ProductName = 'SesVer' + 54 boşluk.
+          # İmzadan önce kaynakta kırpılır; araç önce ham değerleri yazar (kök neden kanıtı).
+          # Dosya boyu ve gömülü kurulum verisi değişmez; ayrıntı: tools/pe_surum_bilgisi.py.
+          $py = Get-Command python -CommandType Application -ErrorAction SilentlyContinue |
+                Where-Object { $_.Source -notlike '*\WindowsApps\*' } | Select-Object -First 1
+          if (-not $py) { throw 'python bulunamadı (sürüm bilgisini kırpmak için gerekli)' }
+          Write-Host "Python: $($py.Source) $((& $py.Source --version) -join ' ')"
+          $env:PYTHONIOENCODING = 'utf-8'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+          & $py.Source tools\pe_surum_bilgisi.py --kirp $exe
+          if ($LASTEXITCODE -ne 0) { throw "Sürüm bilgisi kırpılamadı: $LASTEXITCODE" }
+          $f = Get-Item $exe
+          if ($f.Length -ne $boy) { throw "Kırpma dosya boyunu değiştirdi: $boy -> $($f.Length)" }
+          $vi = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($f.FullName)
+          Write-Host "Dosya özellikleri: ProductName='$($vi.ProductName)' ProductVersion='$($vi.ProductVersion)' FileVersion='$($vi.FileVersion)' CompanyName='$($vi.CompanyName)' FileDescription='$($vi.FileDescription)' LegalCopyright='$($vi.LegalCopyright)' OriginalFilename='$($vi.OriginalFilename)'"
+          $beklenen = [ordered]@{
+            ProductName    = 'SesVer'
+            ProductVersion = $env:APP_VERSION
+            FileVersion    = $env:APP_VERSION
+            CompanyName    = 'HamaratLabs'
+            LegalCopyright = 'Muhammed Yusuf Hamarat - Founder of HamaratLabs'
+          }
+          foreach ($k in $beklenen.Keys) {
+            $v = $vi.$k
+            if ($v -cne $beklenen[$k]) { throw "$k '$($beklenen[$k])' olmalı: '$v' (uzunluk $(if ($null -ne $v) { $v.Length } else { 'yok' }))" }
+          }
+          foreach ($k in 'Comments', 'FileDescription', 'OriginalFilename') {
+            $v = $vi.$k
+            if ($v -and $v -cne $v.Trim()) { throw "$k baştaki/sondaki boşluk içeriyor: '$v'" }
+          }
+          Write-Host "Dosya özellikleri BAŞARILI: ProductName='$($vi.ProductName)' ProductVersion='$($vi.ProductVersion)' FileVersion='$($vi.FileVersion)' CompanyName='$($vi.CompanyName)' LegalCopyright='$($vi.LegalCopyright)'; sürüm kaynağında sondaki boşluk yok, dosya boyu değişmedi."
           Get-FileHash -Algorithm SHA256 $exe | Format-List
           "INSTALLER=$($f.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
@@ -306,6 +345,73 @@ jobs:
           }
           Write-Host 'Duman testi BAŞARILI: kurulum, Kaldır/Ekle kaydı, kısayollar (hedef/çalışma klasörü/ikon), kısayoldan açılış (başlatıcı + Python + pip başlangıcı), kısayol seçimi, kaldırma ve kullanıcı verisinin korunması doğrulandı.'
 
+      # Siberguvenlik 1.2.1 şartı: sihirbazın hata yolu gerçekten koşulur. İlk kurulum hata verince
+      # kurulum_log_paylas.txt oluşmalı ve ev klasörü yolu içermemeli; "Açılışta güncellemeleri
+      # denetle" kapalı kurulumda ayarlar.json'da güncelleme denetimi kapalı olmalı ve sonraki
+      # parametresiz kurulum bu seçimi ezmemeli. Bir denetim tutmazsa adım (ve CI) düşer.
+      - name: Hata yolu testi — paylaşılabilir günlük maskeli, güncelleme seçeneği ayarlar.json'a yansır
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\SesVer'
+          $ayar = Join-Path $app 'ayarlar.json'
+          $ham = Join-Path $app 'kurulum_log.txt'
+          $paylas = Join-Path $app 'kurulum_log_paylas.txt'
+          New-Item -ItemType Directory -Force $app | Out-Null
+          Remove-Item $ham, $paylas, (Join-Path $app 'kurulum_durum.txt') -Force -ErrorAction SilentlyContinue
+          # Kullanıcının daha önce kaydettiği başka bir ayar (uygulamanın yazdığı biçimde) korunmalı.
+          [IO.File]::WriteAllText($ayar, "{`n  `"arayuz_dili`": `"en`"`n}`n", [Text.UTF8Encoding]::new($false))
+
+          # İlk kurulumu kesin ve hızlı düşürmek için pip'e ulaşılamayan bir paket dizini verilir:
+          # Python normal indirilir (curl), pip 'voxcpm kurulumu' adımında hata verir.
+          $env:PIP_INDEX_URL = 'http://127.0.0.1:9/simple'; $env:PIP_RETRIES = '0'; $env:PIP_TIMEOUT = '5'
+          $log = Join-Path $env:RUNNER_TEMP 'sesver-kurulum-hata.log'
+          $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ORTAMKUR','/GUNCELLEMEDENETIMI=0',"/LOG=$log" -PassThru
+          $null = $p.Handle
+          if (-not $p.WaitForExit(20 * 60 * 1000)) { & taskkill.exe /T /F /PID $p.Id | Out-Host; throw 'Hata yolu kurulumu 20 dk içinde bitmedi' }
+          Remove-Item Env:PIP_INDEX_URL, Env:PIP_RETRIES, Env:PIP_TIMEOUT
+          $son = (Get-Content (Join-Path $app 'kurulum_durum.txt') -TotalCount 1 -ErrorAction SilentlyContinue)
+          Write-Host "Kurulum çıkış kodu: $($p.ExitCode); son durum satırı: $son"
+          if ($p.ExitCode -ne 30) { Get-Content $ham -Tail 40 -ErrorAction SilentlyContinue | Out-Host; throw "Beklenen çıkış kodu 30 (ilk kurulum tamamlanamadı): $($p.ExitCode)" }
+          if ($son -notmatch '^\d/6\|hata:') { throw "Son durum satırı hata değil: '$son'" }
+
+          # Paylaşılabilir kopya: var, ev klasörü yolu/kısa adı/kullanıcı adı yok, teknik içerik duruyor.
+          if (-not (Test-Path $paylas)) { throw 'kurulum_log_paylas.txt oluşmadı' }
+          $hamMetin = [IO.File]::ReadAllText($ham, [Text.Encoding]::UTF8)
+          $payMetin = [IO.File]::ReadAllText($paylas, [Text.Encoding]::UTF8)
+          $ev = $env:USERPROFILE.TrimEnd('\')
+          $kisa = (New-Object -ComObject Scripting.FileSystemObject).GetFolder($ev).ShortPath
+          # Test anlamlı olsun: ham günlükte ev klasörü yolu gerçekten var (bat kurulum klasörünü yazar).
+          if ($hamMetin.IndexOf($ev, [StringComparison]::OrdinalIgnoreCase) -lt 0) { throw 'Ham kurulum_log.txt ev klasörü yolunu içermiyor; denetim anlamsız kalır' }
+          foreach ($iz in @($ev, $ev.Replace('\', '/'), $kisa, "\Users\$env:USERNAME", $env:USERNAME)) {
+            if ($iz -and $payMetin.IndexOf($iz, [StringComparison]::OrdinalIgnoreCase) -ge 0) { throw "kurulum_log_paylas.txt maskesiz iz içeriyor: $iz" }
+          }
+          $maske = ([regex]::Matches($payMetin, '<ev>')).Count
+          if ($maske -lt 1) { throw 'kurulum_log_paylas.txt içinde <ev> maskesi yok' }
+          foreach ($m in @('[DURUM] ', 'hata:')) { if (-not $payMetin.Contains($m)) { throw "Paylaşılabilir kopyada teknik satır yok: $m" } }
+          Write-Host "----- kurulum_log_paylas.txt (son 15 satır; <ev> maskesi $maske kez) -----"
+          ($payMetin -split "`r?`n") | Select-Object -Last 15 | ForEach-Object { Write-Host "  | $_" }
+
+          # Güncelleme seçeneği kapalı kuruldu → ayarlar.json'da kapalı, diğer ayar korunmuş.
+          $a = Get-Content $ayar -Raw -Encoding utf8 | ConvertFrom-Json
+          Write-Host "ayarlar.json: $((Get-Content $ayar -Raw -Encoding utf8) -replace '\s+', ' ')"
+          if ($a.guncelleme_kontrolu -isnot [bool] -or $a.guncelleme_kontrolu) { throw "ayarlar.json guncelleme_kontrolu false olmalı: '$($a.guncelleme_kontrolu)'" }
+          if ($a.arayuz_dili -ne 'en') { throw "ayarlar.json'daki diğer ayar korunmadı: arayuz_dili='$($a.arayuz_dili)'" }
+
+          # Parametresiz sessiz yeniden kurulum (güncelleme benzeri) kullanıcının seçimini ezmemeli.
+          $once = (Get-FileHash $ayar).Hash
+          $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=$(Join-Path $env:RUNNER_TEMP 'sesver-kurulum-hata2.log')" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Parametresiz yeniden kurulum çıkış kodu: $($p.ExitCode)" }
+          if ((Get-FileHash $ayar).Hash -ne $once) { throw 'Parametresiz yeniden kurulum ayarlar.json''u değiştirdi (önceki seçim ezildi)' }
+          # Açıkça /GUNCELLEMEDENETIMI=1 verilirse yeniden açılır.
+          $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/GUNCELLEMEDENETIMI=1',"/LOG=$(Join-Path $env:RUNNER_TEMP 'sesver-kurulum-hata3.log')" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "/GUNCELLEMEDENETIMI=1 kurulumu çıkış kodu: $($p.ExitCode)" }
+          $a = Get-Content $ayar -Raw -Encoding utf8 | ConvertFrom-Json
+          if ($a.guncelleme_kontrolu -isnot [bool] -or -not $a.guncelleme_kontrolu) { throw "ayarlar.json guncelleme_kontrolu true olmalı: '$($a.guncelleme_kontrolu)'" }
+          if ($a.arayuz_dili -ne 'en') { throw 'ayarlar.json''daki diğer ayar ikinci yazımda korunmadı' }
+          $global:LASTEXITCODE = 0
+          Write-Host 'Hata yolu testi BAŞARILI: ilk kurulum hatası (çıkış kodu 30) kurulum_log_paylas.txt üretti, ev klasörü yolu ve kullanıcı adı içermiyor; /GUNCELLEMEDENETIMI=0 ayarlar.json guncelleme_kontrolu=false yazdı, diğer ayar korundu, parametresiz yeniden kurulum seçimi ezmedi.'
+
       - name: Kurulum günlükleri
         if: always()
         shell: pwsh
@@ -328,8 +434,8 @@ jobs:
             '',
             "1. **SesVer-Kurulum-Windows.exe** dosyasını indirin (aynı dosya: SesVer-Kurulum-$ver.exe).",
             '2. Çift tıklayın. "Windows bilgisayarınızı korudu" çıkarsa **Ek bilgi → Yine de çalıştır** (kurulum programı kod imzasızdır).',
-            '3. **İleri → İleri → Kur**. Ardından "SesVer hazırlanıyor" sayfası Python ve paketleri indirir: 5–30 dk sürebilir, yaklaşık 3 GB iner, internet ve en az 20 GB boş alan gerekir. Ayrı bir siyah pencere açılmaz.',
-            '4. **Bitir** ("SesVer''i şimdi aç" işaretli kalsın). Bir sorun olursa son sayfadaki **Günlüğü aç** düğmesiyle kurulum_log.txt dosyasını görüp hermes.agent.hamarat@gmail.com adresine gönderebilirsiniz.',
+            '3. **İleri** ile ilerleyin. **Gizlilik ve güncelleme denetimi** sayfası SesVer''in internete ne zaman bağlandığını özetler; **Açılışta güncellemeleri denetle** seçeneğini isterseniz kapatın, sonra **Kur**. Ardından "SesVer hazırlanıyor" sayfası Python ve paketleri indirir: 5–30 dk sürebilir, yaklaşık 3 GB iner, internet ve en az 20 GB boş alan gerekir. Ayrı bir siyah pencere açılmaz.',
+            '4. **Bitir** ("SesVer''i şimdi aç" işaretli kalsın). Bir sorun olursa son sayfadaki **Günlüğü aç** düğmesi kurulum_log_paylas.txt dosyasını açar; bu dosyayı hermes.agent.hamarat@gmail.com adresine gönderebilirsiniz (ev klasörü yollarınız bu kopyada gizlidir).',
             '',
             'Sonra açmak için: Başlat menüsünde **SesVer** yazın ya da masaüstündeki SesVer simgesine çift tıklayın.',
             'Kaldırmak için: Ayarlar → Uygulamalar → SesVer (Seslerim ve outputs klasörü korunur).',
@@ -341,7 +447,9 @@ jobs:
             "$h2  SesVer-Kurulum-Windows.exe",
             '```',
             '',
-            "Her zaman en son sürüm: https://github.com/$env:REPO/releases/latest/download/SesVer-Kurulum-Windows.exe"
+            "Her zaman en son sürüm: https://github.com/$env:REPO/releases/latest/download/SesVer-Kurulum-Windows.exe",
+            '',
+            "Code signing policy (imza politikası) ve gizlilik politikası: https://github.com/$env:REPO#code-signing-policy"
           )
           [IO.File]::WriteAllLines((Join-Path $PWD 'windows\Output\RELEASE_NOTES.md'), $notlar, [Text.UTF8Encoding]::new($false))
           Get-ChildItem windows\Output | Format-Table Name, Length -AutoSize | Out-Host
@@ -365,7 +473,7 @@ jobs:
           Get-Content 'windows\Output\RELEASE_NOTES.md' -Encoding utf8 | ForEach-Object { Write-Host "dry-run: | $_" }
 
       - name: Artifact yükle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: SesVer-Kurulum-${{ env.APP_VERSION }}
           path: |
@@ -385,7 +493,7 @@ jobs:
       contents: write
     steps:
       - name: Build artifact'ını indir
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: SesVer-Kurulum-${{ needs.build.outputs.version }}
           path: dist
@@ -428,7 +536,7 @@ jobs:
       contents: read
     steps:
       - name: Build artifact'ını indir
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: SesVer-Kurulum-${{ needs.build.outputs.version }}
           path: dist
@@ -641,7 +749,7 @@ jobs:
 
       - name: Tam açılış günlükleri ve ekran görüntüleri
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sesver-full-launch-kanit
           path: |

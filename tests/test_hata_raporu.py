@@ -53,7 +53,7 @@ class SanitizeTests(unittest.TestCase):
         self.assertEqual(hr.sanitize(r"C:\Users\Yusuf\SesVer\app.py", homes=[]), r"<ev>\SesVer\app.py")
 
     def test_macos_and_linux_home_paths(self):
-        self.assertEqual(hr.sanitize("/Users/hamaratbey/Desktop/SesVer/app.py", homes=[]),
+        self.assertEqual(hr.sanitize("/Users/ornekkullanici/Desktop/SesVer/app.py", homes=[]),
                          "<ev>/Desktop/SesVer/app.py")
         self.assertEqual(hr.sanitize("open /home/ali/.cache/x", homes=[]), "open <ev>/.cache/x")
         # Bu makinenin ev dizini (ör. özel bir yol) de maskelenir.
@@ -213,12 +213,25 @@ class LogRotationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             log, prev = Path(tmp) / "sesver_log.txt", Path(tmp) / "sesver_log_onceki.txt"
             log.write_text("simdiki\n", encoding="utf-8")
-            prev.write_text("eski hata satiri\n", encoding="utf-8")
+            prev.write_text(f"SesVer günlüğü {hr.LOG_MARK} 2026-11-07\neski hata satiri\n", encoding="utf-8")
             kw = dict(error={}, log_path=log, prev_path=prev, system=FAKE_SYSTEM)
             self.assertNotIn("eski hata satiri", hr.build_report(**kw)["text"])
             text = hr.build_report(include_previous=True, **kw)["text"]
             self.assertIn("eski hata satiri", text)
             self.assertIn("sesver_log_onceki.txt (previous session", text)
+
+    def test_previous_log_from_unmasked_version_is_not_included(self):
+        """Bulgu 2: 1.2.0 günlüğünde o oturumun metni silinmemiş olabilir; rapora girmez."""
+        with tempfile.TemporaryDirectory() as tmp:
+            log, prev = Path(tmp) / "sesver_log.txt", Path(tmp) / "sesver_log_onceki.txt"
+            log.write_text("simdiki\n", encoding="utf-8")
+            prev.write_text("SesVer günlüğü 2026-11-01 | Python 3.11.9\nUserWarning: Gizli eski metin 4711\n",
+                            encoding="utf-8")
+            self.assertFalse(hr.log_is_masked(prev))
+            text = hr.build_report(error={}, include_previous=True, log_path=log, prev_path=prev,
+                                   system=FAKE_SYSTEM)["text"]
+            self.assertNotIn("4711", text)
+            self.assertIn("written by an older SesVer version without masking; not included", text)
 
 
 class PrivacyTests(unittest.TestCase):
@@ -250,6 +263,42 @@ class PrivacyTests(unittest.TestCase):
                 self.assertNotIn("kimseye gitmemeli", blob)
             self.assertIn("RuntimeError: tokenizer failed on", report["text"])
             self.assertEqual(hr.last_error()["code"], "other")
+
+    def test_text_warned_outside_record_error_never_reaches_disk_or_next_session(self):
+        """Bulgu 2: kütüphane uyarısı/yakalanmamış istisna metni günlüğe düşürse bile diskteki
+        sesver_log.txt'de olmaz; sonraki oturumda (bellek boş) önceki günlük rapora temiz girer."""
+        import app
+        import desktop
+        secret = "Bambaşka gizli paragraf 9182. Sonraki oturumda da görünmemeli"
+
+        def warn_then_fail():
+            print(f"UserWarning: tokenizer could not handle {secret!r}", file=sys.stderr, flush=True)
+            print(f"last chunk: {secret.split('. ')[1]}", file=sys.stderr, flush=True)
+            raise MemoryError("yapay")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path, prev_path = Path(tmp) / "sesver_log.txt", Path(tmp) / "sesver_log_onceki.txt"
+            with open(log_path, "w", encoding="utf-8") as fh:
+                tee = desktop._Tee(io.StringIO(), fh)
+                print(f"SesVer günlüğü {hr.LOG_MARK} test", file=tee, flush=True)
+                with mock.patch.object(sys, "stderr", tee), mock.patch.object(app, "get_model",
+                                                                              side_effect=warn_then_fail):
+                    list(app.generate_audio(secret, None))
+                tee.flush()
+            on_disk = log_path.read_text(encoding="utf-8")
+            self.assertIn("UserWarning: tokenizer could not handle", on_disk)
+            self.assertIn("<metin>", on_disk)
+            # Yeni oturum: bellekteki silme listesi yok, günlük önceki oturuma döner.
+            with mock.patch.object(hr, "_redact", hr.collections.deque(maxlen=256)):
+                self.assertTrue(hr.rotate_log(log_path, prev_path))
+                log_path.write_text("yeni oturum\n", encoding="utf-8")
+                report = hr.build_report(error={}, include_previous=True, log_path=log_path,
+                                         prev_path=prev_path, system=FAKE_SYSTEM)
+            self.assertIn("(previous session", report["text"])
+            for blob in (on_disk, report["text"]):
+                self.assertNotIn("9182", blob)
+                self.assertNotIn("Bambaşka gizli", blob)
+                self.assertNotIn("görünmemeli", blob)
 
     def test_generation_status_names_cuda_error(self):
         import app
@@ -369,6 +418,7 @@ class UiTests(unittest.TestCase):
             self.assertIn(needle, page)
         self.assertNotRegex(page, r"\{(send|consent|details|prev|mail|copy|to|wait|noapi|title)\}")
         api = desktop.ReportApi()
+        api._arm()  # başlatma hatası ekranı (bkz. _load_ui)
         self.assertIn("raporu hazırlayın", api.eposta())  # önizleme olmadan taslak açılmaz
         with mock.patch.object(hr, "system_lines", return_value=FAKE_SYSTEM):
             data = api.hazirla(False)
@@ -377,13 +427,153 @@ class UiTests(unittest.TestCase):
             self.assertIn("E-posta taslağı açıldı", api.eposta())
             send.assert_called_once()
 
+    def test_report_api_is_closed_on_gradio_page(self):
+        """Bulgu 4: js_api aynı penceredeki 127.0.0.1 Gradio sayfasından çağrılamaz."""
+        import desktop
+
+        class FakeWindow:
+            url = html = ""
+
+            def load_url(self, url):
+                self.url = url
+
+            def load_html(self, page):
+                self.html = page
+
+        # pywebview js_api'ye alt çizgisiz, çağrılabilir öznitelikleri açar (webview/util.py
+        # get_functions). Sayfanın görebildiği yöntemler bunlardır; kilidi açan _arm değil.
+        api = desktop.ReportApi()
+        exposed = sorted(n for n in dir(api) if not n.startswith("_") and callable(getattr(api, n)))
+        self.assertEqual(exposed, ["eposta", "hazirla", "kopyala"])
+
+        # Başarılı açılış: Gradio sayfası yüklenir, API kapalı kalır; hiçbir yan etki olmaz.
+        server = mock.Mock(url="http://127.0.0.1:7860")
+        server.wait_ready.return_value = True
+        window = FakeWindow()
+        with mock.patch.object(desktop, "_report_status"):
+            desktop._load_ui(window, server, api)
+        self.assertTrue(window.url.startswith("http://127.0.0.1:7860"))
+        with mock.patch.object(hr, "build_report") as build, mock.patch.object(hr, "send") as send, \
+                mock.patch.object(hr, "copy_to_clipboard") as copy:
+            for call in (lambda: api.hazirla(True), api.eposta, api.kopyala):
+                with self.assertRaises(PermissionError):
+                    call()
+            build.assert_not_called()
+            send.assert_not_called()
+            copy.assert_not_called()
+
+        # Başlatma hatası: hata ekranı açılırken API etkinleşir.
+        api2 = desktop.ReportApi()
+        server2 = mock.Mock(error="RuntimeError: yapay", traceback="")
+        server2.wait_ready.return_value = False
+        window2 = FakeWindow()
+        with mock.patch.object(desktop, "_report_status"), contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            desktop._load_ui(window2, server2, api2)
+        self.assertEqual(window2.url, "")
+        self.assertIn("pywebview.api", window2.html)
+        with mock.patch.object(hr, "system_lines", return_value=FAKE_SYSTEM):
+            self.assertIn("SesVer error report", api2.hazirla(False)["text"])
+
     def test_launchers_tell_where_to_send_log(self):
         bat = (ROOT / "WINDOWS_BASLAT.bat").read_bytes()
         line = b"echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.\r\n"
-        self.assertEqual(bat.count(line), 2)  # :baslat_durum ve :hata
+        # Yalnız :baslat_durum (desktop.py açılamadı): sesver_log.txt yazılırken maskelenir.
+        # :hata (kurulum adımı) bu dosyayı istemez: kurulum çıktısı yalnız konsoldadır.
+        self.assertEqual(bat.count(line), 1)
+        self.assertIn(b"echo Bu dosyada ev klasoru yollariniz gizlidir.\r\n", bat)
+        self.assertIn(b"echo Sorun surerse hermes.agent.hamarat@gmail.com adresine yazin ve durdugu adimi "
+                      b"bildirin: %ADIM%\r\n", bat)
         line.decode("ascii")  # eklenen satır ASCII (bat'ın echo satırlarında Türkçe karakter yok)
         sh = (ROOT / "macos_ortak.sh").read_text(encoding="utf-8")
         self.assertEqual(sh.count("hermes.agent.hamarat@gmail.com adresine gönderin."), 2)
+
+    def test_every_send_instruction_names_a_masked_file(self):
+        """Kabul ölçütü (bulgu 1): kullanıcıya gönderilmesi söylenen her dosya maskelidir.
+
+        sesver_log.txt desktop._Tee ile yazılırken, kurulum_log_paylas.txt sihirbazda
+        (SesVer.iss PaylasilabilirGunlukYaz) maskelenir; kurulum_log.txt hiçbir yerde
+        gönderilecek dosya olarak geçmez.
+        """
+        import re
+        masked = {"sesver_log.txt", "kurulum_log_paylas.txt"}
+        sources = {
+            "WINDOWS_BASLAT.bat": (ROOT / "WINDOWS_BASLAT.bat").read_text(encoding="utf-8"),
+            "windows/SesVer.iss": (ROOT / "windows" / "SesVer.iss").read_text(encoding="utf-8-sig"),
+            "windows-installer.yml": (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(
+                encoding="utf-8"),
+            "README.md": (ROOT / "README.md").read_text(encoding="utf-8"),
+            "AI_KURULUM.md": (ROOT / "AI_KURULUM.md").read_text(encoding="utf-8"),
+            "macos_ortak.sh": (ROOT / "macos_ortak.sh").read_text(encoding="utf-8"),
+        }
+        found = 0
+        for name, text in sources.items():
+            for line in text.splitlines():
+                if not re.search(r"gönder|gonder|\bsend\b", line, re.I):
+                    continue
+                if line.lstrip().lower().startswith(("rem ", ";", "#", "//")):
+                    continue  # yorum satırları kullanıcıya gösterilmez
+                files = set(re.findall(r"\b[a-z_]+_log(?:_[a-z]+)?\.txt\b", line))
+                for f in files - {"kurulum_log.txt"}:
+                    self.assertIn(f, masked, f"{name}: {line.strip()[:120]}")
+                found += bool(files & masked)
+                if "kurulum_log.txt" in files:
+                    self.assertRegex(line, r"göndermeyin|isteme\b", f"{name}: {line.strip()[:120]}")
+        self.assertGreaterEqual(found, 8)
+
+    def test_log_file_is_masked_while_writing(self):
+        """desktop._Tee: sesver_log.txt'ye ev klasörü yolu, e-posta ve anahtar yazılmaz; konsol aynen."""
+        import desktop
+        console, log = io.StringIO(), io.StringIO()
+        with mock.patch.object(hr, "_home_variants", return_value=[r"D:\Profiller\ozel kisi"]):
+            tee = desktop._Tee(console, log)
+        tee.write("SesVer günlüğü | Python 3.11.9 | C:\\Users\\Ornek Kisi\\AppData\\Local\\Programs\\"
+                  "SesVer\\python-embed\\pythonw.exe\n")
+        tee.write('  File "C:\\Us')  # yol iki write() çağrısına bölünür
+        tee.write('ers\\baskakisi\\AppData\\Local\\Programs\\SesVer\\app.py", line 12\n')
+        tee.write("cache: d:\\profiller\\OZEL KISI\\hf | /Users/ornekkullanici/x | ali@example.com\n")
+        tee.write("yarim satir C:\\Users\\baskakisi\\x")
+        self.assertNotIn("yarim satir", log.getvalue())  # satır sonu gelmeden yazılmaz
+        tee.flush()
+        out = log.getvalue()
+        for leaked in ("Ornek Kisi", "Kisi", "baskakisi", "OZEL KISI", "ornekkullanici", "ali@example.com"):
+            self.assertNotIn(leaked, out)
+        self.assertIn(r"<ev>\AppData\Local\Programs\SesVer\app.py", out)
+        self.assertIn(r"cache: <ev>\hf | <ev>/x | <e-posta>", out)
+        self.assertTrue(out.endswith(r"yarim satir <ev>\x"))
+        self.assertIn("Ornek Kisi", console.getvalue())  # kullanıcının kendi ekranı değişmez
+
+    def test_long_line_without_newline_is_not_split_past_the_mask(self):
+        """Siberguvenlik 1.2.1 bulgu C: 8192 karakteri aşan satır sonu yok çıktı kesilirken,
+        kesime denk gelen ve sonraki write() ile tamamlanan metin/yol maskeden kaçmaz."""
+        import desktop
+        secret = "Bu benim gizli metnim, kimse görmesin"
+        with mock.patch.object(hr, "_redact", hr.collections.deque(maxlen=256)):
+            hr.remember_private(secret)
+            for split in (len("Bu benim gizli "), len("Bu b"), len(secret) - 2):
+                with self.subTest(split=split):
+                    log = io.StringIO()
+                    with mock.patch.object(hr, "_home_variants", return_value=[]):
+                        tee = desktop._Tee(None, log)
+                    dolgu = "\r" + "%" * (desktop._Tee._PENDING_LIMIT - 30)  # tqdm benzeri, satır sonu yok
+                    tee.write(dolgu + "x C:\\Users\\Orn")
+                    tee.write("ek Kisi\\AppData " + secret[:split])  # sınır aşılır: kesim burada
+                    tee.write(secret[split:] + " son")
+                    tee.flush()
+                    out = log.getvalue()
+                    for leaked in ("Bu benim", "gizli", "görmesin", "Orn", "Kisi"):
+                        self.assertNotIn(leaked, out)
+                    self.assertIn("x <ev>\\AppData <metin> son", out)
+                    self.assertEqual(out.count("%"), len(dolgu) - 1)  # teknik çıktı kaybolmaz
+
+    def test_mask_is_idempotent_for_pending_tail(self):
+        # Taşmada bekletilen kuyruk maskelenmiş metindir; sonra yeniden maskelenince değişmemeli.
+        import desktop
+        tee = desktop._Tee(None, io.StringIO())
+        for sample in ("C:\\Users\\Ornek Kisi\\x token=abc123 ali@example.com Bearer abcdefghijkl",
+                       "<ev>\\x <metin> <e-posta> <anahtar> password=<gizli>"):
+            once = tee._clean(sample)
+            self.assertEqual(tee._clean(once), once)
 
     def test_settings_and_result_cards_have_report_button(self):
         import app

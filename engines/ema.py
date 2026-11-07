@@ -29,7 +29,8 @@ Kurulum ilkeleri (gerekçe: PLAN-MOTORLAR.md §4):
   ``ema_uninstall()`` yalnız EMA ağırlıklarını siler, başka araçların
   (ör. ``~/.hermes/tts``) önbelleğine dokunmaz.
 * İndirme sabit bir model revizyonundan yapılır ve SHA-256 ile doğrulanır
-  (ağırlıklar ``torch.load(weights_only=False)`` ile açıldığı için şart).
+  (ağırlıklar ``torch.load(weights_only=False)`` ile açıldığı için şart). Doğrulama
+  her yüklemede tekrarlanır ve doğrulanan bayt yüklenir (``default_loader``).
 * Önce geçici klasöre indirilir; hepsi doğrulanınca yerine taşınır. Hata ya da
   iptalde geçici dosyalar silinir, bu çağrının kurduğu paketler geri alınır.
 
@@ -38,6 +39,7 @@ Bu modülü içe aktarmak torch'u, ``ema_lightning``'i ya da modeli YÜKLEMEZ.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -608,12 +610,44 @@ def _forget_modules():
 
 
 # --- Model yükleme ---------------------------------------------------------------
+def _read_verified(folder: Path, spec: WeightFile) -> bytes:
+    """Ağırlık dosyasını belleğe okur, boyut + SHA-256 (ya da git blob) ile doğrular.
+
+    ``torch.load(weights_only=False)`` pickle çalıştırır: yalnız kurulumda değil her
+    yüklemede doğrulanır ve yüklenen bayt, doğrulanan baytın kendisidir (doğrulama ile
+    yükleme arasında dosya değiştirilse bile). Tutmazsa ``EngineError``; dosya açılmaz.
+    """
+    path = folder / spec.name
+    try:
+        data = path.read_bytes()
+    except OSError as exc:
+        raise EngineError(f"EMA ağırlığı okunamadı ({spec.name}): {exc}") from exc
+    if len(data) != spec.size:
+        ok = False
+    elif spec.sha256:
+        ok = hashlib.sha256(data).hexdigest() == spec.sha256
+    elif spec.git_sha1:
+        ok = _git_blob_sha1(data) == spec.git_sha1
+    else:
+        ok = False  # özeti olmayan dosya pickle olarak açılmaz
+    if not ok:
+        raise EngineError(f"EMA ağırlığı doğrulanamadı ({spec.name}): dosya değişmiş ya da bozuk, açılmadı. "
+                          "Hızlı Mod'u kaldırıp yeniden indirin.")
+    return data
+
+
+def _weight_spec(name: str) -> WeightFile:
+    return next(spec for spec in WEIGHT_FILES if spec.name == name)
+
+
 def default_loader(folder: Path, device: str = "auto"):
     """Ağırlıkları SesVer klasöründen yükler (ağa çıkmaz; ``hf_hub_download`` kullanılmaz).
 
     ``EMA()`` kurucusu ağırlıkları HF önbelleğinden istediği için sabitlenen
     1.0.3'ün kendi parçaları doğrudan kullanılır: ``load_acoustic``,
-    ``load_decoder``, ``Frontend`` ve ``EMA._from_parts``.
+    ``load_decoder``, ``Frontend`` ve ``EMA._from_parts``. ``ema.pt`` ve ``decoder.pt``
+    önce ``_read_verified`` ile doğrulanır, ``torch.load``'a dosya yolu değil doğrulanmış
+    bayt (``io.BytesIO``) verilir.
     """
     import torch  # noqa: WPS433 — yalnız ilk üretimde
     from ema_lightning.api import EMA
@@ -621,11 +655,14 @@ def default_loader(folder: Path, device: str = "auto"):
     from ema_lightning.frontend import Frontend
     from ema_lightning.model import load_acoustic
 
+    folder = Path(folder)
+    acoustic_bytes = _read_verified(folder, _weight_spec("ema.pt"))
+    decoder_bytes = _read_verified(folder, _weight_spec("decoder.pt"))
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     dev = torch.device(device)
-    acoustic = load_acoustic(str(folder / "ema.pt"), dev)
-    decoder = load_decoder(str(folder / "decoder.pt"), dev)
+    acoustic = load_acoustic(io.BytesIO(acoustic_bytes), dev)
+    decoder = load_decoder(io.BytesIO(decoder_bytes), dev)
     return EMA._from_parts(acoustic, decoder, Frontend(acoustic.vocab), dev)
 
 

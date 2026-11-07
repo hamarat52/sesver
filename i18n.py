@@ -199,11 +199,59 @@ def get_setting(key, default=None):
     return _read_settings().get(key, default)
 
 
+def _backup_path(path):
+    """Bozuk ayar dosyasının yedeği için boş ad: <ad>.bozuk, sonra .bozuk-2 ... .bozuk-20; yoksa None.
+
+    Kurulum programı aynı adları kullanır (windows/SesVer.iss AyarYedekAdi).
+    """
+    candidate = path.with_name(path.name + ".bozuk")
+    n = 2
+    while candidate.exists():
+        if n > 20:
+            return None
+        candidate = path.with_name(f"{path.name}.bozuk-{n}")
+        n += 1
+    return candidate
+
+
+def _keep_unreadable(path):
+    """Okunamayan (JSON nesnesi olmayan) ayar dosyası üzerine yazılmadan önce olduğu gibi yedeklenir.
+
+    Dosya yoksa, boşsa ya da geçerliyse True; yedek gerekip yazılamadıysa False (o zaman ayar
+    dosyasına dokunulmaz, kullanıcının elle yazdığı içerik kaybolmaz).
+    """
+    try:
+        raw = path.read_bytes() if path.is_file() else b""
+    except OSError:
+        return False  # var ama okunamıyor: üzerine yazma
+    if not raw.strip():
+        return True
+    try:
+        if isinstance(json.loads(raw.decode("utf-8")), dict):
+            return True
+    except ValueError:  # UnicodeDecodeError da ValueError'dır
+        pass
+    backup = _backup_path(path)
+    if backup is None:
+        return False
+    try:
+        backup.write_bytes(raw)
+    except OSError:
+        return False
+    return True
+
+
 def set_setting(key, value):
-    """ayarlar.json'a tek bir ayar yazar (diğer ayarlar korunur); hata sessizce yutulur."""
+    """ayarlar.json'a tek bir ayar yazar (diğer ayarlar korunur); hata sessizce yutulur.
+
+    Dosya bozuksa (uygulama onu boş ayar sayar) üzerine yazmadan önce ``ayarlar.json.bozuk``
+    olarak yedeklenir; yedeklenemezse dosyaya dokunulmaz ve ayar kaydedilmez.
+    """
     path = settings_path()
     data = _read_settings()
     data[key] = value
+    if not _keep_unreadable(path):
+        return
     try:
         tmp = path.with_name(path.name + ".yaz")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

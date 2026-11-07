@@ -46,7 +46,9 @@ LOG_TAIL_LINES = 300
 HOME_MASK = "<ev>"
 _SEP = r"(?:\\\\|\\|/)+"  # \, \\ (repr içinde) ya da /
 _HOME_PATTERNS = (
-    re.compile(rf"\b[A-Za-z]:{_SEP}(?:Users|Documents and Settings){_SEP}[^\\/\s'\"<>:|*?]+", re.I),
+    # Windows kullanıcı adı boşluk içerebilir ("C:\Users\Ad Soyad\..."): ad bir sonraki
+    # ayırıcıya, tırnağa ya da satır sonuna kadardır (SesVer.iss GunlukMaskele ile aynı kural).
+    re.compile(rf"\b[A-Za-z]:{_SEP}(?:Users|Documents and Settings){_SEP}[^\\/\r\n\t'\"<>:|*?]+", re.I),
     re.compile(r"(?<![\w.])/Users/[^/\s'\"<>:]+"),
     re.compile(r"(?<![\w.])/home/[^/\s'\"<>:]+"),
 )
@@ -101,10 +103,17 @@ def sanitize(text, homes=None):
 
 # --- Kullanıcı metni (rapora asla girmez) -------------------------------------------
 
-_redact = collections.deque(maxlen=32)  # yalnız bellekte; başarısız üretimlerin metin parçaları
+# desktop.py sesver_log.txt'nin ilk satırına yazar: bu günlük yazılırken maskelendi
+# (desktop._Tee: sanitize + scrub_private). İşaretsiz bir önceki günlük (eski sürüm)
+# rapora eklenmez; içinde silinmemiş kullanıcı metni olabilir.
+LOG_MARK = "[maskeli]"
+_redact = collections.deque(maxlen=256)  # yalnız bellekte; bu oturumdaki üretim metinlerinin parçaları
 _lock = threading.Lock()
 _errors = []  # bu oturumda kaydedilen son hatalar (en çok 5)
 _error_count = 0  # arayüz: "bu üretim sırasında yeni hata oldu mu?"
+# Alt parçalar (cümleler) için en kısa uzunluk. Metnin kendisi 3 karakterden itibaren her zaman
+# silinir; yalnız 6 karakterden kısa ayrı cümleler ("Evet.", "Tamam.") tek başına silinmez.
+# Daha kısa sınır günlükteki sıradan sözcükleri de (<metin>Ver gibi) bozar, teşhisi zorlaştırır.
 _MIN_FRAGMENT = 6
 
 
@@ -122,7 +131,12 @@ def _fragments(value):
 
 
 def remember_private(*values):
-    """Bu değerler (ör. üretim metni) bundan sonra günlük çıktısından ve rapordan silinir."""
+    """Bu değerler (ör. üretim metni) bundan sonra günlük çıktısından ve rapordan silinir.
+
+    app.py üretime başlamadan çağırır: desktop._Tee sesver_log.txt'ye yazarken de siler,
+    böylece metin (kütüphane uyarısı, yakalanmamış istisna) diskteki günlüğe hiç girmez ve
+    sonraki oturumdaki "önceki oturumun günlüğü" de temiz kalır.
+    """
     with _lock:
         for value in values:
             for piece in _fragments(value):
@@ -307,6 +321,15 @@ def log_has_error(path=None):
     except OSError:
         return False
     return bool(_ERROR_MARKERS.search(text))
+
+
+def log_is_masked(path):
+    """Günlük, yazılırken maskeleyen bir SesVer sürümünden mi (ilk satırda LOG_MARK)?"""
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            return LOG_MARK in f.readline()
+    except OSError:
+        return False
 
 
 def tail_lines(path, n=LOG_TAIL_LINES):
@@ -526,7 +549,12 @@ def build_report(error=None, include_previous=False, log_path=None, prev_path=No
     tail = tail or []
     if include_previous:
         prev = tail_lines(prev_path)
-        if prev is not None:
+        if prev is not None and not log_is_masked(prev_path):
+            # Eski sürümün günlüğü: o oturumun metni yalnız o sürecin belleğindeydi,
+            # burada silinemez. Gizlilik için eklenmez.
+            sections += ["", f"--- {prev_path.name}: written by an older SesVer version "
+                             f"without masking; not included ---"]
+        elif prev is not None:
             sections += ["", f"--- {prev_path.name} (previous session, last {len(prev)} lines) ---", *prev]
     clean = lambda s: sanitize(scrub_private(s))  # noqa: E731
     name, ver, _desc = os_info()

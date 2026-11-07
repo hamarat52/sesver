@@ -59,6 +59,7 @@ hata_raporlari/
 # Arayüz dili tercihi (kullanıcıya özel, i18n.py yazar).
 ayarlar.json
 ayarlar.json.yaz
+ayarlar.json.bozuk*
 # Yerel ajan görev notları (iç talimat ve yerel yollar içerir).
 .webdev-task-*.md
 sesver_baslatici_log.txt

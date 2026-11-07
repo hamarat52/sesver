@@ -682,6 +682,75 @@ class EmaEngineTests(unittest.TestCase):
         self.assertTrue(usage.extra["installed"])
 
 
+class EmaLoadVerificationTests(unittest.TestCase):
+    """Bulgu 3: ağırlıklar yalnız kurulumda değil her yüklemede doğrulanır ve torch.load'a
+    dosya yolu değil doğrulanan bayt gider (doğrulama ile yükleme arasında değişse de)."""
+
+    def setUp(self):
+        from types import ModuleType
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.folder = Path(tmp.name)
+        self.payloads = make_payloads()
+        for name, data in self.payloads.items():
+            (self.folder / name).write_bytes(data)
+        patcher = patch.object(ema, "WEIGHT_FILES", specs_for(self.payloads))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.loaded = []
+
+        def loader_for(name):
+            def load(src, device):
+                self.assertNotIsInstance(src, (str, os.PathLike), "torch.load'a yol verilmemeli")
+                self.loaded.append((name, src.read(), device))
+                return SimpleNamespace(vocab=["a"])
+            return load
+
+        attrs = {
+            "torch": {"cuda": SimpleNamespace(is_available=lambda: False), "device": lambda d: f"dev:{d}"},
+            "ema_lightning": {},
+            "ema_lightning.api": {"EMA": SimpleNamespace(_from_parts=lambda a, d, f, dev: ("model", dev))},
+            "ema_lightning.decoder": {"load_decoder": loader_for("decoder.pt")},
+            "ema_lightning.frontend": {"Frontend": lambda vocab: ("frontend", vocab)},
+            "ema_lightning.model": {"load_acoustic": loader_for("ema.pt")},
+        }
+        mods = {}
+        for name, values in attrs.items():
+            mods[name] = ModuleType(name)
+            for key, value in values.items():
+                setattr(mods[name], key, value)
+        mod_patch = patch.dict(sys.modules, mods)
+        mod_patch.start()
+        self.addCleanup(mod_patch.stop)
+
+    def test_verified_bytes_are_loaded(self):
+        self.assertEqual(ema.default_loader(self.folder, "auto"), ("model", "dev:cpu"))
+        self.assertEqual([(n, d) for n, d, _dev in self.loaded],
+                         [("ema.pt", self.payloads["ema.pt"]), ("decoder.pt", self.payloads["decoder.pt"])])
+
+    def test_tampered_weight_is_never_loaded(self):
+        data = bytearray(self.payloads["decoder.pt"])
+        data[123] ^= 0xFF  # aynı boyut, farklı içerik (boyut denetimi yakalamaz)
+        (self.folder / "decoder.pt").write_bytes(bytes(data))
+        with self.assertRaises(base.EngineError) as ctx:
+            ema.default_loader(self.folder, "cpu")
+        self.assertIn("doğrulanamadı (decoder.pt)", str(ctx.exception))
+        self.assertEqual(self.loaded, [])  # ema.pt bile açılmadı: önce ikisi de doğrulanır
+        (self.folder / "ema.pt").unlink()
+        with self.assertRaises(base.EngineError) as ctx:
+            ema.default_loader(self.folder, "cpu")
+        self.assertIn("okunamadı (ema.pt)", str(ctx.exception))
+
+    def test_engine_rechecks_even_if_status_says_ready(self):
+        # status_fn kurulumu hazır gösterse de (ör. doğrulamadan sonra dosya değişti) yükleyici reddeder.
+        (self.folder / "ema.pt").write_bytes(os.urandom(len(self.payloads["ema.pt"])))
+        eng = ema.EmaEngine(output_dir=self.folder / "out", weights_path=self.folder, status_fn=ready_status)
+        with self.assertRaises(base.EngineError) as ctx:
+            eng.synthesize("Merhaba")
+        self.assertIn("doğrulanamadı (ema.pt)", str(ctx.exception))
+        self.assertEqual(self.loaded, [])
+
+
 class EmaSelectionTests(unittest.TestCase):
     def test_get_engine_returns_ema_without_loading(self):
         self.assertEqual(engines.ENGINES, ("ema",))
