@@ -1,0 +1,5 @@
+Text,Voice,Emotion,Quality
+"Hello, world. This is a test.",Yaşlı Masalcı,calm,balanced
+Second line,Belgesel Anlatıcı,SAD,best
+Third line,,neutral,fast
+Fourth line,Belgesel Anlatıcı,neutral,ultra
