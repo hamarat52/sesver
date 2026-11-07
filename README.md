@@ -145,7 +145,7 @@ Free code signing provided by [SignPath.io](https://about.signpath.io), certific
 - **Status:** SesVer is preparing to apply to the free SignPath Foundation program for open source projects. Until the application is accepted and signing is set up, the Windows installer is **not signed** and Windows SmartScreen shows a warning (see [Windows Kurulum](#-windows-kurulum), step 2). Each release page states whether its files are signed.
 - **What will be signed:** only the Windows installer (`SesVer-Kurulum-<version>.exe` and its copy `SesVer-Kurulum-Windows.exe`), built by GitHub Actions ([`.github/workflows/windows-installer.yml`](.github/workflows/windows-installer.yml)) from the source code in this repository. Components that the installer downloads on first run (Python, PyTorch and other packages, model files) come from their own publishers and are not signed by this project.
 - **Publisher name:** the certificate is issued to SignPath Foundation, so a signed SesVer installer shows **"SignPath Foundation"** as the publisher, not HamaratLabs.
-- **Team roles:** SesVer has a single maintainer, Muhammed Yusuf Hamarat - Founder of Hamaratlabs, who holds every role.
+- **Team roles:** SesVer has a single maintainer, Muhammed Yusuf Hamarat (GitHub [`hamarat52`](https://github.com/hamarat52)), who holds every role.
   - Committers and reviewers: [Muhammed Yusuf Hamarat](https://github.com/hamarat52)
   - Approvers: [Muhammed Yusuf Hamarat](https://github.com/hamarat52)
 - **Approval:** every signing request is approved manually by an approver before the file is signed.
