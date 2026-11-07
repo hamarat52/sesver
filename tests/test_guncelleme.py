@@ -91,14 +91,30 @@ class KontrolTests(unittest.TestCase):
         self.assertNotIn("Yeni sürüm", ja)
 
     def test_github_son_surumu_eskiyse_bildirim_cikmaz(self):
-        # Kabul kriteri: GitHub'daki son sürüm (v1.2.0 ve öncesi), yerel VERSION 1.2.1 -> bildirim yok.
-        self.assertEqual(surum.__version__, "1.2.1")
-        self.assertIsNone(g.kontrol_et(istek=_yanit(tag_name="v1.1.0")))
-        self.assertIsNone(g.kontrol_et(istek=_yanit(tag_name="v1.2.0")))
-        # Sahte daha yeni sürümle (v1.3.0) bildirim çıkar.
-        bilgi = g.kontrol_et(istek=_yanit(tag_name="v1.3.0"))
-        self.assertEqual(bilgi.surum, "1.3.0")
-        self.assertIn("v1.3.0", g.bildirim_html(bilgi, lang="tr"))
+        # Kabul kriteri: GitHub'daki son sürüm yerel VERSION'dan eski ya da eşitse bildirim yok,
+        # daha yeniyse var. Örnekler yerel sürümden türetilir; her sürüm artışında test değişmez.
+        yerel = g.surum_parcala(surum.__version__)
+        if yerel is None:
+            self.fail(f"VERSION çözümlenemedi: {surum.__version__!r}")
+        ana, ara, yama = yerel
+        eskiler = ["0.0.0"]
+        if yama:
+            eskiler.append(f"{ana}.{ara}.{yama - 1}")
+        if ara:
+            eskiler.append(f"{ana}.{ara - 1}.99")
+        if ana:
+            eskiler.append(f"{ana - 1}.99.99")
+        for eski in eskiler + [f"{ana}.{ara}.{yama}"]:
+            with self.subTest(github=eski, yerel=surum.__version__):
+                # yerel= verilmez: varsayılan, kökteki VERSION'dan okunan sürümdür.
+                self.assertIsNone(g.kontrol_et(istek=_yanit(tag_name=f"v{eski}")))
+        # Sahte daha yeni sürümlerle bildirim çıkar.
+        for yeni in (f"{ana}.{ara}.{yama + 1}", f"{ana}.{ara + 1}.0", f"{ana + 1}.0.0"):
+            with self.subTest(github=yeni, yerel=surum.__version__):
+                bilgi = g.kontrol_et(istek=_yanit(tag_name=f"v{yeni}"))
+                self.assertIsNotNone(bilgi)
+                self.assertEqual(bilgi.surum, yeni)
+                self.assertIn(f"v{yeni}", g.bildirim_html(bilgi, lang="tr"))
 
     def test_guncelse_veya_eskiyse_bildirim_yok(self):
         self.assertIsNone(g.kontrol_et(yerel="1.2.0", istek=_yanit(tag_name="v1.2.0")))
