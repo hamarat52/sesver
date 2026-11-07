@@ -269,6 +269,49 @@ class KuyrukArayuzTestleri(unittest.TestCase):
         self.assertEqual(sonuc[-1], ("x.wav", "x.wav", "bitti"))
         self.assertEqual(self.uret.metinler, ["Bir.", "İki."])
 
+    def test_kuyruk_parca_metni_gunluge_yazilmaz(self):
+        """Siberguvenlik 1.3.0 bulgu A: kuyruk yolu da parça metnini ve referans metnini modele
+        vermeden önce maskeye kaydeder; model/kütüphane bunları stderr'e yazsa da sesver_log.txt'ye
+        (desktop._Tee) girmez. Önceki oturumdan kalan (kuyruk.json'dan yüklenen) öğe için de."""
+        import io
+        from types import SimpleNamespace
+
+        import desktop
+        hr = self.app.hata_raporu
+        ref = self.tmp / "ref.wav"
+        wav_yaz(ref, sn=2)
+        cumleler = [f"Gece kuyruğundaki gizli cümle numara {i} burada duruyor." for i in range(20)]
+        metin = " ".join(cumleler)
+        ref_metin = "Referans kaydında söylenen özel cümle"
+        self.app.kuyruga_ekle_klon_ui(metin, str(ref), "Nötr", ref_metin)
+        self.assertGreaterEqual(self._ogeler()[0]["parca_sayisi"], 2)
+
+        class Model:
+            tts_model = SimpleNamespace(sample_rate=SR)
+
+            def generate(self, **kw):
+                sys.stderr.write(f"UserWarning: girdi text={kw['text']!r} prompt={kw.get('prompt_text')}\n")
+                return np.zeros(SR // 20, dtype=np.float32)
+
+        gunluk = io.StringIO()
+        with mock.patch.object(hr, "_home_variants", return_value=[]):
+            tee = desktop._Tee(None, gunluk)
+        with mock.patch.object(hr, "_redact", hr.collections.deque(maxlen=256)), \
+                mock.patch.object(self.app, "get_model", return_value=Model()), \
+                mock.patch.object(sys, "stderr", tee):
+            # Yeniden açılış: aynı klasördeki kayıt yeni süreçte yüklenir, gerçek uret_fn ile işlenir.
+            yeni = kq.Kuyruk(dizin=self.tmp / "kuyruk", cikti_dir=self.tmp / "outputs",
+                             uret_fn=self.app._kuyruk_parca_uret, siniflandir=lambda exc, oge: "beklenmeyen",
+                             engel=lambda gerekce: contextlib.nullcontext())
+            self.assertTrue(yeni.baslat())
+            self.assertTrue(yeni.bekle(30))
+            tee.flush()
+        self.assertEqual([o["durum"] for o in yeni.durum()["ogeler"]], [kq.BITTI])
+        out = gunluk.getvalue()
+        self.assertGreaterEqual(out.count("UserWarning: girdi"), 2)  # teknik çıktı kaybolmaz
+        for sizan in cumleler + [ref_metin, "gizli cümle", "özel cümle"]:
+            self.assertNotIn(sizan, out)
+
     def test_kuyruk_hatalari_arayuz_hata_sayisina_karismaz(self):
         with mock.patch.object(self.app.hata_raporu, "error_count", return_value=5), \
                 mock.patch.object(self.app, "_kuyruk_hata_sayisi", 3):

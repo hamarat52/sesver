@@ -2858,6 +2858,10 @@ def _kuyruk_parca_uret(istek, hedef):
     generate_audio ile aynı model, kilit ve tek seferlik GPU→CPU geçişi; ama ileti üretmez
     (işçi iş parçacığında arayüz dili yoktur) ve 500 karakter sınırını parça zaten sağlar.
     """
+    # Elle üretimdeki gibi: parça metni ve referans metni modele gitmeden maskeye girer; kütüphane
+    # uyarısı, ilerleme çıktısı ya da traceback sesver_log.txt'ye metni yazamaz. Önceki oturumdan
+    # kalan (kuyruk.json'dan yüklenen) öğeler de bu yoldan geçer (siberguvenlik 1.3.0 bulgu A).
+    hata_raporu.remember_private(istek.get("metin"), istek.get("ref_metin"))
     reference, instruction, prompt_text, steps, kip = _kuyruk_istek_ayarlari(istek)
     if reference:
         try:
