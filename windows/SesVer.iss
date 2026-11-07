@@ -119,7 +119,7 @@ VersionInfoVersion={#AppVersion}
 VersionInfoTextVersion={#AppVersion}
 VersionInfoCompany={#AppPublisher}
 VersionInfoDescription={#AppName} kurulum programı
-VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of Hamaratlabs
+VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of HamaratLabs
 CloseApplications=yes
 SetupLogging=yes
 

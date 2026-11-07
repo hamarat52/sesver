@@ -349,7 +349,7 @@ class IssTests(unittest.TestCase):
         for satir in ("VersionInfoProductName={#AppName}", "VersionInfoProductVersion={#AppVersion}",
                       "VersionInfoProductTextVersion={#AppVersion}", "VersionInfoVersion={#AppVersion}",
                       "VersionInfoTextVersion={#AppVersion}", "VersionInfoCompany={#AppPublisher}",
-                      "VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of Hamaratlabs"):
+                      "VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of HamaratLabs"):
             self.assertIn(satir + "\n", setup)
         # Kaldırma korunur: Kaldır/Ekle kaydı var, kullanıcı verisi silinenler listesinde yok.
         self.assertNotIn("Uninstallable=no", setup)
