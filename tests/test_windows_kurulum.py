@@ -438,12 +438,28 @@ class PaylasilabilirGunlukTests(unittest.TestCase):
                       "Pos(Copy(Kalan, Son, 1), Bitis) = 0", "Copy(Kalan, 1, Bas - 1) + OrtamEvMaskesi"):
             self.assertIn(parca, maske)
         gunluk = pascal_govde(kod, "function", "GunlukMaskele")
+        degistir = pascal_govde(kod, "function", "HarfDuyarsizDegistir")
+        self.assertIn("KucukBul := AnsiLowercase(Bul);", degistir)  # ASCII dışı harf de duyarsız (bulgu B)
+        self.assertIn("Kucuk := AnsiLowercase(Kalan);", degistir)
         for parca in ("if Length(Ev) > 3 then", "StringChangeEx(Egik, '\\', '/', True);", "GetShortName(Ev)",
                       "Result := EvYollariniMaskele(Result);"):
             self.assertIn(parca, gunluk)
         yaz = pascal_govde(kod, "function", "PaylasilabilirGunlukYaz")
-        self.assertIn("GunlukMaskele(String(Ham), GetEnv('USERPROFILE'))", yaz)
+        self.assertIn("PaylasilabilirGunlukBaytlari(Ham, GetEnv('USERPROFILE'))", yaz)
         self.assertIn("SaveStringToFile(Hedef,", yaz)
+        baytlar = pascal_govde(kod, "function", "PaylasilabilirGunlukBaytlari")
+        for parca in ("if GecerliUtf8(Ham) then", "Utf8Encode(GunlukMaskele(Utf8Decode(Ham), Ev))",
+                      "EvUtf8 := Utf8Encode(Ev);", "EvUtf8Okunusu := String(EvUtf8);",
+                      "KucukEvUtf8 := Utf8Encode(AnsiLowercase(Ev));",
+                      "Metin := GunlukMaskele(String(Ham), EvUtf8Okunusu);",
+                      "Metin := GunlukMaskele(Metin, KucukEvUtf8Okunusu);", "Metin := GunlukMaskele(Metin, Ev);"):
+            self.assertIn(parca, baytlar)
+        utf8 = pascal_govde(kod, "function", "GecerliUtf8")
+        for parca in ("(C >= $C2) and (C <= $DF)", "if C = $E0 then\n        Alt := $A0;",
+                      "if C = $ED then\n        Ust := $9F;", "if C = $F0 then\n        Alt := $90;",
+                      "if C = $F4 then\n        Ust := $8F;", "(C >= $F0) and (C <= $F4)", "if I + Ek > N then",
+                      "(Ord(B[J]) < $80) or (Ord(B[J]) > $BF)"):
+            self.assertIn(parca, utf8)
 
     def test_iss_hata_ve_iptalde_kopya_yazilir_ve_gosterilir(self):
         kod = iss_bolumu("Code")
@@ -453,6 +469,280 @@ class PaylasilabilirGunlukTests(unittest.TestCase):
         for ad in ("CurPageChanged", "GunlukDugmesiClick"):
             self.assertIn("Gunluk := GosterilecekGunluk();", pascal_govde(kod, "procedure", ad))
         self.assertIn(f'Type: files; Name: "{{app}}\\{kd.PAYLAS_GUNLUK_DOSYASI}"', iss_bolumu("UninstallDelete"))
+
+    def test_maskeli_kopya_yoksa_ham_gunluk_gosterilmez(self):
+        """Bulgu A: kopya yazılamazsa Bitir sayfası ham kurulum_log.txt'yi göstermez, dosya istemez."""
+        kod = iss_bolumu("Code")
+        goster = pascal_govde(kod, "function", "GosterilecekGunluk")
+        self.assertNotIn("OrtamGunlukDosyasi", goster)  # ham günlüğe hiçbir yoldan düşmez
+        self.assertIn("Result := '';", goster)
+        self.assertIn("if PaylasGunlukHazir and FileExists(", goster)
+        yaz = pascal_govde(kod, "function", "PaylasilabilirGunlukYaz")
+        self.assertIn("PaylasGunlukHazir := False;", yaz)
+        self.assertIn("PaylasGunlukHazir := Result;", yaz)
+        self.assertIn("if not FileExists(Kaynak) then", yaz)  # kaynak yoksa boş kopya da yazılmaz
+        sayfa = pascal_govde(kod, "procedure", "CurPageChanged")
+        for parca in ("FmtMessage(CustomMessage('OrtamHataMetniGunluksuz'), [OrtamHataAdimi])",
+                      "Metin := CustomMessage('OrtamIptalMetniGunluksuz');",
+                      "GunlukDugmesi.Visible := Gunluk <> '';"):
+            self.assertIn(parca, sayfa)
+        self.assertNotIn("GunlukDugmesi.Visible := True;", sayfa)
+        self.assertIn("if Gunluk = '' then\n    Exit;", pascal_govde(kod, "procedure", "GunlukDugmesiClick"))
+        mesajlar = iss_bolumu("CustomMessages")
+        for dil in ("turkish", "english"):
+            for ad in ("OrtamHataMetniGunluksuz", "OrtamIptalMetniGunluksuz"):
+                metin = re.search(rf"^{dil}\.{ad}=(.*)$", mesajlar, re.M).group(1)
+                # Dosya gösterilmez/istenmez: ne dosya adı ne %2 (yol) yer tutucusu.
+                for yasak in (kd.GUNLUK_DOSYASI, kd.PAYLAS_GUNLUK_DOSYASI, "%2", "gönder", "send", "Open log",
+                              "Günlüğü aç"):
+                    self.assertNotIn(yasak, metin, f"{dil}.{ad}")
+            hata = re.search(rf"^{dil}\.OrtamHataMetniGunluksuz=(.*)$", mesajlar, re.M).group(1)
+            self.assertIn("hermes.agent.hamarat@gmail.com", hata)
+            self.assertEqual(hata.count("%1"), 2)  # durduğu adım metinde ve bildirilecek bilgi olarak
+
+
+# ---------------------------------------------------------------- günlük kodlaması (bulgu B)
+
+ASCII_DISI_EV = "D:\\Profiller\\Şükrü Öztürk"  # C:\Users dışında, ASCII dışı ad
+
+
+def _ornek_gunluk_satirlari(ev):
+    return [
+        "[SesVer baslatici calisiyor]",
+        "[BILGI] Yalniz kurulum kipi: SesVer kurulumdan sonra baslatilmaz.",
+        f'[BILGI] Kurulum klasoru: "{ev}\\AppData\\Local\\Programs\\SesVer"',
+        f"Requirement already satisfied: pip in {ev.lower()}\\appdata\\local\\programs\\sesver\\python-embed\\lib",
+        f"ERROR: [Errno 28] No space left on device: '{ev}\\AppData\\Local\\Temp\\pip-unpack-1\\t.whl'",
+        "[DURUM] 5/6|hata:voxcpm kurulumu",
+    ]
+
+
+def _sizinti_var(baytlar, ad="Şükrü"):
+    return any(ad.encode(k) in baytlar or ad.lower().encode(k) in baytlar for k in ("utf-8", "cp1254", "cp857"))
+
+
+class GunlukKodlamasiTests(unittest.TestCase):
+    def test_gecerli_utf8_python_cozucusuyle_ayni_karar(self):
+        import random
+        alfabe = [0x00, 0x41, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xC1, 0xC2, 0xC5, 0xDF,
+                  0xE0, 0xE2, 0xED, 0xEF, 0xF0, 0xF3, 0xF4, 0xF5, 0xFF]
+        rnd = random.Random(20261107)
+        ornekler = [b"", "Şükrü Öztürk".encode("utf-8"), "Şükrü".encode("cp1254"), b"\xed\xa0\x80", b"\xf4\x90\x80\x80",
+                    b"\xe0\x80\xaf", b"\xc0\xaf", "😀".encode("utf-8"), b"\xe2\x82"]
+        ornekler += [bytes(rnd.choice(alfabe) for _ in range(rnd.randint(1, 6))) for _ in range(5000)]
+        for b in ornekler:
+            try:
+                b.decode("utf-8")
+                beklenen = True
+            except UnicodeDecodeError:
+                beklenen = False
+            self.assertEqual(kd.pascal_gecerli_utf8(b), beklenen, b)
+
+    def test_ascii_disi_ad_users_disi_profil_utf8_gunlukte_gizlenir(self):
+        ham = "\r\n".join(_ornek_gunluk_satirlari(ASCII_DISI_EV)).encode("utf-8")
+        # Eski yol (ANSI çözüp USERPROFILE ile karşılaştırma) bu günlükte adı kaçırıyordu.
+        eski = kd.ansi_kodla(kd.pascal_gunluk_maskele(kd.ansi_coz(ham), ASCII_DISI_EV))
+        self.assertTrue(_sizinti_var(eski), "test anlamsız: eski yol zaten gizliyor")
+        out = kd.pascal_paylasilabilir_gunluk_baytlari(ham, ASCII_DISI_EV)
+        self.assertFalse(_sizinti_var(out), out)
+        self.assertNotIn(b"Profiller", out)
+        metin = out.decode("utf-8")  # UTF-8 kalır
+        self.assertIn('Kurulum klasoru: "<ev>\\AppData\\Local\\Programs\\SesVer"', metin)
+        self.assertIn("pip in <ev>\\appdata", metin)  # küçük harfli Windows yolu da (A-Z duyarsız)
+        self.assertIn("[DURUM] 5/6|hata:voxcpm kurulumu", metin)
+
+    def test_karisik_kodlamali_gunlukte_de_gizlenir(self):
+        satirlar = _ornek_gunluk_satirlari(ASCII_DISI_EV)
+        for bolme in (3, 4):  # küçük harfli pip satırı ANSI kısımda da, UTF-8 kısımda da
+            with self.subTest(bolme=bolme):
+                ham = ("\r\n".join(satirlar[:bolme]).encode("utf-8") + b"\r\n" +
+                       "\r\n".join(satirlar[bolme:]).encode("cp1254"))  # araya ANSI çıktı karışmış
+                self.assertFalse(kd.pascal_gecerli_utf8(ham))
+                out = kd.pascal_paylasilabilir_gunluk_baytlari(ham, ASCII_DISI_EV)
+                self.assertFalse(_sizinti_var(out), out)
+                self.assertEqual(out.count(b"<ev>"), 3)
+                # Maskelenmeyen baytlar korunur (ANSI yol baytları değiştirmez).
+                self.assertIn(b"[DURUM] 5/6|hata:voxcpm kurulumu", out)
+
+    def test_ascii_ad_ve_users_profili_eskisi_gibi(self):
+        ev = "C:\\Users\\Ornek Kisi"
+        ham = "\r\n".join(_ornek_gunluk_satirlari(ev)).encode("utf-8")
+        out = kd.pascal_paylasilabilir_gunluk_baytlari(ham, ev, kisa_ad="C:\\Users\\ORNEKK~1")
+        self.assertNotIn(b"Ornek", out)
+        self.assertNotIn(b"ornek", out)
+        self.assertEqual(out.count(b"<ev>"), 3)
+
+    def test_bat_gunlugu_utf8_yazar_yalniz_kurulum_kipinde(self):
+        satirlar = [s.strip() for s in bat_satirlari()]
+        chcp = satirlar.index(kd.BAT_KOD_SAYFASI_SATIRI)
+        pyenc = satirlar.index(kd.BAT_PYTHON_KODLAMA_SATIRI)
+        self.assertEqual(satirlar.count(kd.BAT_KOD_SAYFASI_SATIRI), 1)
+        acik = satirlar.index(":yk_gunluk_acik")
+        pid = next(i for i, s in enumerate(satirlar) if s.startswith("powershell") and "kurulum_pid.txt" in s)
+        klasor = satirlar.index('echo [BILGI] Kurulum klasoru: "%CD%"')
+        # PID satırı kod sayfası değişmeden yazılır; günlüğün geri kalanı UTF-8.
+        self.assertLess(acik, pid)
+        self.assertLess(pid, chcp)
+        self.assertLess(chcp, klasor)
+        self.assertEqual(pyenc, chcp + 1)
+        self.assertLess(klasor, satirlar.index(":yk_hazir"))
+        yk, _p, _e = bat_akisi("yk")
+        normal, _p, _e = bat_akisi("normal")
+        self.assertIn(chcp, yk)
+        self.assertNotIn(chcp, normal)  # çift tık çalışmasında kod sayfasına dokunulmaz
+        self.assertNotIn(klasor, normal)
+
+
+# ---------------------------------------------------------------- güncelleme denetimi seçeneği
+
+def _uygulama_okur(metin):
+    """Uygulamanın gerçek kodu (guncelleme.ayar_acik_mi → i18n.get_setting) bu ayarlar.json'u nasıl okur."""
+    import os
+    import tempfile
+    import guncelleme
+    with tempfile.TemporaryDirectory() as d:
+        yol = Path(d) / kd.AYAR_DOSYASI
+        if metin is not None:
+            yol.write_text(metin, encoding="utf-8")
+        eski = os.environ.get("SESVER_AYARLAR")
+        os.environ["SESVER_AYARLAR"] = str(yol)
+        try:
+            return guncelleme.ayar_acik_mi()
+        finally:
+            if eski is None:
+                os.environ.pop("SESVER_AYARLAR", None)
+            else:
+                os.environ["SESVER_AYARLAR"] = eski
+
+
+def _json(d):
+    import json
+    return json.dumps(d, ensure_ascii=False, indent=2) + "\n"  # i18n.set_setting biçimi
+
+
+AYAR_ORNEKLERI = [
+    "", _json({}), _json({"arayuz_dili": "en"}), _json({"guncelleme_kontrolu": True, "arayuz_dili": "tr"}),
+    _json({"arayuz_dili": "de", "guncelleme_kontrolu": False}), '{"guncelleme_kontrolu":false}', "{}", "{ }",
+    '{"guncelleme_kontrolu": 0}', '{"guncelleme_kontrolu": null}', '{\r\n  "guncelleme_kontrolu" : false\r\n}\r\n',
+    '{"guncelleme_kontrolu": false', "bozuk", '[1, 2]', _json({"not": "a, b} c", "guncelleme_kontrolu": True}),
+    _json({"arayuz_dili": "zh", "ad": "Şükrü"}),
+]
+
+
+class GuncellemeSecenegiTests(unittest.TestCase):
+    def test_okuma_uygulamanin_gercek_koduyla_ayni(self):
+        for metin in AYAR_ORNEKLERI:
+            with self.subTest(metin=metin):
+                self.assertEqual(kd.pascal_guncelleme_ayari_acik_mi(metin), _uygulama_okur(metin))
+        self.assertTrue(_uygulama_okur(None))  # dosya yok: açık
+
+    def test_yazilan_metni_uygulama_secilen_degerle_okur_diger_ayarlar_korunur(self):
+        import json
+        for metin in AYAR_ORNEKLERI:
+            for acik in (True, False):
+                with self.subTest(metin=metin, acik=acik):
+                    yeni = kd.pascal_guncelleme_ayarini_yerlestir(metin, acik)
+                    veri = json.loads(yeni)
+                    self.assertIs(veri["guncelleme_kontrolu"], acik)
+                    try:
+                        once = json.loads(metin)
+                    except ValueError:
+                        once = {}
+                    if isinstance(once, dict):
+                        once.pop("guncelleme_kontrolu", None)
+                        self.assertEqual({k: v for k, v in veri.items() if k != "guncelleme_kontrolu"}, once)
+                    self.assertEqual(_uygulama_okur(yeni), acik)
+                    self.assertEqual(kd.pascal_guncelleme_ayari_acik_mi(yeni), acik)
+
+    def test_karar_onceki_secimi_ezmez(self):
+        karar = kd.pascal_guncelleme_karari
+        # Sessiz kurulum: parametre yoksa dokunulmaz (Ayarlar'da kapatılmış seçim güncellemede kalır).
+        self.assertEqual(karar(True, -1, True, False), (False, None))
+        self.assertEqual(karar(True, -1, True, True), (False, None))
+        self.assertEqual(karar(True, 0, True, True), (True, False))
+        self.assertEqual(karar(True, 0, True, False), (False, False))
+        self.assertEqual(karar(True, 1, False, False), (True, True))
+        # Etkileşimli: kutu mevcut ayarla açılır; değiştirilmediyse yazılmaz.
+        self.assertEqual(karar(False, -1, False, False), (False, False))
+        self.assertEqual(karar(False, -1, True, True), (False, True))
+        self.assertEqual(karar(False, -1, False, True), (True, False))
+        self.assertEqual(karar(False, -1, True, False), (True, True))
+
+    def test_iss_sayfa_kutu_ve_ayar_kurallari_python_karsiligiyla_ayni(self):
+        import guncelleme
+        kod = iss_bolumu("Code")
+        self.assertEqual(kd.GUNCELLEME_AYAR_ANAHTARI, guncelleme.AYAR_ANAHTARI)
+        for ad, deger in (("AyarDosyasi", f"'{kd.AYAR_DOSYASI}'"),
+                          ("GuncellemeAyarAnahtari", f"'{kd.GUNCELLEME_AYAR_ANAHTARI}'"),
+                          ("GizlilikPolitikasiAdresi", "'{#AppURL}#privacy-policy'")):
+            m = re.search(r"^\s*" + ad + r"\s*=\s*(.+?);", kod, re.M)
+            self.assertTrue(m, ad)
+            self.assertEqual(m.group(1), deger, ad)
+        self.assertIn('#define AppURL "https://github.com/hamarat52/sesver"', iss_metni())
+        self.assertIn("\n## Privacy policy\n", (ROOT / "README.md").read_text(encoding="utf-8"))
+        self.assertIn("ExpandConstant('{param:" + kd.GUNCELLEME_PARAMETRESI.lstrip("/") + "|}')", kod)
+
+        baslat = pascal_govde(kod, "procedure", "InitializeWizard")
+        for parca in ("CreateCustomPage(wpSelectTasks, CustomMessage('GizlilikSayfaBaslik')",
+                      "GuncellemeKutusu := TNewCheckBox.Create(GuncellemeSayfasi);",
+                      "GuncellemeKutusu.Caption := CustomMessage('GuncellemeSecenegi');",
+                      "GuncellemeKutusu.Checked := True;", "CustomMessage('GizlilikOzeti')",
+                      "CustomMessage('GuncellemeAciklama')", "GizlilikBaglantisi.OnClick := @GizlilikBaglantisiClick;"):
+            self.assertIn(parca, baslat)
+        self.assertIn("ShellExecAsOriginalUser('open', GizlilikPolitikasiAdresi,",
+                      pascal_govde(kod, "procedure", "GizlilikBaglantisiClick"))
+        adim = pascal_govde(kod, "procedure", "CurStepChanged")
+        # Seçim ilk kurulumun atlanmasından (sessiz kurulum) önce uygulanır.
+        self.assertLess(adim.index("GuncellemeTercihiniUygula();"),
+                        adim.index("WizardSilent() and not KomutSatirindaVar(OrtamKurParametresi)"))
+        sayfa = pascal_govde(kod, "procedure", "CurPageChanged")
+        self.assertIn("if CurPageID = GuncellemeSayfasi.ID then", sayfa)
+        self.assertIn("GuncellemeKutusunuHazirla();", sayfa)
+        hazirla = pascal_govde(kod, "procedure", "GuncellemeKutusunuHazirla")
+        for parca in ("if Klasor = GuncellemeKutusuKlasoru then", "GuncellemeKutusu.Checked := Parametre = 1",
+                      "GuncellemeAyariAcikMi(AyarMetniniOku(AddBackslash(Klasor) + AyarDosyasi))"):
+            self.assertIn(parca, hazirla)
+        uygula = pascal_govde(kod, "procedure", "GuncellemeTercihiniUygula")
+        for parca in ("Sessiz := WizardSilent() or (GuncellemeKutusuKlasoru = '');",
+                      "GuncellemeKarari(Sessiz, GuncellemeParametresi(), GuncellemeKutusu.Checked, Mevcut, Yeni)",
+                      "SaveStringToFile(Yol, Utf8Encode(GuncellemeAyariniYerlestir(Metin, Yeni)), False)"):
+            self.assertIn(parca, uygula)
+        karar = pascal_govde(kod, "function", "GuncellemeKarari")
+        for parca in ("if Parametre < 0 then", "Yeni := Parametre = 1;", "Yeni := Kutu;", "Result := Yeni <> Mevcut;"):
+            self.assertIn(parca, karar)
+        self.assertIn("(Length(G) >= 2) and (Copy(G, 1, 1) = '{') and (Copy(G, Length(G), 1) = '}')",
+                      pascal_govde(kod, "function", "AyarGovdesiGecerli"))
+        konum = pascal_govde(kod, "function", "GuncellemeDegerKonumu")
+        for parca in ("Pos('\"' + GuncellemeAyarAnahtari + '\"', Metin)", "I := P + Length(GuncellemeAyarAnahtari) + 2;",
+                      "(Copy(Metin, I, 1) <= ' ')", "if Copy(Metin, I, 1) <> ':' then"):
+            self.assertIn(parca, konum)
+        self.assertIn("Result := Copy(Metin, P, 5) <> 'false';", pascal_govde(kod, "function", "GuncellemeAyariAcikMi"))
+        yerlestir = pascal_govde(kod, "function", "GuncellemeAyariniYerlestir")
+        for parca in ("Result := '{' + #10 + '  \"' + GuncellemeAyarAnahtari + '\": ' + Deger + #10 + '}' + #10;",
+                      "Pos(Copy(Metin, Son, 1), ',}] ' + #9 + #10 + #13) = 0",
+                      "Result := Copy(Metin, 1, P - 1) + Deger + Copy(Metin, Son, Length(Metin));",
+                      "if Copy(TrimLeft(Kalan), 1, 1) = '}' then",
+                      "+ Deger + #10 + TrimLeft(Kalan)", "+ Deger + ',' + Kalan;"):
+            self.assertIn(parca, yerlestir)
+
+    def test_sayfa_metinleri_tr_ve_en(self):
+        import json
+        mesajlar = iss_bolumu("CustomMessages")
+        tr = dict(re.findall(r"^turkish\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
+        en = dict(re.findall(r"^english\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
+        # Kutunun adı uygulamanın Ayarlar'daki etiketiyle aynı (iki dilde).
+        en_katalog = json.loads((ROOT / "locales" / "en.json").read_text(encoding="utf-8"))
+        self.assertIn('label=t("Açılışta güncellemeleri denetle")', (ROOT / "app.py").read_text(encoding="utf-8"))
+        self.assertEqual(tr["GuncellemeSecenegi"], "Açılışta güncellemeleri denetle")
+        self.assertEqual(en["GuncellemeSecenegi"], en_katalog["Açılışta güncellemeleri denetle"])
+        for d, ayarlar in ((tr, "Ayarlar"), (en, "Settings")):
+            self.assertIn("Hugging Face", d["GizlilikOzeti"])
+            self.assertIn("GitHub", d["GuncellemeAciklama"])
+            self.assertIn(ayarlar, d["GuncellemeAciklama"])
+            self.assertIn("github.com/hamarat52/sesver#privacy-policy", d["GizlilikBaglantisi"])
+            for ad in ("GizlilikSayfaBaslik", "GizlilikSayfaAciklama", "GizlilikOzeti", "GuncellemeSecenegi",
+                       "GuncellemeAciklama", "GizlilikBaglantisi", "OrtamHataMetniGunluksuz", "OrtamIptalMetniGunluksuz"):
+                self.assertNotIn("\u2014", d[ad], ad)  # em dash yok
 
 
 if __name__ == "__main__":

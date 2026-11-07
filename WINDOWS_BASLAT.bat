@@ -41,6 +41,16 @@ del /f /q "kurulum_pid.txt" >nul 2>nul
 REM PowerShell'in ust sureci bu betigi calistiran cmd.exe'dir (dogrudan cagri).
 powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "(Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID)).ParentProcessId" >"kurulum_pid.txt" 2>nul
 if errorlevel 1 echo [UYARI] Surec numarasi yazilamadi; sihirbaz iptal dugmesi yedek yontemi kullanir.
+REM Gunlugun geri kalani tek kodlamayla (UTF-8) yazilsin: cmd ciktisi konsol kod
+REM sayfasini, Python ciktisi PYTHONIOENCODING degiskenini kullanir. Sihirbaz paylasilabilir
+REM kopyayi uretirken gunlugu UTF-8 okur; ASCII disi kullanici adi da USERPROFILE ile
+REM eslesip gizlenir (windows\SesVer.iss PaylasilabilirGunlukBaytlari). PID satiri bundan
+REM once yazilir: PowerShell ciktisi kod sayfasi degisikliginden etkilenmesin. Yalniz bu
+REM kipte; normal cift tik calismasinda kod sayfasina dokunulmaz.
+chcp 65001 >nul 2>nul
+set "PYTHONIOENCODING=utf-8"
+REM Destek icin kurulum klasoru; paylasilabilir kopyada ev klasoru kismi gizlenir.
+echo [BILGI] Kurulum klasoru: "%CD%"
 call :durum 0 "Basliyor"
 :yk_hazir
 

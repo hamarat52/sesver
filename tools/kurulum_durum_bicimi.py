@@ -112,11 +112,22 @@ def _pascal_lowercase(s):
     return "".join(chr(ord(c) + 32) if "A" <= c <= "Z" else c for c in s)
 
 
+def _pascal_ansi_lowercase(s):
+    # Inno AnsiLowercase (CharLowerBuff): ASCII dışı harfler de küçülür, her karakter tek
+    # karaktere gider (uzunluk korunur). Python'un tam eşlemesi 'İ'yi iki karaktere açar;
+    # Windows'un basit eşlemesi 'i' verir.
+    cikti = []
+    for c in s:
+        k = c.lower()
+        cikti.append(k if len(k) == 1 else ("i" if c == "\u0130" else c))
+    return "".join(cikti)
+
+
 def pascal_harf_duyarsiz_degistir(metin, bul, yeni):
     if bul == "":
         return metin
     sonuc, kalan = "", metin
-    kucuk_bul, kucuk = _pascal_lowercase(bul), _pascal_lowercase(kalan)
+    kucuk_bul, kucuk = _pascal_ansi_lowercase(bul), _pascal_ansi_lowercase(kalan)
     p = kucuk.find(kucuk_bul) + 1
     while p > 0:
         sonuc += kalan[: p - 1] + yeni
@@ -165,3 +176,160 @@ def pascal_gunluk_maskele(metin, ev, kisa_ad=None):
         if kisa and kisa != ev:
             sonuc = pascal_harf_duyarsiz_degistir(sonuc, kisa, EV_MASKESI)
     return pascal_ev_yollarini_maskele(sonuc)
+
+
+# --- Günlük kodlaması (bulgu B) ----------------------------------------------------------
+# WINDOWS_BASLAT.bat yalnız-kurulum kipinde PID satırından sonra ``chcp 65001`` ve
+# ``PYTHONIOENCODING=utf-8`` ile günlüğü UTF-8 yazar. Sihirbaz (PaylasilabilirGunlukBaytlari)
+# geçerli UTF-8 günlüğü UTF-8 çözer; değilse ANSI kod sayfasıyla çözer ve ev klasörünü UTF-8
+# baytlarının ANSI okunuşuyla da arar. Aşağıdakiler GecerliUtf8 ve PaylasilabilirGunlukBaytlari
+# işlevlerinin karşılığıdır. ``ansi``: Windows'un ANSI kod sayfası (Türkçe Windows: cp1254).
+
+BAT_KOD_SAYFASI_SATIRI = "chcp 65001 >nul 2>nul"
+BAT_PYTHON_KODLAMA_SATIRI = 'set "PYTHONIOENCODING=utf-8"'
+
+
+def pascal_gecerli_utf8(b):
+    """GecerliUtf8 karşılığı (1 tabanlı döngü 0 tabanlıya çevrildi)."""
+    n, i = len(b), 0
+    while i < n:
+        c = b[i]
+        alt, ust = 0x80, 0xBF
+        if c < 0x80:
+            ek = 0
+        elif 0xC2 <= c <= 0xDF:
+            ek = 1
+        elif 0xE0 <= c <= 0xEF:
+            ek = 2
+            if c == 0xE0:
+                alt = 0xA0
+            if c == 0xED:
+                ust = 0x9F
+        elif 0xF0 <= c <= 0xF4:
+            ek = 3
+            if c == 0xF0:
+                alt = 0x90
+            if c == 0xF4:
+                ust = 0x8F
+        else:
+            return False
+        if i + ek >= n:
+            if ek:
+                return False
+        if ek:
+            if not alt <= b[i + 1] <= ust:
+                return False
+            if any(not 0x80 <= x <= 0xBF for x in b[i + 2:i + ek + 1]):
+                return False
+        i += ek + 1
+    return True
+
+
+def ansi_coz(b, ansi="cp1254"):
+    """String(AnsiString) karşılığı: tanımsız baytlar Windows'taki gibi aynı kod noktasına gider."""
+    return "".join(bytes([x]).decode(ansi, errors="ignore") or chr(x) for x in b)
+
+
+def ansi_kodla(s, ansi="cp1254"):
+    """AnsiString(String) karşılığı: kod sayfasında olmayan karakter '?' olur."""
+    cikti = bytearray()
+    for ch in s:
+        try:
+            cikti += ch.encode(ansi)
+        except UnicodeEncodeError:
+            cikti += bytes([ord(ch)]) if ord(ch) < 256 and not bytes([ord(ch)]).decode(ansi, "ignore") else b"?"
+    return bytes(cikti)
+
+
+def pascal_paylasilabilir_gunluk_baytlari(ham, ev, kisa_ad=None, ansi="cp1254"):
+    """PaylasilabilirGunlukBaytlari karşılığı: ham günlük baytlarından paylaşılabilir kopya baytları."""
+    if pascal_gecerli_utf8(ham):
+        return pascal_gunluk_maskele(ham.decode("utf-8"), ev, kisa_ad).encode("utf-8")
+    # GetShortName var olmayan (yanlış okunmuş) yol için uzun adı döndürür: kısa ad = ev.
+    metin = pascal_gunluk_maskele(ansi_coz(ham, ansi), ansi_coz(ev.encode("utf-8"), ansi))
+    metin = pascal_gunluk_maskele(metin, ansi_coz(_pascal_ansi_lowercase(ev).encode("utf-8"), ansi))
+    return ansi_kodla(pascal_gunluk_maskele(metin, ev, kisa_ad), ansi)
+
+
+# --- Açılışta güncelleme denetimi (kurulum sihirbazı seçeneği) ------------------------------
+# Sihirbazın "Gizlilik ve güncelleme denetimi" sayfasındaki kutu uygulamanın Ayarlar'daki
+# aynı seçeneğidir: {app}\ayarlar.json "guncelleme_kontrolu" (guncelleme.AYAR_ANAHTARI).
+# Aşağıdakiler windows/SesVer.iss AyarGovdesiGecerli, GuncellemeDegerKonumu,
+# GuncellemeAyariAcikMi, GuncellemeAyariniYerlestir ve GuncellemeKarari karşılığıdır.
+
+AYAR_DOSYASI = "ayarlar.json"
+GUNCELLEME_AYAR_ANAHTARI = "guncelleme_kontrolu"
+GUNCELLEME_PARAMETRESI = "/GUNCELLEMEDENETIMI"
+
+
+def _pascal_trim_left(s):
+    # Delphi TrimLeft: baştaki kontrol karakterleri ve boşluk (<= ' ').
+    i = 0
+    while i < len(s) and s[i] <= " ":
+        i += 1
+    return s[i:]
+
+
+def _pascal_trim(s):
+    s = _pascal_trim_left(s)
+    j = len(s)
+    while j > 0 and s[j - 1] <= " ":
+        j -= 1
+    return s[:j]
+
+
+def pascal_ayar_govdesi_gecerli(metin):
+    g = _pascal_trim(metin)
+    return len(g) >= 2 and g[0] == "{" and g[-1] == "}"
+
+
+def pascal_guncelleme_deger_konumu(metin):
+    """Değerin 1 tabanlı başlangıç konumu; yoksa 0."""
+    p = metin.find(f'"{GUNCELLEME_AYAR_ANAHTARI}"') + 1
+    if p == 0:
+        return 0
+    i = p + len(GUNCELLEME_AYAR_ANAHTARI) + 2
+    while i <= len(metin) and metin[i - 1] <= " ":
+        i += 1
+    if metin[i - 1:i] != ":":
+        return 0
+    i += 1
+    while i <= len(metin) and metin[i - 1] <= " ":
+        i += 1
+    return i
+
+
+def pascal_guncelleme_ayari_acik_mi(metin):
+    if not pascal_ayar_govdesi_gecerli(metin):
+        return True
+    p = pascal_guncelleme_deger_konumu(metin)
+    return metin[p - 1:p + 4] != "false" if p > 0 else True
+
+
+def pascal_guncelleme_ayarini_yerlestir(metin, acik):
+    deger = "true" if acik else "false"
+    anahtar = f'  "{GUNCELLEME_AYAR_ANAHTARI}": {deger}'
+    if not pascal_ayar_govdesi_gecerli(metin):
+        return "{\n" + anahtar + "\n}\n"
+    p = pascal_guncelleme_deger_konumu(metin)
+    if p > 0:
+        son = p
+        while son <= len(metin) and metin[son - 1] not in ",}] \t\n\r":
+            son += 1
+        return metin[:p - 1] + deger + metin[son - 1:]
+    p = metin.find("{") + 1
+    kalan = metin[p:]
+    if _pascal_trim_left(kalan)[:1] == "}":
+        return metin[:p] + "\n" + anahtar + "\n" + _pascal_trim_left(kalan)
+    return metin[:p] + "\n" + anahtar + "," + kalan
+
+
+def pascal_guncelleme_karari(sessiz, parametre, kutu, mevcut):
+    """(yazılsın mı, yeni değer). parametre: 0/1, verilmediyse -1."""
+    if sessiz:
+        if parametre < 0:
+            return False, None
+        yeni = parametre == 1
+    else:
+        yeni = kutu
+    return yeni != mevcut, yeni
