@@ -12,10 +12,10 @@ Normal bir Windows programı gibi **İleri → İleri → Kur** ile kurulur; Ba�
 
 1. **İndirin:** [**SesVer-Kurulum-Windows.exe**](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-Kurulum-Windows.exe) (her zaman en son sürüm; tüm sürümler: [Releases](https://github.com/hamarat52/sesver/releases/latest)). GitHub hesabı gerekmez.
 2. **Çalıştırın:** İndirilen dosyaya çift tıklayın. **"Windows bilgisayarınızı korudu"** penceresi çıkarsa **Ek bilgi → Yine de çalıştır** deyin (kurulum programı kod imzasız olduğu için bu uyarı çıkar; ayrıntı: [Code signing policy](#code-signing-policy)).
-3. **Kurun:** Lisansı kabul edin → **İleri → İleri → Kur**. Masaüstü simgesi istemiyorsanız ilgili kutunun işaretini kaldırın.
+3. **Kurun:** Lisansı kabul edin → **İleri**. Masaüstü simgesi istemiyorsanız ilgili kutunun işaretini kaldırın → **İleri**. **Gizlilik ve güncelleme denetimi** sayfası SesVer'in internete ne zaman bağlandığını özetler; **Açılışta güncellemeleri denetle** kutusu işaretlidir, istemiyorsanız kaldırın (sonra Ayarlar'dan da değiştirebilirsiniz) → **İleri → Kur**.
 4. **Bekleyin:** Dosyalar kopyalanınca kurulum penceresinde **"SesVer hazırlanıyor"** sayfası açılır ve Python ile paketleri indirir; ilerleme çubuğu ve geçen süre görünür. **5–30 dakika** sürebilir, yaklaşık **3 GB** iner, internet gerekir. Ayrı bir siyah pencere açılmaz. İsterseniz **Kurulumu durdur** diyebilirsiniz; SesVer'i ilk açtığınızda kaldığı yerden devam eder.
 5. **Bitirin:** Son sayfada **"SesVer'i şimdi aç"** işaretli kalsın → **Bitir**. SesVer penceresi açılır.
-6. **Hata olursa:** Son sayfa hangi adımda durduğunu yazar; **Günlüğü aç** düğmesi `kurulum_log_paylas.txt` dosyasını açar. İnterneti kontrol edip masaüstündeki **SesVer** simgesine çift tıklayın, kurulum kaldığı yerden devam eder. Sorun sürerse `kurulum_log_paylas.txt` dosyasını **hermes.agent.hamarat@gmail.com** adresine gönderin. Bu kopyada ev klasörü yollarınız (`C:\Users\<adınız>`) gizlenmiştir.
+6. **Hata olursa:** Son sayfa hangi adımda durduğunu yazar; **Günlüğü aç** düğmesi `kurulum_log_paylas.txt` dosyasını açar. İnterneti kontrol edip masaüstündeki **SesVer** simgesine çift tıklayın, kurulum kaldığı yerden devam eder. Sorun sürerse `kurulum_log_paylas.txt` dosyasını **hermes.agent.hamarat@gmail.com** adresine gönderin. Bu kopyada ev klasörü yollarınız (`C:\Users\<adınız>`) gizlenmiştir. Bu kopya oluşturulamadıysa son sayfada düğme çıkmaz; o zaman yalnız durduğu adımı yazın.
 7. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin. Ayrıntı: `%LOCALAPPDATA%\Programs\SesVer\sesver_log.txt`.
 
 ### Sonra nasıl açarım?
@@ -140,6 +140,8 @@ Bu sürüm numarası kökteki `VERSION` dosyasındadır.
 
 ## Code signing policy
 
+_Application stage:_ the statement below describes the signing that SesVer has requested from the SignPath Foundation program; it takes effect only after the application is accepted. Until then the installer is not signed (see **Status**).
+
 Free code signing provided by [SignPath.io](https://about.signpath.io), certificate by [SignPath Foundation](https://signpath.org)
 
 - **Status:** SesVer is preparing to apply to the free SignPath Foundation program for open source projects. Until the application is accepted and signing is set up, the Windows installer is **not signed** and Windows SmartScreen shows a warning (see [Windows Kurulum](#-windows-kurulum), step 2). Each release page states whether its files are signed.
@@ -159,7 +161,7 @@ SesVer runs on your computer. Your text, your voice recordings and the audio you
 
 | When | Server | What is sent | How to avoid |
 |---|---|---|---|
-| Every start (background, at most 3 s) | `api.github.com` (GitHub) | One GET request without a body for the latest SesVer release. Headers: `User-Agent: SesVer/<version>`, `Accept`. | Settings → "Açılışta güncellemeleri denetle" off, or `SESVER_GUNCELLEME_KONTROLU=0` |
+| Every start (background, at most 3 s) | `api.github.com` (GitHub) | One GET request without a body for the latest SesVer release. Headers: `User-Agent: SesVer/<version>`, `Accept`. | Windows installer page "Açılışta güncellemeleri denetle" (silent install: `/GUNCELLEMEDENETIMI=0`), Settings → the same option off, or `SESVER_GUNCELLEME_KONTROLU=0` |
 | First-time setup (Windows installer page, `WINDOWS_BASLAT.bat`, `MACOS_BASLAT.command`) | `raw.githubusercontent.com`, `github.com` (python-build-standalone) | Downloads of a portable Python and its SHA256SUMS file | Install Python 3.10-3.12 yourself (fallback path) |
 | First-time setup, and after an update that changes `requirements.txt` | `pypi.org`, `files.pythonhosted.org` (PyPI) | Package downloads by pip | No; SesVer cannot run without these packages |
 | First-time setup on Windows with an NVIDIA card; once more at start if the installed PyTorch cannot use the card | `download.pytorch.org` | PyTorch (CUDA build) download by pip | No NVIDIA card: not contacted |
@@ -169,9 +171,13 @@ SesVer runs on your computer. Your text, your voice recordings and the audio you
 | Only when you click **Hızlandırmayı etkinleştir** (Ayarlar → Ekran kartı hızlandırma) or its CPU rollback | `download.pytorch.org`, `pypi.org` | Package index listing and PyTorch download | Do not use it |
 | Only when you click **Hata raporu gönder** and then **E-posta uygulamasında aç** | none by SesVer | A draft opens in your own e-mail app, addressed to hermes.agent.hamarat@gmail.com. You see the full report first and you send it yourself. It contains only technical data; home folder paths, e-mail addresses and access keys are masked. | Do not send it |
 
+Download CDNs: GitHub release files and Hugging Face model files are served through their providers' download CDNs, so the actual transfer may come from addresses such as `release-assets.githubusercontent.com` (GitHub) or `*.cdn.hf.co` (Hugging Face, region dependent); PyPI files come from `files.pythonhosted.org` and download.pytorch.org is delivered through Amazon CloudFront. These are part of the same services and the same privacy policies apply.
+
+The Windows installer shows a short version of this policy on its "Gizlilik ve güncelleme denetimi" (Privacy and update check) page, with the update check option.
+
 Links you click (for example the release page in the "new version" notice) open in your web browser. The servers above see your IP address and the requested file names; their own privacy policies apply: [GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement), [PyPI](https://policies.python.org/pypi.org/Privacy-Notice/), [PyTorch / Linux Foundation](https://www.linuxfoundation.org/legal/privacy-policy), [Hugging Face](https://huggingface.co/privacy).
 
-**Türkçe özet:** Metniniz, ses kayıtlarınız ve ürettiğiniz sesler hiçbir yere gönderilmez; hesap, telemetri ve analitik yoktur. SesVer yalnız şu durumlarda internete çıkar: açılışta GitHub'a sürüm denetimi (Ayarlar'dan kapatılır), ilk kurulumda ve paket güncellemesinde Python ile paketlerin indirilmesi (GitHub, PyPI; NVIDIA kartlı Windows'ta PyTorch için download.pytorch.org), ilk **Üret**'te ses modelinin Hugging Face'ten indirilmesi (sonraki oturumlarda kısa bir güncellik denetimi), **Otomatik yazıya dök** ilk kullanılınca yazıya dökme modeli, yalnız siz tıklarsanız Hızlı Mod ve GPU hızlandırma indirmeleri. Hata raporu otomatik gönderilmez: siz tıklarsanız e-posta uygulamanızda bir taslak açılır, gönderen sizsiniz.
+**Türkçe özet:** Metniniz, ses kayıtlarınız ve ürettiğiniz sesler hiçbir yere gönderilmez; hesap, telemetri ve analitik yoktur. SesVer yalnız şu durumlarda internete çıkar: açılışta GitHub'a sürüm denetimi (kurulumdaki seçenekle ya da Ayarlar'dan kapatılır), ilk kurulumda ve paket güncellemesinde Python ile paketlerin indirilmesi (GitHub, PyPI; NVIDIA kartlı Windows'ta PyTorch için download.pytorch.org), ilk **Üret**'te ses modelinin Hugging Face'ten indirilmesi (sonraki oturumlarda kısa bir güncellik denetimi), **Otomatik yazıya dök** ilk kullanılınca yazıya dökme modeli, yalnız siz tıklarsanız Hızlı Mod ve GPU hızlandırma indirmeleri. Hata raporu otomatik gönderilmez: siz tıklarsanız e-posta uygulamanızda bir taslak açılır, gönderen sizsiniz.
 
 ## Lisans, atıf ve sorumlu kullanım
 

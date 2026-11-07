@@ -11,7 +11,8 @@ Gizlilik: istek yalnız GET'tir; gövdesi yoktur. Başlıklarda yalnız User-Age
 yolları hiçbir şekilde gönderilmez.
 
 Kapatmak için: Ayarlar → "Açılışta güncellemeleri denetle" (ayarlar.json:
-"guncelleme_kontrolu": false) ya da SESVER_GUNCELLEME_KONTROLU=0 (ayrıca
+"guncelleme_kontrolu": false), Windows kurulum sihirbazındaki aynı kutu (sessiz kurulumda
+/GUNCELLEMEDENETIMI=0; windows/SesVer.iss ayarlar.json'a yazar) ya da SESVER_GUNCELLEME_KONTROLU=0 (ayrıca
 false/hayir/no/off; ortam değişkeni ayardan önce gelir).
 Yalnız standart kütüphane kullanır.
 """

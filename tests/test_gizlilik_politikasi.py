@@ -64,6 +64,14 @@ class CodeSigningPolicyTests(unittest.TestCase):
         for title in ("Code signing policy", "Privacy policy"):
             self.assertNotIn("\u2014", _section(title))
 
+    def test_application_stage_is_clear_before_the_required_sentence(self):
+        # Siberguvenlik 1.2.1 bulgu E: zorunlu cümle birebir kalır, bağlamı ondan önce gelir.
+        sec = _section("Code signing policy")
+        bag = sec.index("_Application stage:_")
+        self.assertLess(bag, sec.index(SIGNPATH_SENTENCE))
+        self.assertIn("takes effect only after the application is accepted", sec[bag:sec.index(SIGNPATH_SENTENCE)])
+        self.assertIn("not signed", sec[bag:sec.index(SIGNPATH_SENTENCE)])
+
 
 class PrivacyPolicyTests(unittest.TestCase):
     def test_every_runtime_host_is_listed(self):
@@ -105,6 +113,20 @@ class PrivacyPolicyTests(unittest.TestCase):
         for link in ("https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement",
                      "https://policies.python.org/pypi.org/Privacy-Notice/", "https://huggingface.co/privacy"):
             self.assertIn(link, policy)
+
+    def test_download_cdns_and_installer_option_are_described(self):
+        # Bulgu D: indirmeler sağlayıcıların CDN adreslerine yönlenir (2026-11-07 curl -I ile görüldü:
+        # GitHub release → release-assets.githubusercontent.com, HF LFS → *.cdn.hf.co).
+        policy = _section("Privacy policy")
+        for parca in ("download CDNs", "`release-assets.githubusercontent.com`", "`*.cdn.hf.co`", "CloudFront"):
+            self.assertIn(parca, policy)
+        # Kurulumdaki gizlilik sayfası ve kapatma yolu (Yusuf'un kararı, SignPath koşulu).
+        self.assertIn('"Gizlilik ve güncelleme denetimi" (Privacy and update check) page', policy)
+        self.assertIn("`/GUNCELLEMEDENETIMI=0`", policy)
+        iss = (ROOT / "windows" / "SesVer.iss").read_text(encoding="utf-8-sig")
+        self.assertIn("turkish.GizlilikSayfaBaslik=Gizlilik ve güncelleme denetimi\n", iss)
+        self.assertIn("english.GizlilikSayfaBaslik=Privacy and update check\n", iss)
+        self.assertIn("{param:GUNCELLEMEDENETIMI|}", iss)
 
 
 if __name__ == "__main__":
