@@ -91,9 +91,10 @@ class KontrolTests(unittest.TestCase):
         self.assertNotIn("Yeni sürüm", ja)
 
     def test_github_son_surumu_eskiyse_bildirim_cikmaz(self):
-        # Kabul kriteri: GitHub'daki son sürüm v1.1.0, yerel VERSION 1.2.0 -> bildirim yok.
-        self.assertEqual(surum.__version__, "1.2.0")
+        # Kabul kriteri: GitHub'daki son sürüm (v1.2.0 ve öncesi), yerel VERSION 1.2.1 -> bildirim yok.
+        self.assertEqual(surum.__version__, "1.2.1")
         self.assertIsNone(g.kontrol_et(istek=_yanit(tag_name="v1.1.0")))
+        self.assertIsNone(g.kontrol_et(istek=_yanit(tag_name="v1.2.0")))
         # Sahte daha yeni sürümle (v1.3.0) bildirim çıkar.
         bilgi = g.kontrol_et(istek=_yanit(tag_name="v1.3.0"))
         self.assertEqual(bilgi.surum, "1.3.0")
