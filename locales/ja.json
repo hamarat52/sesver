@@ -503,6 +503,7 @@
  "Dosya boş ya da okunacak metin yok.": "ファイルが空か、読み上げるテキストがありません。",
  "Dosya çok büyük (en fazla 2 MB).": "ファイルが大きすぎます（最大 2 MB）。",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.": "CSV に「metin」（または「text」）列が見つかりません。1 行目は列名にしてください。",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.": "CSV を読み込めませんでした。セルが長すぎるか、引用符が閉じられていません。各テキストは最大 {n} 文字です。",
  "Klon": "クローン",
  "Klon ({ad})": "クローン（{ad}）",
  "efekt: {adlar}": "エフェクト：{adlar}",

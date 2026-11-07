@@ -126,6 +126,8 @@ def ice_dosya_hatasi(kod):
         "dosya_bos": t("Dosya boş ya da okunacak metin yok."),
         "dosya_buyuk": t("Dosya çok büyük (en fazla 2 MB)."),
         "metin_sutunu_yok": t("CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı."),
+        "csv_okunamadi": t("CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. "
+                           "Her metin en fazla {n} karakter olabilir.", n=sayi(kq.OGE_METIN_EN_FAZLA)),
         "kip_gecersiz": t("İşlem yapılamadı."),
     }.get(kod, t("İşlem yapılamadı."))
 

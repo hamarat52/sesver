@@ -140,6 +140,16 @@ class CsvTests(IceAktarmaTestBase):
         self.assertEqual(oz.yok_sayilan_sutunlar, ["not"])
         self.assertEqual(len(oz.ogeler), 1)
 
+    def test_csv_okuyucu_hatasi_dosya_hatasi_olur(self):
+        """Siberguvenlik 1.3.0 bulgu C: 128 KB'yi aşan hücre csv.Error fırlatıyordu; artık dosya
+        düzeyi hata (csv_okunamadi), hiçbir öğe eklenmez. Başlıkta ve satırda ayrı ayrı denenir."""
+        dev = "a" * (csv.field_size_limit() + 1)
+        for veri in (f"metin;ses\nMerhaba.;rastgele\n\"{dev}\";rastgele\n", f"\"metin{dev}\";ses\nMerhaba.;x\n"):
+            with self.subTest(baslikta=veri.startswith('"')):
+                oz = ia.onizle_csv(veri.encode("utf-8"), self.varsayilan, self.ses_bul)
+                self.assertEqual(oz.hata, "csv_okunamadi")
+                self.assertEqual((oz.ogeler, oz.reddedilen), ([], []))
+
     def test_sablon_excel_uyumlu_ve_kendi_kendini_okur(self):
         for dil in ("tr", "en"):
             veri = ia.sablon_csv(dil)

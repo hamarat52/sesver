@@ -503,6 +503,7 @@
  "Dosya boş ya da okunacak metin yok.": "الملف فارغ أو لا يحتوي على نص للقراءة.",
  "Dosya çok büyük (en fazla 2 MB).": "الملف كبير جدًا (الحد الأقصى 2 ميغابايت).",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.": "لم يُعثر على عمود «metin» (أو «text») في ملف CSV. يجب أن يحتوي الصف الأول على أسماء الأعمدة.",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.": "تعذّرت قراءة ملف CSV: إحدى الخلايا طويلة جدًا أو أن علامة اقتباس لم تُغلق. يمكن أن يحتوي كل نص على {n} حرف كحد أقصى.",
  "Klon": "استنساخ",
  "Klon ({ad})": "استنساخ ({ad})",
  "efekt: {adlar}": "المؤثر: {adlar}",

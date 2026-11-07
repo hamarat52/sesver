@@ -501,6 +501,7 @@
  "Dosya boş ya da okunacak metin yok.",
  "Dosya çok büyük (en fazla 2 MB).",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.",
  "Klon",
  "Klon ({ad})",
  "efekt: {adlar}",

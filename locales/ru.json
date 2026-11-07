@@ -503,6 +503,7 @@
  "Dosya boş ya da okunacak metin yok.": "Файл пуст или в нём нет текста для озвучки.",
  "Dosya çok büyük (en fazla 2 MB).": "Файл слишком большой (не более 2 МБ).",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.": "В CSV не найден столбец «metin» (или «text»). В первой строке должны быть названия столбцов.",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.": "Не удалось прочитать CSV: ячейка слишком длинная или не закрыта кавычка. Каждый текст может содержать не более {n} символов.",
  "Klon": "Клон",
  "Klon ({ad})": "Клон ({ad})",
  "efekt: {adlar}": "эффект: {adlar}",

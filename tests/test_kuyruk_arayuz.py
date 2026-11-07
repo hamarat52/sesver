@@ -215,6 +215,27 @@ class KuyrukArayuzTestleri(unittest.TestCase):
         self.assertEqual([o["ses_id"] for o in ogeler], ["masalci", "belgesel", kq.RASTGELE])
         self.assertEqual(ogeler[1]["kalite"], "En İyi")
 
+    def test_ice_aktarma_uzun_hucre_ve_buyuk_dosya_anlasilir_ileti(self):
+        """Siberguvenlik 1.3.0 bulgu C: 128 KB'yi aşan CSV hücresi genel hata yerine anlaşılır ileti
+        verir (Türkçe ve İngilizce); 2 MB'yi aşan dosya okunmadan reddedilir."""
+        yol = self.tmp / "uzun.csv"
+        yol.write_text('metin;ses\nMerhaba.;rastgele\n"' + "a" * 200_000 + '";rastgele\n', encoding="utf-8")
+        html, dugme = self.app.ice_onizle_ui(str(yol), "masalci", "Nötr", "Dengeli", "paragraf")
+        self.assertIn("CSV okunamadı: bir hücre çok uzun", html)
+        self.assertFalse(dugme["interactive"])
+        with i18n.use("en"):
+            html, _ = self.app.ice_onizle_ui(str(yol), "masalci", "Nötr", "Dengeli", "paragraf")
+        self.assertIn("The CSV could not be read", html)
+        with self.assertRaisesRegex(self.app.gr.Error, "Eklenecek öğe yok"):
+            self.app.ice_ekle_ui(str(yol), "masalci", "Nötr", "Dengeli", "paragraf")
+        self.assertEqual(self._ogeler(), [])
+        buyuk = self.tmp / "buyuk.txt"
+        buyuk.write_bytes(b"a" * (self.app.ice_aktarma.DOSYA_EN_FAZLA_BAYT + 1))
+        with mock.patch.object(Path, "open", side_effect=AssertionError("büyük dosya okunmamalı")):
+            html, dugme = self.app.ice_onizle_ui(str(buyuk), "masalci", "Nötr", "Dengeli", "paragraf")
+        self.assertIn("Dosya çok büyük", html)
+        self.assertFalse(dugme["interactive"])
+
     def test_ice_aktarma_txt_paragraf_ve_bos_dosya(self):
         yol = str(VERI / "paragraflar_utf8.txt")
         _html, dugme = self.app.ice_onizle_ui(yol, "masalci", "Nötr", "Dengeli", "paragraf")

@@ -3089,8 +3089,13 @@ def _ice_ayarlar(ses_id, duygu, kalite):
 
 
 def _ice_hesapla(yol, ses_id, duygu, kalite, kip, kalan_yer):
-    veri = Path(yol).read_bytes()
     csv_mi = Path(yol).suffix.lower() == ".csv"
+    # Boyut okumadan önce denetlenir; okuma da sınırla kesilir (dosya bu arada büyüse bile).
+    sinir = ice_aktarma.DOSYA_EN_FAZLA_BAYT
+    if Path(yol).stat().st_size > sinir:
+        return ice_aktarma.Onizleme(hata="dosya_buyuk"), csv_mi
+    with Path(yol).open("rb") as f:
+        veri = f.read(sinir + 1)
     ayar = _ice_ayarlar(ses_id, duygu, kalite)
     if csv_mi:
         return ice_aktarma.onizle_csv(veri, ayar, ses_bul=_ses_bulucu(), kalan_yer=kalan_yer), csv_mi
