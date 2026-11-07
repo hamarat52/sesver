@@ -53,7 +53,7 @@ class SanitizeTests(unittest.TestCase):
         self.assertEqual(hr.sanitize(r"C:\Users\Yusuf\SesVer\app.py", homes=[]), r"<ev>\SesVer\app.py")
 
     def test_macos_and_linux_home_paths(self):
-        self.assertEqual(hr.sanitize("/Users/hamaratbey/Desktop/SesVer/app.py", homes=[]),
+        self.assertEqual(hr.sanitize("/Users/ornekkullanici/Desktop/SesVer/app.py", homes=[]),
                          "<ev>/Desktop/SesVer/app.py")
         self.assertEqual(hr.sanitize("open /home/ali/.cache/x", homes=[]), "open <ev>/.cache/x")
         # Bu makinenin ev dizini (ör. özel bir yol) de maskelenir.
@@ -527,21 +527,21 @@ class UiTests(unittest.TestCase):
         console, log = io.StringIO(), io.StringIO()
         with mock.patch.object(hr, "_home_variants", return_value=[r"D:\Profiller\ozel kisi"]):
             tee = desktop._Tee(console, log)
-        tee.write("SesVer günlüğü | Python 3.11.9 | C:\\Users\\Yusuf Hamarat\\AppData\\Local\\Programs\\"
+        tee.write("SesVer günlüğü | Python 3.11.9 | C:\\Users\\Ornek Kisi\\AppData\\Local\\Programs\\"
                   "SesVer\\python-embed\\pythonw.exe\n")
         tee.write('  File "C:\\Us')  # yol iki write() çağrısına bölünür
-        tee.write('ers\\yusuf\\AppData\\Local\\Programs\\SesVer\\app.py", line 12\n')
+        tee.write('ers\\baskakisi\\AppData\\Local\\Programs\\SesVer\\app.py", line 12\n')
         tee.write("cache: d:\\profiller\\OZEL KISI\\hf | /Users/ornekkullanici/x | ali@example.com\n")
-        tee.write("yarim satir C:\\Users\\yusuf\\x")
+        tee.write("yarim satir C:\\Users\\baskakisi\\x")
         self.assertNotIn("yarim satir", log.getvalue())  # satır sonu gelmeden yazılmaz
         tee.flush()
         out = log.getvalue()
-        for leaked in ("Yusuf", "yusuf", "Hamarat", "OZEL KISI", "ornekkullanici", "ali@example.com"):
+        for leaked in ("Ornek Kisi", "Kisi", "baskakisi", "OZEL KISI", "ornekkullanici", "ali@example.com"):
             self.assertNotIn(leaked, out)
         self.assertIn(r"<ev>\AppData\Local\Programs\SesVer\app.py", out)
         self.assertIn(r"cache: <ev>\hf | <ev>/x | <e-posta>", out)
         self.assertTrue(out.endswith(r"yarim satir <ev>\x"))
-        self.assertIn("Yusuf Hamarat", console.getvalue())  # kullanıcının kendi ekranı değişmez
+        self.assertIn("Ornek Kisi", console.getvalue())  # kullanıcının kendi ekranı değişmez
 
     def test_settings_and_result_cards_have_report_button(self):
         import app

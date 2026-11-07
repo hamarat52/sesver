@@ -368,14 +368,14 @@ ORNEK_KURULUM_GUNLUGU = "\r\n".join([
     "[SesVer baslatici calisiyor]",
     "Kullanilan Python: python-embed - SesVer'e ozel tasinabilir Python",
     "  Downloading torch-2.14.1+cu128-cp311-cp311-win_amd64.whl (3.1 GB)",
-    "  WARNING: The script x.exe is installed in 'C:\\Users\\Yusuf Hamarat\\AppData\\Local\\Programs\\SesVer"
+    "  WARNING: The script x.exe is installed in 'C:\\Users\\Ornek Kisi\\AppData\\Local\\Programs\\SesVer"
     "\\python-embed\\Scripts' which is not on PATH.",
     "ERROR: Could not install packages due to an OSError: [Errno 28] No space left on device: "
-    "'c:\\users\\yusuf hamarat\\appdata\\local\\temp\\pip-unpack-1\\torch.whl'",
-    "Temp: C:\\Users\\YUSUFH~1\\AppData\\Local\\Temp\\pip-build",
-    "repr: 'C:\\\\Users\\\\Yusuf Hamarat\\\\AppData'",
-    "url bicimi: C:/Users/Yusuf Hamarat/AppData/Local/pip/cache",
-    "profil disarida: D:\\Profiller\\yusuf\\AppData\\Roaming\\pip\\pip.ini",
+    "'c:\\users\\ornek kisi\\appdata\\local\\temp\\pip-unpack-1\\torch.whl'",
+    "Temp: C:\\Users\\ORNEKK~1\\AppData\\Local\\Temp\\pip-build",
+    "repr: 'C:\\\\Users\\\\Ornek Kisi\\\\AppData'",
+    "url bicimi: C:/Users/Ornek Kisi/AppData/Local/pip/cache",
+    "profil disarida: D:\\Profiller\\digerkisi\\AppData\\Roaming\\pip\\pip.ini",
     "[DURUM] 6/6|hata:requirements.txt kurulumu",
     "",
     "[SIHIRBAZ] Kurulum sureci son durum satirini yazmadan bitti; cikis kodu 1",
@@ -384,8 +384,8 @@ ORNEK_KURULUM_GUNLUGU = "\r\n".join([
 
 class PaylasilabilirGunlukTests(unittest.TestCase):
     def test_python_karsiligi_ev_yollarini_gizler(self):
-        out = kd.pascal_gunluk_maskele(ORNEK_KURULUM_GUNLUGU, "D:\\Profiller\\yusuf")
-        for sizinti in ("Yusuf", "yusuf", "YUSUFH~1", "Hamarat", "hamarat"):
+        out = kd.pascal_gunluk_maskele(ORNEK_KURULUM_GUNLUGU, "D:\\Profiller\\digerkisi")
+        for sizinti in ("Ornek", "ornek", "ORNEKK~1", "Kisi", "kisi", "digerkisi"):
             self.assertNotIn(sizinti, out)
         self.assertIn("'<ev>\\AppData\\Local\\Programs\\SesVer\\python-embed\\Scripts'", out)
         self.assertIn("'<ev>\\appdata\\local\\temp\\pip-unpack-1\\torch.whl'", out)
@@ -398,8 +398,8 @@ class PaylasilabilirGunlukTests(unittest.TestCase):
         self.assertIn("No space left on device", out)
         self.assertEqual(out.count("\r\n"), ORNEK_KURULUM_GUNLUGU.count("\r\n"))
         # Kısa (8.3) ad profil X:\Users dışındaysa da gizlenir; ev kökü kısa yoldan da eşleşir.
-        kisa = kd.pascal_gunluk_maskele("a D:\\PROFIL~1\\yusuf\\x b", "D:\\Profiller\\yusuf",
-                                        kisa_ad="D:\\PROFIL~1\\yusuf")
+        kisa = kd.pascal_gunluk_maskele("a D:\\PROFIL~1\\digerkisi\\x b", "D:\\Profiller\\digerkisi",
+                                        kisa_ad="D:\\PROFIL~1\\digerkisi")
         self.assertEqual(kisa, "a <ev>\\x b")
         self.assertEqual(kd.pascal_gunluk_maskele("x", ""), "x")  # USERPROFILE yoksa yalnız kalıp
 
