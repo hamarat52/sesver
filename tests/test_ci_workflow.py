@@ -36,14 +36,37 @@ class PinnedActionsTests(unittest.TestCase):
             self.assertRegex(ref, r"^[\w.-]+/[\w./-]+@[0-9a-f]{40}$")  # YAML yorumu değere girmez
 
     def test_build_checks_product_name_and_version_of_exe(self):
-        """SignPath ön koşulu CI'da gerçek .exe üzerinde doğrulanır (bu Mac'te derlenemez)."""
+        """SignPath ön koşulu CI'da gerçek .exe üzerinde doğrulanır (bu Mac'te derlenemez).
+
+        1.2.1 CI (koşu 42358133201): Inno değerleri boşluk yer tutucularının üstüne yazar
+        ('SesVer' + 54 boşluk). Denetim gevşetilmez: değerler imzadan önce kaynakta kırpılır,
+        sonra büyük/küçük harf duyarlı tam eşitlik aranır.
+        """
         data = _workflow()
         step = next(s for s in data["jobs"]["build"]["steps"] if s.get("name") == "Kurulum programını derle")
         run = step["run"]
+        self.assertNotIn("continue-on-error", step)
         self.assertIn('& $env:ISCC "/DAppVersion=$env:APP_VERSION" "windows\\SesVer.iss"', run)
-        self.assertIn("$vi = $f.VersionInfo", run)
-        self.assertIn("if ($vi.ProductName -ne 'SesVer') { throw", run)
-        self.assertIn("if ($vi.ProductVersion -ne $env:APP_VERSION) { throw", run)
+        sira = [run.index(p) for p in (
+            '& $env:ISCC',
+            "& $py.Source tools\\pe_surum_bilgisi.py --kirp $exe",
+            'if ($LASTEXITCODE -ne 0) { throw "Sürüm bilgisi kırpılamadı',
+            "$vi = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($f.FullName)",
+            "if ($v -cne $beklenen[$k]) { throw",
+            "Write-Host \"Dosya özellikleri BAŞARILI:",
+            "Get-FileHash -Algorithm SHA256 $exe",
+            '"INSTALLER=$($f.FullName)"',
+        )]
+        self.assertEqual(sira, sorted(sira), "kırpma → denetim → BAŞARILI → SHA256 → INSTALLER sırası")
+        for parca in ("ProductName    = 'SesVer'", "ProductVersion = $env:APP_VERSION",
+                      "FileVersion    = $env:APP_VERSION", "CompanyName    = 'HamaratLabs'",
+                      "LegalCopyright = 'Muhammed Yusuf Hamarat - Founder of HamaratLabs'",
+                      "if ($f.Length -ne $boy) { throw", "$_.Source -notlike '*\\WindowsApps\\*'"):
+            self.assertIn(parca, run)
+        self.assertNotIn(".Trim()) -ne", run)  # boşluk okurken yutulmaz, kaynakta giderilir
+        # Beklenen telif metni .iss'tekiyle aynı.
+        iss = (ROOT / "windows" / "SesVer.iss").read_text(encoding="utf-8")
+        self.assertIn("VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of HamaratLabs\n", iss)
 
     def test_error_path_step_proves_masked_log_and_update_option(self):
         """Siberguvenlik 1.2.1 şartı: hata yolu CI'da koşulur; tutmazsa build job'u (ve release) düşer."""

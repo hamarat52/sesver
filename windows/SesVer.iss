@@ -117,6 +117,9 @@ UninstallDisplayName={#AppName}
 ; ürün adı ve ürün sürümü özniteliklerinin her derlemede proje adı ve VERSION ile aynı olmasını
 ; şart koşar (file metadata restrictions). Inno varsayılanı VersionInfoVersion için 0.0.0.0
 ; olduğundan hepsi açıkça verilir; CI derlemeden sonra .exe'de ProductName/ProductVersion'ı denetler.
+; Inno dizgileri sabit uzunluklu boşluk yer tutucularının üstüne yazar (ProductName/Company/
+; Description 60, ProductVersion 50, FileVersion 20, Copyright 100 karakter; uzunu kesilir) ve
+; kalan boşluğu bırakır. CI imzadan önce tools/pe_surum_bilgisi.py --kirp ile kaynakta kırpar.
 VersionInfoProductName={#AppName}
 VersionInfoProductVersion={#AppVersion}
 VersionInfoProductTextVersion={#AppVersion}

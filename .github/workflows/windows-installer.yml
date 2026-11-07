@@ -109,12 +109,41 @@ jobs:
           $exe = "windows\Output\SesVer-Kurulum-$env:APP_VERSION.exe"
           if (-not (Test-Path $exe)) { throw "Beklenen çıktı yok: $exe" }
           $f = Get-Item $exe
+          $boy = $f.Length
           Write-Host ("Üretildi: {0} ({1:N0} bayt)" -f $f.FullName, $f.Length)
           # SignPath ön koşulu: ürün adı ve ürün sürümü her derlemede SesVer ve VERSION olmalı.
-          $vi = $f.VersionInfo
-          Write-Host "Dosya özellikleri: ProductName='$($vi.ProductName)' ProductVersion='$($vi.ProductVersion)' FileVersion='$($vi.FileVersion)' CompanyName='$($vi.CompanyName)' FileDescription='$($vi.FileDescription)' LegalCopyright='$($vi.LegalCopyright)'"
-          if ($vi.ProductName -ne 'SesVer') { throw "ProductName 'SesVer' olmalı: '$($vi.ProductName)'" }
-          if ($vi.ProductVersion -ne $env:APP_VERSION) { throw "ProductVersion $env:APP_VERSION olmalı: '$($vi.ProductVersion)'" }
+          # Inno Setup sürüm dizgilerini yükleyicideki sabit uzunluklu boşluk yer tutucularının
+          # üstüne yazar ve kalan boşlukları dosyada bırakır (issrc Projects/Res/SetupLdr.version.rc,
+          # Compiler.ExeUpdateFunc.pas UpdateStringValue): ProductName = 'SesVer' + 54 boşluk.
+          # İmzadan önce kaynakta kırpılır; araç önce ham değerleri yazar (kök neden kanıtı).
+          # Dosya boyu ve gömülü kurulum verisi değişmez; ayrıntı: tools/pe_surum_bilgisi.py.
+          $py = Get-Command python -CommandType Application -ErrorAction SilentlyContinue |
+                Where-Object { $_.Source -notlike '*\WindowsApps\*' } | Select-Object -First 1
+          if (-not $py) { throw 'python bulunamadı (sürüm bilgisini kırpmak için gerekli)' }
+          Write-Host "Python: $($py.Source) $((& $py.Source --version) -join ' ')"
+          $env:PYTHONIOENCODING = 'utf-8'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+          & $py.Source tools\pe_surum_bilgisi.py --kirp $exe
+          if ($LASTEXITCODE -ne 0) { throw "Sürüm bilgisi kırpılamadı: $LASTEXITCODE" }
+          $f = Get-Item $exe
+          if ($f.Length -ne $boy) { throw "Kırpma dosya boyunu değiştirdi: $boy -> $($f.Length)" }
+          $vi = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($f.FullName)
+          Write-Host "Dosya özellikleri: ProductName='$($vi.ProductName)' ProductVersion='$($vi.ProductVersion)' FileVersion='$($vi.FileVersion)' CompanyName='$($vi.CompanyName)' FileDescription='$($vi.FileDescription)' LegalCopyright='$($vi.LegalCopyright)' OriginalFilename='$($vi.OriginalFilename)'"
+          $beklenen = [ordered]@{
+            ProductName    = 'SesVer'
+            ProductVersion = $env:APP_VERSION
+            FileVersion    = $env:APP_VERSION
+            CompanyName    = 'HamaratLabs'
+            LegalCopyright = 'Muhammed Yusuf Hamarat - Founder of HamaratLabs'
+          }
+          foreach ($k in $beklenen.Keys) {
+            $v = $vi.$k
+            if ($v -cne $beklenen[$k]) { throw "$k '$($beklenen[$k])' olmalı: '$v' (uzunluk $(if ($null -ne $v) { $v.Length } else { 'yok' }))" }
+          }
+          foreach ($k in 'Comments', 'FileDescription', 'OriginalFilename') {
+            $v = $vi.$k
+            if ($v -and $v -cne $v.Trim()) { throw "$k baştaki/sondaki boşluk içeriyor: '$v'" }
+          }
+          Write-Host "Dosya özellikleri BAŞARILI: ProductName='$($vi.ProductName)' ProductVersion='$($vi.ProductVersion)' FileVersion='$($vi.FileVersion)' CompanyName='$($vi.CompanyName)' LegalCopyright='$($vi.LegalCopyright)'; sürüm kaynağında sondaki boşluk yok, dosya boyu değişmedi."
           Get-FileHash -Algorithm SHA256 $exe | Format-List
           "INSTALLER=$($f.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
