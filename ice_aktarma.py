@@ -158,7 +158,7 @@ def onizle_txt(veri, kip, ayarlar=None, kalan_yer=kq.KUYRUK_EN_FAZLA):
     for n, p in parcalar:
         neden = _dogrula(p, ayar)
         if neden:
-            oz.reddedilen.append({"satir": n, "neden": neden, "ozet": _ozet(p)})
+            oz.reddedilen.append({"satir": n, "neden": neden, "ozet": _ozet(p), "deger": None, "uzunluk": len(p)})
         else:
             oz.ogeler.append(dict(ayar, metin=p, satir=n))
     return _sinirla(oz, kalan_yer)
@@ -210,28 +210,30 @@ def onizle_csv(veri, ayarlar=None, ses_bul=None, kalan_yer=kq.KUYRUK_EN_FAZLA):
             continue
         yazi = hucre(satir, "metin")
         ayar = dict(temel)
-        neden = None
+        neden = deger = None
         ses_adi = hucre(satir, "ses")
         if ses_adi:
             ses = _ses_ayarlari(ses_adi, ses_bul)
             if ses is None:
-                neden = "bilinmeyen_ses"
+                neden, deger = "bilinmeyen_ses", ses_adi
             else:
                 ayar.update(ses)
         duygu = hucre(satir, "duygu")
         if not neden and duygu:
             ayar["duygu"] = _esle(DUYGULAR, duygu)
-            neden = None if ayar["duygu"] else "bilinmeyen_duygu"
+            neden, deger = (None, None) if ayar["duygu"] else ("bilinmeyen_duygu", duygu)
         kalite = hucre(satir, "kalite")
         if not neden and kalite:
             ayar["kalite"] = _esle(KALITELER, kalite)
-            neden = None if ayar["kalite"] else "bilinmeyen_kalite"
+            neden, deger = (None, None) if ayar["kalite"] else ("bilinmeyen_kalite", kalite)
         if not yazi:
-            neden = "metin_bos"  # boş metin her şeyden önce söylenir
+            neden, deger = "metin_bos", None  # boş metin her şeyden önce söylenir
         else:
             neden = neden or _dogrula(yazi, ayar)
         if neden:
-            oz.reddedilen.append({"satir": n, "neden": neden, "ozet": _ozet(yazi)})
+            # deger: reddedilen hücrenin kendisi (ör. bilinmeyen ses adı), önizlemede gösterilir.
+            oz.reddedilen.append({"satir": n, "neden": neden, "ozet": _ozet(yazi), "deger": deger,
+                                  "uzunluk": len(yazi)})
         else:
             oz.ogeler.append(dict(ayar, metin=yazi, satir=n))
     return _sinirla(oz, kalan_yer)

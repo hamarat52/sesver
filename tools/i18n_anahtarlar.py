@@ -10,6 +10,7 @@ Kaynaklar:
   * hata_rehberi metinleri
   * hata_raporu.py içindeki t("...") çağrıları (hata türleri, rapor/e-posta iletileri)
   * guncelleme.py içindeki t("...") çağrıları ("Yeni sürüm var" bildirimi)
+  * kuyruk_arayuz.py içindeki t("...") ve kuyruk.py'deki c("...") çağrıları (üretim kuyruğu, ozet.txt)
 Kullanım: python tools/i18n_anahtarlar.py [--check]
 --check: her locales/<dil>.json dosyasında eksik/fazla anahtar ve yer tutucu uyuşmazlığı arar.
 """
@@ -47,11 +48,11 @@ def _template(node, code):
     return None
 
 
-def t_literals(path):
+def t_literals(path, names=("t",)):
     code = path.read_text(encoding="utf-8")
     keys = []
     for node in ast.walk(ast.parse(code)):
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "t" and node.args:
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in names and node.args:
             a = node.args[0]
             if isinstance(a, ast.Constant) and isinstance(a.value, str):
                 keys.append((node.lineno, a.value))
@@ -107,6 +108,8 @@ def collect():
     keys += t_literals(ROOT / "desktop.py")
     keys += t_literals(ROOT / "hata_raporu.py")
     keys += t_literals(ROOT / "guncelleme.py")
+    keys += t_literals(ROOT / "kuyruk_arayuz.py")
+    keys += t_literals(ROOT / "kuyruk.py", names=("c",))  # ozet.txt metinleri (c = Kuyruk._ceviri)
     seen, out = set(), []
     for k in keys:
         if k and k not in seen:

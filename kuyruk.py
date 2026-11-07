@@ -215,10 +215,11 @@ class Kuyruk:
     engel(gerekce) -> bağlam yöneticisi: uyku engeli (varsayılan uyku_engeli.acik).
     blok_fn() -> neden|None: doluysa (ör. GPU kurulumu sürüyor) kuyruk duraklatılır.
     temizlik_fn(): her parçadan sonra (gc / önbellek boşaltma).
+    hata_metni(kod, tur) -> str: ozet.txt'deki hata nedeni (verilmezse yalnız kod yazılır).
     """
 
     def __init__(self, dizin=None, cikti_dir=None, uret_fn=None, efekt_fn=None, siniflandir=None,
-                 engel=None, blok_fn=None, temizlik_fn=None, simdi=None, ceviri=None):
+                 engel=None, blok_fn=None, temizlik_fn=None, simdi=None, ceviri=None, hata_metni=None):
         self.dizin = Path(dizin or KUYRUK_DIR)
         self.cikti_dir = Path(cikti_dir or CIKTI_DIR)
         self.yol = self.dizin / "kuyruk.json"
@@ -230,6 +231,7 @@ class Kuyruk:
         self._temizlik_fn = temizlik_fn
         self._simdi = simdi or (lambda: datetime.datetime.now().astimezone())
         self._ceviri = ceviri or (lambda s, **kw: s.format(**kw) if kw else s)
+        self._hata_metni = hata_metni
         self._kilit = threading.RLock()
         self._cv = threading.Condition(self._kilit)
         self._surec_kilidi = _SurecKilidi(self.dizin / ".calisiyor.lock")
@@ -342,6 +344,11 @@ class Kuyruk:
     def calisiyor(self):
         return self._isci is not None and self._isci.is_alive()
 
+    @property
+    def surum(self):
+        """Her değişiklikte artan sayaç (arayüz yoklaması gereksiz yeniden çizimi bununla önler)."""
+        return self._surum
+
     def _durum_adi(self):
         if self.calisiyor:
             return DURUYOR if self._dur else CALISIYOR
@@ -366,20 +373,23 @@ class Kuyruk:
         o["efektli"] = str(self.cikti_dir / oge["efektli"]) if oge.get("efektli") else None
         return o
 
+    def _olcum(self):
+        """(ölçülen saniye/karakter ya da None, bekleyen karakter sayısı)."""
+        sure = karakter = kalan = 0
+        for oge in self._veri["ogeler"]:
+            for p in oge.get("parcalar", []):
+                if p.get("durum") == BITTI and p.get("sure_sn") is not None:
+                    sure += p["sure_sn"]
+                    karakter += len(p["metin"])
+                elif oge["durum"] in (BEKLIYOR, URETILIYOR):
+                    kalan += len(p["metin"])
+        return (sure / karakter if karakter else None), kalan
+
     def tahmin(self):
         """Kalan süre (sn): bu kayıtta biten parçaların ölçülen saniye/karakter oranıyla; veri yoksa None."""
         with self._kilit:
-            sure = karakter = kalan = 0
-            for oge in self._veri["ogeler"]:
-                for p in oge.get("parcalar", []):
-                    if p.get("durum") == BITTI and p.get("sure_sn") is not None:
-                        sure += p["sure_sn"]
-                        karakter += len(p["metin"])
-                    elif oge["durum"] in (BEKLIYOR, URETILIYOR):
-                        kalan += len(p["metin"])
-            if not karakter:
-                return None
-            return sure / karakter * kalan
+            hiz, kalan = self._olcum()
+            return None if hiz is None else hiz * kalan
 
     def durum(self):
         """Arayüz için anlık görüntü (kopya). `surum` her değişiklikte artar."""
@@ -396,6 +406,7 @@ class Kuyruk:
                 "kayit_hatasi": self.kayit_hatasi,
                 "toplam_sure_sn": sum(o.get("sure_sn") or 0 for o in ogeler),
                 "kalan_tahmini_sn": self.tahmin(), "elle_bekleyen": self._elle,
+                "hiz_sn_karakter": self._olcum()[0],
             }
 
     # --- değiştirme ------------------------------------------------------------------------
@@ -839,7 +850,7 @@ class Kuyruk:
             ogeler = self._veri["ogeler"]
             sayilar = {d: sum(o["durum"] == d for o in ogeler) for d in (BITTI, HATA, BEKLIYOR, URETILIYOR)}
             satirlar = [
-                c("SesVer üretim kuyruğu — AI ile üretildi"),
+                c("SesVer üretim kuyruğu · AI ile üretildi"),
                 c("Güncellendi: {zaman}", zaman=self._zaman()),
                 c("Bitti: {bitti} · Hata: {hata} · Bekliyor: {bekliyor} · Üretiliyor: {uretiliyor}",
                   bitti=sayilar[BITTI], hata=sayilar[HATA], bekliyor=sayilar[BEKLIYOR], uretiliyor=sayilar[URETILIYOR]),
@@ -853,7 +864,12 @@ class Kuyruk:
                 biten = sum(p["durum"] == BITTI for p in parcalar)
                 ayrinti = Path(oge["cikti"]).name if oge.get("cikti") else ""
                 if oge["durum"] == HATA:
-                    ayrinti = c("hata kodu: {kod}", kod=oge.get("hata_kodu") or "other")
+                    kod = oge.get("hata_kodu") or "other"
+                    neden = None
+                    if self._hata_metni:
+                        with contextlib.suppress(Exception):
+                            neden = self._hata_metni(kod, oge.get("hata_turu"))
+                    ayrinti = c("hata: {neden}", neden=neden) if neden else c("hata kodu: {kod}", kod=kod)
                 ozet = oge["metin"][:40].replace("\n", " ") + ("…" if len(oge["metin"]) > 40 else "")
                 satirlar.append(f"{no}  {etiket.get(oge['durum'], oge['durum']):<11} "
                                 f"{sure_metni(oge.get('sure_sn')):>10}  {biten}/{len(parcalar):<3} "

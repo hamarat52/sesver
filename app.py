@@ -26,6 +26,9 @@ import guncelleme
 import hata_raporu
 import hizlandirma as hiz
 import i18n
+import ice_aktarma
+import kuyruk as kq
+import kuyruk_arayuz as qa
 import surum
 import voice_designer as vdes
 import voice_library as vlib
@@ -324,6 +327,38 @@ def _normal_generate(text, emotion_label, progress=gr.Progress(track_tqdm=True))
 
 def _clone_generate(text, reference_audio, emotion_label, prompt_text, progress=gr.Progress(track_tqdm=True)):
     yield from generate_audio(text, reference_audio, EMOTIONS.get(emotion_label), prompt_text, progress=progress)
+
+
+def _elle_oncelikli(uretec):
+    """Elle Üret'i kuyrukla paylaştırır (generate_audio'nun gövdesine dokunmadan sarar).
+
+    - 500 karakter sınırı aynen geçerlidir; ileti uzun metin için “Kuyruğa ekle”yi gösterir.
+    - Kuyruk çalışıyorsa elle üretim, kuyruğun şu anki PARÇASI bitince araya girer
+      (Kuyruk.elle_uretim); bekleme sırasında durum satırı bunu söyler.
+    """
+    @functools.wraps(uretec)
+    def inner(text, *args, **kwargs):
+        if len((text or "").strip()) > kq.PARCA_EN_FAZLA:
+            yield None, None, t("İstek kontrol ediliyor…")
+            raise gr.Error(t("Üret en fazla 500 karakter alır. Daha uzun metni (10.000 karaktere kadar) "
+                             "“Kuyruğa ekle” ile ekleyin; parçalara bölünüp tek ses dosyası olur."))
+        kuyruk = _KUYRUK if _KUYRUK is not None and _KUYRUK.calisiyor else None
+        if kuyruk is None:
+            yield from uretec(text, *args, **kwargs)
+            return
+        not_ = t("Kuyruk çalışıyor: üretiminiz kuyruğun şu anki parçası bitince başlayacak, sonra kuyruk "
+                 "kaldığı yerden sürecek.")
+        with kuyruk.elle_uretim():
+            # generate_audio'nun ilk iki iletisi model kilidinden ÖNCE gelir ("kontrol ediliyor",
+            # "işleniyor"); bekleme bu ikincisinden sonra olur. Not yalnız bu ikisine eklenir.
+            for i, out in enumerate(uretec(text, *args, **kwargs)):
+                if i < 2 and isinstance(out, tuple) and len(out) == 3 and out[0] is None and out[2]:
+                    out = (out[0], out[1], f"{out[2]}\n\n{not_}")
+                yield out
+    return inner
+
+
+generate_audio = _elle_oncelikli(generate_audio)
 
 
 # --- Ses kütüphanesi --------------------------------------------------------
@@ -1314,6 +1349,148 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 .sv-update b { font-weight: 650; color: var(--sv-ink); }
 .sv-update a { color: var(--sv-coral); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .sv-update-note { flex-basis: 100%; text-align: center; color: var(--sv-muted); font-size: .8rem; }
+
+/* --- Sağ üst: Kuyruk ve Ayarlar girişleri (dil seçicinin solunda) ---------------------
+   Kuyruk ve Ayarlar birer gizli sekmedir: sekme düğmeleri CSS ile gizlenir, sağ üstteki
+   girişler sekmeyi seçer. Açık olan görünümün girişi seçili sekme gibi koyu görünür. */
+#sv-tab-kuyruk-button, #sv-tab-ayarlar-button { display: none !important; }
+.sv-langbar > .sv-topnav { flex: 0 0 auto !important; width: auto !important; gap: 8px !important;
+  align-self: flex-end; flex-wrap: nowrap !important; background: transparent !important; border: 0 !important; }
+.sv-btn.sv-topbtn { min-height: 40px; min-width: 0 !important; padding: 0 15px 0 13px !important; font-size: .86rem !important;
+  color: var(--sv-ink-2) !important; background: rgba(255,255,255,.85) !important; border: 1px solid var(--sv-line) !important;
+  box-shadow: var(--sv-shadow-sm) !important; gap: 7px; font-variant-numeric: tabular-nums; }
+.sv-btn.sv-topbtn::before { width: 16px; height: 16px; }
+.sv-topnav > .sv-topbtn { flex: 0 0 auto !important; width: auto !important; }
+.sv-btn.sv-topbtn:hover { color: var(--sv-ink) !important; border-color: var(--sv-line-2) !important; transform: translateY(-1px); }
+.sv-top-kuyruk { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 6.5h11M4 12h11M4 17.5h6'/><path d='m15.5 14.5 5 3-5 3z'/></svg>"); }
+.sv-top-ayarlar { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1'/></svg>"); }
+.sv-top-kuyruk:not(.is-empty)::after { content: ""; width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: #B9B0A8; }
+.sv-top-kuyruk.is-running { color: var(--sv-ink) !important; border-color: rgba(242,92,59,.45) !important; }
+.sv-top-kuyruk.is-running::after { background: var(--sv-coral); box-shadow: 0 0 0 3px rgba(242,92,59,.18);
+  animation: sv-pulse 1.6s ease-in-out infinite; }
+.sv-top-kuyruk.is-done::after { background: #2DBE6C; }
+.sv-top-kuyruk.is-error::after { background: #D8452A; }
+@keyframes sv-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .sv-top-kuyruk.is-running::after { animation: none; } }
+body:has(#sv-tab-kuyruk-button[aria-selected="true"]) .sv-btn.sv-top-kuyruk,
+body:has(#sv-tab-ayarlar-button[aria-selected="true"]) .sv-btn.sv-top-ayarlar {
+  color: #fff !important; background: var(--sv-ink) !important; border-color: var(--sv-ink) !important;
+  box-shadow: 0 6px 16px -8px rgba(23,19,15,.7) !important; }
+
+/* --- Kuyruk görünümü (taslak A) ---------------------------------------------------- */
+.sv-btn-queue { min-height: 52px; padding: 0 20px !important; font-size: .95rem !important; color: var(--sv-ink) !important;
+  background: #fff !important; border: 1px solid var(--sv-line-2) !important; box-shadow: var(--sv-shadow-sm) !important;
+  --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'><path d='M12 5v14M5 12h14'/></svg>"); }
+.sv-btn-queue:hover { border-color: var(--sv-ink) !important; transform: translateY(-1px); }
+.sv-btn-queue[disabled] { opacity: .5; transform: none; }
+.sv-btn.sv-no-ic::before { display: none; }
+.sv-ic-plus { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'><path d='M12 5v14M5 12h14'/></svg>"); }
+.sv-ic-pause { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect x='6.5' y='5' width='4' height='14' rx='1' fill='black'/><rect x='13.5' y='5' width='4' height='14' rx='1' fill='black'/></svg>"); }
+.sv-ic-upload { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 16V4m-5 5 5-5 5 5M5 20h14'/></svg>"); }
+.sv-btn-soft.sv-ic-upload { width: 100%; }
+.sv-btn.sv-template { align-self: flex-start; color: var(--sv-coral) !important; }
+.sv-qview { display: flex; flex-direction: column; gap: 14px; }
+.sv-qview .sv-qwarnbox { margin-top: 0; }
+.sv-qsummary { display: flex; flex-wrap: wrap; gap: 8px; }
+.sv-qstat { display: inline-flex; align-items: baseline; gap: 6px; padding: 7px 12px; border-radius: 999px;
+  background: var(--sv-soft); border: 1px solid var(--sv-line); font-size: .82rem; color: var(--sv-muted); }
+.sv-qstat b { font-size: 1rem; font-weight: 700; color: var(--sv-ink); font-variant-numeric: tabular-nums; }
+.sv-qnote, .sv-qwarnbox { padding: 10px 13px; border-radius: 12px; background: #FFF8E6;
+  border: 1px solid rgba(214,158,20,.35); font-size: .84rem; line-height: 1.5; color: #6B4E06; }
+.sv-qwarnbox { margin-top: 10px; }
+.sv-qlist { border: 1px solid var(--sv-line); border-radius: 16px; overflow: hidden; background: #fff; }
+.sv-qrow { display: grid; grid-template-columns: 28px minmax(0, 1fr) 118px auto; align-items: center; gap: 12px;
+  padding: 12px 14px; border-top: 1px solid var(--sv-line); }
+.sv-qrow:first-child { border-top: 0; }
+.sv-qrow.is-run { background: #FFF9F6; box-shadow: inset 3px 0 0 var(--sv-coral); }
+.sv-qrow.is-err { background: #FFFBFA; }
+.sv-qno { font-size: .8rem; font-weight: 700; color: var(--sv-muted); font-variant-numeric: tabular-nums; }
+.sv-qmain { min-width: 0; }
+.sv-qtext { font-size: .92rem; font-weight: 600; line-height: 1.4; color: var(--sv-ink); overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.sv-qmeta { margin-top: 3px; font-size: .76rem; line-height: 1.5; color: var(--sv-muted); overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.sv-qfile { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .72rem; color: var(--sv-ink-2); }
+.sv-qerr { color: #B3261E; font-weight: 600; }
+.sv-qwarn { color: #8A5A00; font-weight: 600; }
+.sv-qparts { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 7px; }
+.sv-qparts i { width: 14px; height: 4px; border-radius: 2px; background: rgba(23,19,15,.12); }
+.sv-qparts i.d { background: #F4A58E; }
+.sv-qparts i.a { background: var(--sv-coral); }
+.sv-qstate { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0; }
+.sv-qtime { font-size: .74rem; color: var(--sv-muted); font-variant-numeric: tabular-nums; }
+.sv-qbadge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px;
+  font-size: .72rem; font-weight: 650; white-space: nowrap; border: 1px solid var(--sv-line-2); }
+.sv-qbadge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.sv-qbadge.b-ok { color: #17824A; background: #EFFAF3; border-color: rgba(23,130,74,.25); }
+.sv-qbadge.b-err { color: #B3261E; background: #FFF1EF; border-color: rgba(179,38,30,.25); }
+.sv-qbadge.b-run { color: #B4432A; background: #FFF3EE; border-color: rgba(242,92,59,.35); }
+.sv-qbadge.b-wait { color: var(--sv-muted); background: var(--sv-soft); }
+.sv-qbadge.b-long { color: #5B4BC4; background: #F3F0FF; border-color: rgba(91,75,196,.25); margin-right: 2px; }
+.sv-qbadge.b-long::before { display: none; }
+.sv-qact { display: flex; gap: 6px; justify-content: flex-end; }
+.sv-qicon { display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border-radius: 10px;
+  border: 1px solid var(--sv-line-2); background: #fff; color: var(--sv-ink); cursor: pointer;
+  transition: border-color .15s, transform .15s var(--sv-ease); }
+.sv-qicon svg { width: 15px; height: 15px; }
+.sv-qicon:hover:not([disabled]), .sv-qmini:hover { border-color: var(--sv-ink); transform: translateY(-1px); }
+.sv-qicon:focus-visible, .sv-qmini:focus-visible { outline: 2px solid var(--sv-coral); outline-offset: 2px; }
+.sv-qicon[disabled] { opacity: .35; cursor: default; }
+.sv-qmini { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--sv-line-2); background: #fff;
+  font-size: .8rem; font-weight: 600; color: var(--sv-ink); cursor: pointer; white-space: nowrap; }
+.sv-qempty { padding: 18px; border-radius: 16px; border: 1px dashed var(--sv-line-2); background: var(--sv-soft);
+  font-size: .88rem; line-height: 1.55; color: var(--sv-muted); }
+.sv-qempty b { color: var(--sv-ink-2); }
+.sv-qnow { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: var(--sv-soft);
+  border: 1px solid var(--sv-line); font-size: .86rem; line-height: 1.55; color: var(--sv-ink-2); }
+.sv-qbar { height: 6px; margin-top: 14px; border-radius: 999px; background: rgba(23,19,15,.08); overflow: hidden; }
+.sv-qbar i { display: block; height: 100%; border-radius: inherit; background: var(--sv-grad); }
+.sv-qfine { margin: 8px 0 0; font-size: .78rem; line-height: 1.5; color: var(--sv-muted); }
+.sv-qfine b { color: var(--sv-ink-2); }
+.sv-qok { margin-top: 14px; padding: 11px 13px; border-radius: 12px; background: #EFFAF3;
+  border: 1px solid rgba(23,130,74,.25); font-size: .84rem; line-height: 1.5; color: #17502F; }
+.sv-card .sv-head + .sv-qfine { margin-top: 12px; }
+.sv-qbanner { max-width: 760px; margin: 0 auto 14px !important; padding: 8px 10px 8px 16px !important;
+  border-radius: 14px; background: #FFF3EE !important; border: 1px solid rgba(242,92,59,.3) !important;
+  align-items: center !important; gap: 8px !important; flex-wrap: wrap !important; }
+.sv-qbanner > :first-child { flex: 1 1 260px !important; font-size: .86rem; line-height: 1.45; color: var(--sv-ink-2); }
+/* İçe aktarma önizlemesi (taslak D) */
+.sv-import { margin-bottom: 22px; }
+.sv-import-top { justify-content: space-between !important; align-items: flex-start !important; flex-wrap: nowrap !important; }
+.sv-import-cols { flex-wrap: wrap !important; gap: 12px !important; align-items: flex-start !important; }
+.sv-import-cols > * { flex: 1 1 180px !important; }
+.sv-ifile { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px;
+  background: var(--sv-soft); border: 1px dashed var(--sv-line-2); font-size: .92rem; }
+.sv-ifile .sv-qfine { margin: 2px 0 0; }
+.sv-ifi { flex: none; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px;
+  background: var(--sv-grad); color: #fff; font-weight: 700; font-size: .72rem; }
+.sv-itable { border: 1px solid var(--sv-line); border-radius: 16px; overflow: auto; max-height: 460px; }
+.sv-itable table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .84rem; }
+.sv-itable th { position: sticky; top: 0; text-align: start; font-size: .7rem; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--sv-muted); font-weight: 700; padding: 9px 10px; background: var(--sv-soft);
+  border-bottom: 1px solid var(--sv-line); }
+.sv-itable td { padding: 9px 10px; border-bottom: 1px solid var(--sv-line); vertical-align: middle; color: var(--sv-ink-2); }
+.sv-itable tr:last-child td { border-bottom: 0; }
+.sv-itable td.t { max-width: 320px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--sv-ink);
+  font-weight: 550; }
+.sv-itable tr.rej td { background: #FFFBFA; }
+.sv-itable tr.over td { color: var(--sv-muted); background: #FAFAF8; }
+.sv-ireason { color: #B3261E; font-weight: 600; }
+body.sv-rtl .sv-qmeta, body.sv-rtl .sv-qempty, body.sv-rtl .sv-qnow, body.sv-rtl .sv-qfine, body.sv-rtl .sv-qok,
+body.sv-rtl .sv-qwarnbox, body.sv-rtl .sv-qnote, body.sv-rtl .sv-qbanner span, body.sv-rtl .sv-qtime,
+body.sv-rtl .sv-itable { direction: rtl; text-align: right; }
+@media (max-width: 860px) {
+  .sv-qrow { grid-template-columns: 26px minmax(0, 1fr) auto; row-gap: 6px; }
+  .sv-qstate { grid-column: 2; grid-row: 2; flex-direction: row; align-items: center; gap: 8px; }
+  .sv-qact { grid-column: 3; grid-row: 1 / span 2; }
+  .sv-import-top { flex-wrap: wrap !important; }
+}
+@media (max-width: 480px) {
+  .sv-langbar > .form { flex: 1 1 130px !important; width: auto !important; }
+  .sv-btn.sv-topbtn { padding: 0 11px !important; font-size: .8rem !important; }
+  .sv-btn.sv-topbtn::before { display: none; }
+}
 """
 
 _THEME = gr.themes.Base(
@@ -1394,7 +1571,7 @@ def _library_tab(demo):
                 _html('<div class="sv-divider"></div>')
                 _head(None, t("Metninizi yazın"),
                       t("Kayıtlı seste duygu seçmeyin: ses “Devam” kipinde en yüksek benzerlikle sürer."), step="2")
-                text = gr.Textbox(label=t("Metin"), lines=5, max_length=500, value=t(_SAMPLE_TEXT),
+                text = gr.Textbox(label=t("Metin"), lines=5, max_length=kq.OGE_METIN_EN_FAZLA, value=t(_SAMPLE_TEXT),
                                   placeholder=t("Seslendirilecek metni buraya yazın…"))
                 quality = gr.Radio(choices=_choices(QUALITY), value="Dengeli", label=t("Kalite"),
                                    elem_classes=["sv-emotion", "sv-plain"])
@@ -1402,8 +1579,10 @@ def _library_tab(demo):
                                    elem_classes=["sv-emotion"])
                 mode_md = gr.Markdown(elem_id="preview-box")
                 with gr.Row(elem_classes=["sv-actionbar"]):
-                    _html('<div class="sv-hint">' + t("<b>En fazla 500 karakter.</b><br>"
-                                                      "Hızlı daha çabuk, En İyi daha temiz sonuç verir.") + "</div>")
+                    _html('<div class="sv-hint">' + t("<b>Üret: en fazla 500 karakter.</b><br>"
+                                                      "Kuyruğa ekle: 10.000 karaktere kadar.") + "</div>")
+                    queue_add = gr.Button(t("Kuyruğa ekle"), scale=0, min_width=150,
+                                          elem_classes=["sv-btn", "sv-btn-queue"])
                     button = gr.Button(t("Üret"), variant="primary", scale=0, min_width=170,
                                        elem_classes=["sv-btn", "sv-btn-primary"])
         with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
@@ -1506,6 +1685,8 @@ def _library_tab(demo):
         event = control.release if isinstance(control, gr.Slider) else control.change
         event(apply_effects_ui, inputs=fx_inputs, outputs=fx_outputs, show_progress="hidden")
     fx_preset.click(save_fx_preset_ui, inputs=[selected, *fx_controls], outputs=fx_status)
+    queue_add.click(_in_lang(kuyruga_ekle_kutuphane_ui, lang), inputs=[text, emotion, quality, selected, *fx_controls],
+                    outputs=status, show_progress="hidden", concurrency_limit=None, concurrency_id="sv-kuyruk-islem")
     return SimpleNamespace(voices=voices, selected=selected, emotion=emotion, text=text,
                            select_outputs=select_outputs)
 
@@ -1764,17 +1945,24 @@ def _remember_language(lang):
 
 
 def _language_bar(lang):
-    # DOM sırası: seçici, sonra not (CSS row-reverse ile seçici sağ üstte durur).
+    # DOM sırası: seçici, sonra Kuyruk/Ayarlar girişleri, sonra not (CSS row-reverse ile seçici sağ
+    # üstte, girişler hemen solunda durur). Girişler gizli sekmeleri açar (bkz. _build_page).
     with gr.Row(elem_classes=["sv-langbar"]):
         picker = gr.Dropdown(
             choices=[(name, code) for code, name in i18n.LANGUAGES.items()], value=lang,
             label=f"🌐 {t('Arayüz dili')}", interactive=True, filterable=False, scale=0, min_width=170,
             elem_classes=["sv-lang"],
         )
+        with gr.Row(elem_classes=["sv-topnav"]):
+            queue_btn = gr.Button(t("Kuyruk"), scale=0, min_width=0,
+                                  elem_classes=["sv-btn", "sv-topbtn", "sv-top-kuyruk", "is-empty"])
+            settings_btn = gr.Button(t("Ayarlar"), scale=0, min_width=0,
+                                     elem_classes=["sv-btn", "sv-topbtn", "sv-top-ayarlar"])
         _html('<div class="sv-tts-lang">' + t(
             "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur "
             "(Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).") + "</div>")
     picker.change(None, inputs=picker, js=_switch_js())
+    return queue_btn, settings_btn
 
 
 def _guncelleme_bildirimi(lang):
@@ -1794,11 +1982,17 @@ def _guncelleme_bildirimi(lang):
 def _build_page(demo, lang):
     """Bir dilin tam sayfası; tüm metinler kurulurken o dilde üretilir."""
     with i18n.use(lang):
-        _language_bar(lang)
+        queue_btn, settings_btn = _language_bar(lang)
         _html(_hero())
         update_note = _html("", visible=False, elem_id="sv-update-note")
         demo.load(_guncelleme_bildirimi(lang), outputs=update_note, show_progress="hidden",
                   concurrency_limit=None, concurrency_id="sv-guncelleme", api_visibility="private")
+        # Önceki oturumdan bekleyen öğe varsa (kuyruk kendiliğinden başlamaz): her sekmede görünen bant.
+        with gr.Row(visible=False, elem_classes=["sv-qbanner"]) as banner:
+            banner_html = _html("")
+            banner_go = gr.Button(t("Kaldığı yerden devam et"), size="sm", scale=0,
+                                  elem_classes=["sv-btn", "sv-mini", "sv-mini-dark"])
+            banner_show = gr.Button(t("Kuyruğu göster"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
 
         with gr.Tabs(elem_id="sv-tabs", selected="lib", overflow_behavior="wrap") as tabs:
             with gr.Tab(t("Ses Kütüphanesi"), id="lib"):
@@ -1821,10 +2015,18 @@ def _build_page(demo, lang):
             fast.select(**fast_refresh)
             demo.load(**fast_refresh)
 
-            with gr.Tab(t("Ayarlar"), id="ayarlar") as settings:
+            # Kuyruk ve Ayarlar sekme çubuğunda görünmez (CSS); sağ üstteki girişlerle açılır.
+            with gr.Tab(t("Kuyruk"), id="kuyruk", elem_id="sv-tab-kuyruk"):
+                queue = _queue_tab(lang, lib)
+
+            with gr.Tab(t("Ayarlar"), id="ayarlar", elem_id="sv-tab-ayarlar"):
                 accel_refresh, accel_out = _settings_tab()
-            # Tarama (~3 sn, torch ayrı süreçte okunur) yalnız sekme açılınca yapılır.
-            settings.select(accel_refresh, outputs=accel_out, show_progress="minimal")
+
+        # Sağ üst girişler: görünüm değişir (sekme), Ayarlar açılınca donanım taraması (~3 sn) yapılır.
+        queue_btn.click(lambda: gr.Tabs(selected="kuyruk"), outputs=tabs, queue=False, show_progress="hidden")
+        settings_btn.click(lambda: gr.Tabs(selected="ayarlar"), outputs=tabs, queue=False,
+                           show_progress="hidden").then(accel_refresh, outputs=accel_out, show_progress="minimal")
+        _queue_wiring(demo, lang, queue, queue_btn, banner, banner_html, banner_go, banner_show, tabs)
 
         _html(_info())
         _html(_footer())
@@ -1886,7 +2088,7 @@ def _clone_tab():
                 _head(None, t("Yeni metni yazın"),
                       t("Klonlanan ses bu metni okuyacak."), step="3")
                 c_text = gr.Textbox(
-                    label=t("Metin"), lines=4, max_length=500, value=t(_SAMPLE_TEXT),
+                    label=t("Metin"), lines=4, max_length=kq.OGE_METIN_EN_FAZLA, value=t(_SAMPLE_TEXT),
                     placeholder=t("Klonlanan sesin okuyacağı metni yazın…"),
                 )
                 c_emotion = gr.Radio(
@@ -1898,8 +2100,10 @@ def _clone_tab():
                                                 "benzerliğini biraz azaltabilir. En sadık sonuç için "
                                                 "“Nötr” kalsın.") + "</p>")
                 with gr.Row(elem_classes=["sv-actionbar"]):
-                    _html('<div class="sv-hint">' + t("<b>En fazla 500 karakter.</b><br>"
-                                                      "Referans ses yüklemeden başlamaz.") + "</div>")
+                    _html('<div class="sv-hint">' + t("<b>Üret: en fazla 500 karakter.</b><br>"
+                                                      "Kuyruğa ekle: 10.000 karaktere kadar.") + "</div>")
+                    c_queue_add = gr.Button(t("Kuyruğa ekle"), scale=0, min_width=150,
+                                            elem_classes=["sv-btn", "sv-btn-queue"])
                     c_button = gr.Button(
                         t("Klonla ve Üret"), variant="primary", scale=0, min_width=190,
                         elem_classes=["sv-btn", "sv-btn-primary"],
@@ -1932,6 +2136,9 @@ def _clone_tab():
         auto_transcribe, inputs=[c_reference], outputs=[c_prompt_text],
         concurrency_limit=1, show_progress="full",
     )
+    c_queue_add.click(_in_lang(kuyruga_ekle_klon_ui, i18n.get_lang()),
+                      inputs=[c_text, c_reference, c_emotion, c_prompt_text], outputs=c_status, show_progress="hidden",
+                      concurrency_limit=None, concurrency_id="sv-kuyruk-islem")
 
 
 # --- ⚡ Hızlı Mod (EMA Lightning) -----------------------------------------------
@@ -2495,11 +2702,18 @@ def _watch_failures(trigger, button, **run):
     işlevlerinin çıktıları ve API'leri değişmez.
     """
     seen = gr.State(0)
-    event = trigger(lambda: (gr.update(visible=False), hata_raporu.error_count()), outputs=[button, seen],
+    event = trigger(lambda: (gr.update(visible=False), _ui_hata_sayisi()), outputs=[button, seen],
                     queue=False, show_progress="hidden").then(**run)
-    event.then(lambda n: gr.update(visible=hata_raporu.error_count() > int(n or 0)), inputs=seen,
+    event.then(lambda n: gr.update(visible=_ui_hata_sayisi() > int(n or 0)), inputs=seen,
                outputs=button, queue=False, show_progress="hidden")
     return event
+
+
+def _ui_hata_sayisi():
+    """Arayüzdeki üretimlerin hata sayısı: arka planda çalışan kuyruğun hataları sayılmaz (onlar
+    kuyruk listesinde görünür); yoksa elle üretim beklerken düşen bir kuyruk öğesi bu sekmedeki
+    “Hata raporu gönder” düğmesini yanlışlıkla gösterirdi."""
+    return hata_raporu.error_count() - _kuyruk_hata_sayisi
 
 
 def _update_toggle_ui(acik):
@@ -2569,6 +2783,545 @@ def _settings_tab():
     rollback.click(back_to_cpu, outputs=install_out, concurrency_limit=1, show_progress="hidden")
     rescan.click(lambda: _accel_refresh(force=True), outputs=refresh_out, show_progress="minimal")
     return lambda: _accel_refresh(), refresh_out
+
+
+# --- Üretim kuyruğu: akşam sıraya koy, sabah sonuçları gör ------------------------------
+# Çekirdek kuyruk.py'de (kalıcı kayıt, tek işçi, uzun metin parçaları, uyku engeli, ozet.txt);
+# metin/HTML parçaları kuyruk_arayuz.py'de. Burada: model çağrısı (uret_fn), efekt, hata
+# sınıflandırma ve arayüz bağlantısı. Kuyruk ilk kullanımda kurulur (arayüz kurulurken diske
+# yazılmaz). Kuyruk işçisi model kilidini elle üretimle paylaşır; elle Üret parça arasında
+# araya girer (_elle_oncelikli).
+
+_KUYRUK = None
+_KUYRUK_KURULUM = Lock()
+_kuyruk_hata_sayisi = 0  # kuyruk işçisinin kaydettiği hatalar (_ui_hata_sayisi bunları düşer)
+_kuyruk_ortam_onbellek = {"zaman": -1e9, "pilde": None}
+_IC_QUEUE = '<path d="M4 6.5h11M4 12h11M4 17.5h6"/><path d="m15.5 14.5 5 3-5 3z"/>'
+_IC_UPLOAD = '<path d="M12 16V4m-5 5 5-5 5 5M5 20h14"/>'
+_IC_PLUS = '<path d="M12 5v14M5 12h14"/>'
+
+
+class KuyrukUretimHatasi(Exception):
+    """Kuyruk öğesine özgü, kodu bilinen üretim hatası (ör. referans kopyası silinmiş)."""
+
+    def __init__(self, kod):
+        super().__init__(kod)
+        self.kod = kod
+
+
+def _kuyruk():
+    """Süreç genelindeki tek kuyruk (ilk çağrıda kurulur; açılışta yarıda kalanı beklemeye alır)."""
+    global _KUYRUK
+    with _KUYRUK_KURULUM:
+        if _KUYRUK is None:
+            _KUYRUK = kq.Kuyruk(
+                cikti_dir=OUTPUT_DIR, uret_fn=_kuyruk_parca_uret, efekt_fn=_kuyruk_efekt,
+                siniflandir=_kuyruk_siniflandir, blok_fn=_accel_block_reason, temizlik_fn=_kuyruk_temizlik,
+                ceviri=lambda s, **kw: t(s, **kw), hata_metni=qa.hata_metni)
+        return _KUYRUK
+
+
+def _kuyruk_istek_ayarlari(istek):
+    """Kuyruk isteği → (referans, talimat, referans metni, adım sayısı, günlük kipi).
+
+    Kip kuralları elle üretimle aynıdır: rastgele → referanssız; kayıtlı ses + Nötr → devam;
+    kayıtlı ses + duygu → kontrollü klon; klon → referans (+ varsa metni) ve duygu.
+    """
+    instruction = EMOTIONS.get(istek.get("duygu"))
+    steps = QUALITY.get(istek.get("kalite"), 10)
+    ref = istek.get("ref_yol")
+    if istek.get("tur") == "klon":
+        return ref, instruction, istek.get("ref_metin") or None, steps, "kuyruk-klon"
+    if (istek.get("ses_id") or RANDOM_VOICE) == RANDOM_VOICE:
+        return None, instruction, None, steps, "kuyruk-rastgele"
+    if instruction:
+        return ref, instruction, None, steps, "kuyruk-kontrollu-klon"
+    return ref, None, istek.get("ref_metin") or None, steps, "kuyruk-devam"
+
+
+def _kuyruk_parca_uret(istek, hedef):
+    """Kuyruk işçisinin uret_fn'i: tek parçayı `hedef` WAV'ına yazar, hatada istisna fırlatır.
+
+    generate_audio ile aynı model, kilit ve tek seferlik GPU→CPU geçişi; ama ileti üretmez
+    (işçi iş parçacığında arayüz dili yoktur) ve 500 karakter sınırını parça zaten sağlar.
+    """
+    reference, instruction, prompt_text, steps, kip = _kuyruk_istek_ayarlari(istek)
+    if reference:
+        try:
+            if not 1 <= sf.info(reference).duration <= 30:
+                raise ValueError("referans süresi")
+        except (OSError, RuntimeError, ValueError) as exc:
+            raise KuyrukUretimHatasi("ref_okunamadi") from exc
+    with _model_lock:
+        model = get_model()
+        _mode, kwargs = _build_kwargs(istek["metin"], reference, instruction, prompt_text, steps,
+                                      voice_id=istek.get("ses_id") or "klon", log_mode=kip)
+        try:
+            wav = model.generate(**kwargs)
+        except Exception as exc:
+            code, _reason = hata_raporu.classify_error(exc)
+            if code not in ("cuda_kernel", "cuda_oom") or _gpu_disabled:
+                raise
+            log.warning("kuyruk: ekran kartı hatası (%s), bu oturumda CPU'ya tek seferlik geçiliyor", code)
+            model = _reload_model_cpu()
+            wav = model.generate(**kwargs)
+        sf.write(str(hedef), wav, model.tts_model.sample_rate)
+
+
+def _kuyruk_efekt(ham, hedef, efektler):
+    """Birleşmiş ham sesin efektli kopyası (ham dosya korunur; apply_effects_ui eski kopyaları sildiği
+    için kullanılmaz)."""
+    audio, sr = sf.read(str(ham), dtype="float32", always_2d=True)
+    out = fx.apply(audio.mean(axis=1), sr, fx.clean_settings(efektler))
+    sf.write(str(hedef), out, sr, subtype="PCM_16")
+
+
+def _kuyruk_siniflandir(exc, oge):
+    """Hata kaydı (metin günlükten/rapordan maskelenir) + kuyruğun saklayacağı hata kodu."""
+    global _kuyruk_hata_sayisi
+    entry = hata_raporu.record_error(exc, redact=[oge.get("metin"), oge.get("ref_metin")], where="kuyruk")
+    _kuyruk_hata_sayisi += 1
+    return getattr(exc, "kod", None) or entry["code"]
+
+
+def _kuyruk_temizlik():
+    """Her parçadan sonra: çöp toplama, MPS/CUDA önbelleği; günlüğe yalnız boş bellek yazılır."""
+    import gc
+    import sys
+    gc.collect()
+    torch = sys.modules.get("torch")
+    try:
+        if torch is not None:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+    except Exception:  # noqa: BLE001 — önbellek boşaltılamasa da kuyruk sürer
+        pass
+    mem = hata_raporu.memory_info()
+    if mem and mem[1]:
+        log.info("kuyruk: boş bellek %.1f GB", mem[1] / 1024 ** 3)
+
+
+def _kuyruk_ortam():
+    """(pilde mi, model diskte mi, çıktı diskinde boş GB). Pil okuması 60 sn önbelleklenir."""
+    import shutil
+    import time
+    import uyku_engeli
+    now = time.monotonic()
+    if now - _kuyruk_ortam_onbellek["zaman"] > 60:
+        _kuyruk_ortam_onbellek.update(zaman=now, pilde=uyku_engeli.pilde_mi())
+    model_var = _model is not None
+    if not model_var:
+        try:
+            from huggingface_hub import constants as hf_constants
+            model_var = (Path(hf_constants.HF_HUB_CACHE) / f"models--{MODEL_ID.replace('/', '--')}").is_dir()
+        except Exception:  # noqa: BLE001 — bilinmiyorsa uyarı gösterilmez
+            model_var = True
+    try:
+        hedef = OUTPUT_DIR if OUTPUT_DIR.exists() else OUTPUT_DIR.parent
+        bos_gb = shutil.disk_usage(hedef).free / 1024 ** 3
+    except OSError:
+        bos_gb = None
+    return _kuyruk_ortam_onbellek["pilde"], model_var, bos_gb
+
+
+def _kuyruk_ses_ayarlari(voice_id):
+    """Kütüphanedeki seçim → kuyruk öğesinin ses alanları (referans kuyruk/ref'e kopyalanır)."""
+    voice_id = voice_id or RANDOM_VOICE
+    if voice_id == RANDOM_VOICE:
+        return {"ses_id": kq.RASTGELE, "ses_adi": "Rastgele ses", "ref_kaynak": None, "ref_metin": None}
+    voice = vlib.get_voice(voice_id)
+    if not voice:
+        raise gr.Error(t("Seçili ses bulunamadı; kütüphaneden yeniden seçin."))
+    return {"ses_id": voice_id, "ses_adi": voice["ad"], "ref_kaynak": voice["ref_wav"],
+            "ref_metin": voice["ref_text"]}
+
+
+def _kuyruga_ekle(tur, text, **ayarlar):
+    k = _kuyruk()
+    try:
+        oge = k.ekle(tur, text, **ayarlar)
+    except kq.KuyrukHatasi as exc:
+        raise gr.Error(qa.red_metni(exc.kod, exc.bilgi)) from None
+    ogeler = k.durum()["ogeler"]
+    sira = next((i for i, o in enumerate(ogeler, 1) if o["id"] == oge["id"]), len(ogeler))
+    if oge["parca_sayisi"] > 1:
+        msg = t("**Kuyruğa eklendi:** listede {sira}. sırada; {n} parçaya bölündü, sonunda tek dosya olur.",
+                sira=sira, n=oge["parca_sayisi"])
+    else:
+        msg = t("**Kuyruğa eklendi:** listede {sira}. sırada.", sira=sira)
+    if k.calisiyor:
+        return msg + " " + t("Kuyruk çalışıyor; sırası gelince üretilecek.")
+    return msg + " " + t("Başlatmak için sağ üstteki **Kuyruk** düğmesine basın.")
+
+
+def kuyruga_ekle_kutuphane_ui(text, emotion, quality, voice_id, *fx_vals):
+    """Ses Kütüphanesi → “Kuyruğa ekle”: o anki ses, duygu, kalite ve efektlerin anlık görüntüsü."""
+    ayarlar = _kuyruk_ses_ayarlari(voice_id)
+    efektler = _fx_settings(*fx_vals) if fx_vals else []
+    return _kuyruga_ekle("kutuphane", text, duygu=emotion or "Nötr", kalite=quality or "Dengeli",
+                         efektler=efektler, **ayarlar)
+
+
+def kuyruga_ekle_klon_ui(text, reference_audio, emotion, prompt_text):
+    """Ses Klonlama → “Kuyruğa ekle”: referans ses kuyruk klasörüne kopyalanır (geçici dosya silinse de
+    gece üretilebilsin). Klonda kalite/efekt yok (bugünkü davranış)."""
+    if not reference_audio:
+        raise gr.Error(t("Önce bir referans ses yükleyin."))
+    try:
+        if not 1 <= sf.info(reference_audio).duration <= 30:
+            raise ValueError("referans süresi")
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise gr.Error(t("Referans ses okunamadı. 1–30 saniyelik geçerli bir WAV yükleyin.")) from exc
+    return _kuyruga_ekle("klon", text, ses_adi=f"Klon ({Path(reference_audio).stem[:40]})",
+                         ref_kaynak=reference_audio, ref_metin=(prompt_text or "").strip() or None,
+                         duygu=emotion or "Nötr", kalite="Dengeli")
+
+
+def _kuyruk_gorunum():
+    """Kuyruk görünümünün tüm parçaları (sıra _queue_wiring'deki `view` listesiyle aynı) ve sürüm."""
+    k = _kuyruk()
+    d = k.durum()
+    etiket, sinif = qa.ust_dugme(d)
+    ana_etiket, ana_etkin, durdur_mu = qa.ana_dugme(d)
+    neden = qa.duraklatma_metni(d)
+    calisiyor = d["durum"] in (kq.CALISIYOR, kq.DURUYOR)
+    klasor = d.get("oturum_klasoru")
+    pilde, model_var, bos_gb = _kuyruk_ortam()
+    return (
+        gr.update(value=etiket, elem_classes=["sv-btn", "sv-topbtn", "sv-top-kuyruk", sinif]),
+        gr.update(visible=qa.banner_gorunur_mu(d)),
+        qa.banner_html(d),
+        # Özet, duraklatma nedeni ve liste tek blokta (boş bloklar araya boşluk koymasın).
+        '<div class="sv-qview">' + qa.ozet_html(d)
+        + (f'<div class="sv-qnote">{escape(neden)}</div>' if neden else "") + qa.liste_html(d) + "</div>",
+        qa.simdi_html(d),
+        qa.gece_html(d, pilde, model_var, bos_gb),
+        gr.update(value=ana_etiket, interactive=ana_etkin,
+                  elem_classes=["sv-btn", "sv-btn-primary"] + (["sv-ic-pause"] if durdur_mu else [])),
+        gr.update(interactive=d["sayilar"][kq.BITTI] > 0 and not d["salt_okunur"]),
+        gr.update(visible=bool(d["ogeler"]) and not calisiyor and not d["salt_okunur"]),
+        gr.update(visible=bool(klasor and Path(klasor).is_dir())),
+    ), d["surum"]
+
+
+def kuyruk_komut_ui(act, oid):
+    """Listedeki düğmeler: yukari, asagi, cikar, yeniden, dinle, klasor. (oynatıcı güncellemesi) döner."""
+    k = _kuyruk()
+    try:
+        if act == "yukari":
+            k.yukari(oid)
+        elif act == "asagi":
+            k.asagi(oid)
+        elif act == "cikar":
+            k.cikar(oid)
+        elif act == "yeniden":
+            k.yeniden_dene(oid)
+        elif act in ("dinle", "klasor"):
+            oge = next((o for o in k.durum()["ogeler"] if o["id"] == oid), None)
+            yol = oge and (oge.get("efektli") or oge.get("cikti"))
+            if not yol or not Path(yol).is_file():
+                raise kq.KuyrukHatasi("oge_yok")
+            if act == "dinle":
+                return yol
+            hata_raporu.reveal(yol)
+    except kq.KuyrukHatasi as exc:
+        gr.Warning(qa.red_metni(exc.kod, exc.bilgi))
+    return None
+
+
+def kuyruk_baslat_durdur_ui():
+    k = _kuyruk()
+    if k.calisiyor:
+        k.durdur()
+        gr.Info(t("Şu anki parça bitince kuyruk duracak. Kalan öğeler kaybolmaz."))
+        return
+    blocked = _accel_block_reason()
+    if blocked:
+        gr.Warning(blocked)
+        return
+    try:
+        k.baslat()
+    except kq.KuyrukHatasi as exc:
+        gr.Warning(qa.red_metni(exc.kod, exc.bilgi))
+        return
+    import uyku_engeli
+    if uyku_engeli.pilde_mi():
+        gr.Warning(t("Bilgisayar pilde çalışıyor. Gece boyu sürmesi için prize takın ve kapağı açık bırakın."))
+
+
+def _ses_bulucu():
+    """İçe aktarma: hücredeki ses adı → kayıtlı ses (Türkçe/İngilizce yazım ve hazır seslerin tüm
+    çevirileri kabul edilir; büyük/küçük harf ve Türkçe harf farkı gözetilmez)."""
+    tablo = {}
+    for v in vlib.list_voices():
+        adlar = {v["ad"]} | (i18n.all_translations(v["ad"]) if v["hazir"] else set())
+        for ad in adlar:
+            tablo.setdefault(ice_aktarma.katla(ad), {"id": v["id"], "ad": v["ad"], "ref_wav": v["ref_wav"],
+                                                    "ref_text": v["ref_text"]})
+    return lambda ad: tablo.get(ice_aktarma.katla(ad))
+
+
+def _ice_ayarlar(ses_id, duygu, kalite):
+    try:
+        ses = _kuyruk_ses_ayarlari(ses_id)
+    except gr.Error:
+        ses = _kuyruk_ses_ayarlari(RANDOM_VOICE)
+    return dict(ses, tur="kutuphane", duygu=duygu or "Nötr", kalite=kalite or "Dengeli", efektler=[])
+
+
+def _ice_hesapla(yol, ses_id, duygu, kalite, kip, kalan_yer):
+    veri = Path(yol).read_bytes()
+    csv_mi = Path(yol).suffix.lower() == ".csv"
+    ayar = _ice_ayarlar(ses_id, duygu, kalite)
+    if csv_mi:
+        return ice_aktarma.onizle_csv(veri, ayar, ses_bul=_ses_bulucu(), kalan_yer=kalan_yer), csv_mi
+    return ice_aktarma.onizle_txt(veri, kip or "paragraf", ayar, kalan_yer=kalan_yer), csv_mi
+
+
+def ice_onizle_ui(yol, ses_id, duygu, kalite, kip):
+    """İçe aktarma önizlemesi: (dosya bilgisi + özet + uyarı + tablo HTML'i, ekle düğmesi). Kuyruğa EKLEMEZ."""
+    if not yol:
+        return "", gr.update(value=t("Kuyruğa ekle"), interactive=False)
+    kuyrukta = len(_kuyruk().durum()["ogeler"])
+    try:
+        tum, csv_mi = _ice_hesapla(yol, ses_id, duygu, kalite, kip, 10 ** 6)
+        sinirli, _ = _ice_hesapla(yol, ses_id, duygu, kalite, kip, kq.KUYRUK_EN_FAZLA - kuyrukta)
+    except OSError:
+        return ('<div class="sv-qwarnbox">' + escape(t("Dosya okunamadı.")) + "</div>",
+                gr.update(value=t("Kuyruğa ekle"), interactive=False))
+    ozet, uyari, tablo, n = qa.ice_onizleme(tum, sinirli, kuyrukta)
+    dosya = "" if tum.hata else qa.ice_dosya_html(Path(yol).name, tum, csv_mi)
+    etiket = t("{n} öğeyi kuyruğa ekle", n=n) if n else t("Eklenecek öğe yok")
+    return ('<div class="sv-qview">' + dosya + ozet + uyari + tablo + "</div>",
+            gr.update(value=etiket, interactive=n > 0))
+
+
+def ice_ekle_ui(yol, ses_id, duygu, kalite, kip):
+    """Onaydan sonra: önizlemedeki öğeler kuyruğa eklenir (hepsi ya da hiçbiri). Eklenen sayısı döner."""
+    if not yol:
+        raise gr.Error(t("Önce bir TXT ya da CSV dosyası seçin."))
+    k = _kuyruk()
+    sinirli, _ = _ice_hesapla(yol, ses_id, duygu, kalite, kip,
+                              kq.KUYRUK_EN_FAZLA - len(k.durum()["ogeler"]))
+    if sinirli.hata or not sinirli.ogeler:
+        raise gr.Error(t("Eklenecek öğe yok."))
+    try:
+        eklenen = k.ekle_toplu(sinirli.istekler())
+    except kq.KuyrukHatasi as exc:
+        raise gr.Error(qa.red_metni(exc.kod, exc.bilgi)) from None
+    log.info("kuyruk: içe aktarma %d öğe ekledi (%d satır reddedildi)", len(eklenen), len(sinirli.reddedilen))
+    return len(eklenen)
+
+
+def _sablon_yolu(lang):
+    """İndirilebilir örnek CSV (UTF-8 BOM, `;`): Türkçe sayfada Türkçe, diğerlerinde İngilizce başlıklar."""
+    import tempfile
+    dil = "tr" if lang == i18n.DEFAULT else "en"
+    yol = Path(tempfile.gettempdir()) / "sesver-sablon" / ("kuyruk-ornegi.csv" if dil == "tr" else "queue-template.csv")
+    try:
+        yol.parent.mkdir(parents=True, exist_ok=True)
+        veri = ice_aktarma.sablon_csv(dil)
+        if not yol.is_file() or yol.read_bytes() != veri:
+            yol.write_bytes(veri)
+    except OSError:
+        return None
+    return str(yol)
+
+
+def _voice_choices():
+    return [("🎲 " + t("Rastgele ses"), RANDOM_VOICE)] + [(_voice_name(v), v["id"]) for v in vlib.list_voices()]
+
+
+def _queue_tab(lang, lib):
+    """Kuyruk görünümü (taslak A): solda geniş liste, sağda şu an / kuyruğa ekle / gece boyunca.
+    İçe aktarma önizlemesi (taslak D) aynı görünümde açılan kart. Olaylar _queue_wiring'de."""
+    with gr.Column(visible=False, elem_classes=["sv-card", "sv-import"]) as ice_col:
+        with gr.Row(elem_classes=["sv-import-top"]):
+            _head(_IC_UPLOAD, t("Dosyadan içe aktar"),
+                  t("Önizleme: onaylamadan kuyruğa hiçbir şey eklenmez. Dosya yalnız bu bilgisayarda okunur."))
+            ice_close = gr.Button(t("✕ Kapat"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+        ice_file = gr.File(label=t("TXT ya da CSV dosyası"), file_types=[".txt", ".csv"], type="filepath",
+                           elem_classes=["sv-file"])
+        with gr.Row(elem_classes=["sv-import-cols"]):
+            ice_voice = gr.Dropdown(choices=_voice_choices(), value=RANDOM_VOICE, filterable=False,
+                                    label=t("Varsayılan ses (sütunu boş satırlar)"), min_width=200)
+            ice_emotion = gr.Dropdown(choices=_choices(EMOTIONS), value="Nötr", label=t("Duygu"),
+                                      filterable=False, min_width=150)
+            ice_quality = gr.Dropdown(choices=_choices(QUALITY), value="Dengeli", label=t("Kalite"),
+                                      filterable=False, min_width=150)
+            ice_mode = gr.Radio(choices=[(t("Tamamı tek öğe"), "tek"), (t("Her paragraf ayrı öğe"), "paragraf")],
+                                value="paragraf", label=t("TXT dosyasında"), min_width=220,
+                                elem_classes=["sv-emotion", "sv-plain"])
+        ice_view = _html("")
+        _html('<p class="sv-fine">' + t("<b>Reddedilen satırlar</b> eklenmez; dosyayı düzeltip yeniden "
+                                        "yükleyebilirsiniz. Sütun adları Türkçe ya da İngilizce olabilir "
+                                        "(metin/text, ses/voice, duygu/emotion, kalite/quality).") + "</p>")
+        with gr.Row(elem_classes=["sv-actionbar"]):
+            _html('<div class="sv-hint">' + t("Uzun öğeler cümle sonlarından en fazla 500 karakterlik "
+                                              "parçalara bölünür, sonunda tek WAV olur.") + "</div>")
+            ice_cancel = gr.Button(t("Vazgeç"), scale=0, min_width=120, elem_classes=["sv-btn", "sv-btn-queue",
+                                                                                      "sv-no-ic"])
+            ice_add = gr.Button(t("Kuyruğa ekle"), variant="primary", interactive=False, scale=0, min_width=200,
+                                elem_classes=["sv-btn", "sv-btn-primary", "sv-ic-plus"])
+
+    with gr.Row(equal_height=False, elem_classes=["sv-grid"]) as main_grid:
+        with gr.Column(scale=7, min_width=340, elem_classes=["sv-frame"]):
+            _frame_bar([f"{_svg(_IC_QUEUE)}{t('Üretim kuyruğu')}", t("Sırayla, tek tek")])
+            with gr.Column(elem_classes=["sv-panel"]):
+                _head(_IC_QUEUE, t("Kuyruk"),
+                      t("Öğeler sırayla üretilir. Biri hata verirse kuyruk durmaz, sonrakine geçer."))
+                listing = gr.HTML("", js_on_load=qa.LISTE_JS, apply_default_css=False,
+                                  elem_classes=["sv-qlist-wrap"])
+                with gr.Row(visible=False, elem_classes=["sv-confirm"]) as confirm_row:
+                    _html('<p class="sv-fine">' + t("Kuyruk boşaltılsın mı? Liste ve referans kopyaları silinir; "
+                                                    "üretilmiş ses dosyaları klasörde kalır.") + "</p>")
+                    confirm_yes = gr.Button(t("Evet, boşalt"), size="sm", scale=0,
+                                            elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
+                    confirm_no = gr.Button(t("Vazgeç"), size="sm", scale=0, elem_classes=["sv-btn", "sv-mini"])
+                with gr.Row(elem_classes=["sv-actionbar"]):
+                    _html('<div class="sv-hint">' + t("<b>Durdur:</b> şu anki parça bitince durur.<br>"
+                                                      "Kalan öğeler kaybolmaz; “Devam et” ile sürer.") + "</div>")
+                    clear_all = gr.Button(t("Kuyruğu boşalt"), size="sm", scale=0, visible=False,
+                                          elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
+                    clear_done = gr.Button(t("Bitenleri temizle"), scale=0, min_width=150, interactive=False,
+                                           elem_classes=["sv-btn", "sv-btn-queue", "sv-no-ic"])
+                    main = gr.Button(t("Başlat"), variant="primary", scale=0, min_width=170, interactive=False,
+                                     elem_classes=["sv-btn", "sv-btn-primary"])
+        with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
+            with gr.Column(elem_classes=["sv-card"]):
+                now = _html("")
+            with gr.Column(visible=False, elem_classes=["sv-card"]) as player_col:
+                _head(_IC_PLAY, t("Dinle"), t("Kuyrukta biten öğe. AI ile üretildi."))
+                player = gr.Audio(label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
+                                  autoplay=True, buttons=["download"], elem_classes=["sv-audio"])
+            with gr.Column(elem_classes=["sv-card"]):
+                _head(_IC_PLUS, t("Kuyruğa ekle"), t("En fazla 50 öğe; tek öğe 10.000 karaktere kadar."))
+                import_btn = gr.Button(t("Dosyadan içe aktar (TXT / CSV)"),
+                                       elem_classes=["sv-btn", "sv-btn-soft", "sv-ic-upload"])
+                _html('<p class="sv-fine">' + t("<b>Ses Kütüphanesi</b> ve <b>Ses Klonlama</b> sekmelerinde "
+                                                "“Üret”in yanındaki <b>Kuyruğa ekle</b> düğmesiyle de eklenir.")
+                      + "</p>")
+                gr.DownloadButton(t("Örnek CSV şablonu"), value=_sablon_yolu(lang), size="sm",
+                                  elem_classes=["sv-btn", "sv-mini", "sv-template"])
+            with gr.Column(elem_classes=["sv-card"]):
+                night = _html("")
+                folder_btn = gr.Button(t("Klasörü aç · ozet.txt"), visible=False,
+                                       elem_classes=["sv-btn", "sv-btn-ghost"])
+    return SimpleNamespace(
+        ice_col=ice_col, ice_close=ice_close, ice_file=ice_file, ice_voice=ice_voice,
+        ice_emotion=ice_emotion, ice_quality=ice_quality, ice_mode=ice_mode, ice_view=ice_view,
+        ice_cancel=ice_cancel, ice_add=ice_add, main_grid=main_grid,
+        listing=listing, confirm_row=confirm_row, confirm_yes=confirm_yes,
+        confirm_no=confirm_no, clear_all=clear_all, clear_done=clear_done, main=main, now=now,
+        player_col=player_col, player=player, import_btn=import_btn, night=night, folder_btn=folder_btn,
+        lib=lib)
+
+
+def _queue_wiring(demo, lang, q, queue_btn, banner, banner_html, banner_go, banner_show, tabs):
+    """Kuyruk görünümünün olayları: 2 sn'lik yoklama (yalnız değişince yeniden çizer), liste
+    düğmeleri, başlat/durdur, temizleme, içe aktarma ve sağ üstteki durum (\"Kuyruk 3/10\")."""
+    view = [queue_btn, banner, banner_html, q.listing, q.now, q.night, q.main, q.clear_done, q.clear_all,
+            q.folder_btn]
+    seen = gr.State(-1)
+    keep = tuple(gr.update() for _ in view)
+
+    def full():
+        with i18n.use(lang):
+            parts, surum_ = _kuyruk_gorunum()
+            return (*parts, surum_)
+
+    def poll(last):
+        if _KUYRUK is not None and last == _KUYRUK.surum:
+            return (*keep, last)
+        return full()
+
+    quiet = dict(queue=False, show_progress="hidden")
+    # gr.Info/gr.Warning yalnız kuyruktaki olaylarda görünür; işlemler kendi sınırsız havuzunda
+    # çalışır (uzun bir elle üretim sürerken beklemezler).
+    act = dict(show_progress="hidden", concurrency_limit=None, concurrency_id="sv-kuyruk-islem")
+    gr.Timer(2.0).tick(poll, inputs=seen, outputs=[*view, seen], **quiet)
+    demo.load(full, outputs=[*view, seen], **quiet)
+
+    def command(evt: gr.EventData):
+        data = getattr(evt, "_data", None) or {}
+        with i18n.use(lang):
+            path = kuyruk_komut_ui(str(data.get("act") or ""), str(data.get("id") or ""))
+        player = (gr.update(visible=True), gr.update(value=path)) if path else (gr.update(), gr.update())
+        return (*full(), *player)
+
+    q.listing.click(command, outputs=[*view, seen, q.player_col, q.player], **act)
+
+    def start_stop():
+        with i18n.use(lang):
+            kuyruk_baslat_durdur_ui()
+        return full()
+
+    q.main.click(start_stop, outputs=[*view, seen], **act)
+    banner_go.click(start_stop, outputs=[*view, seen], **act)
+    banner_show.click(lambda: gr.Tabs(selected="kuyruk"), outputs=tabs, **quiet)
+
+    def clear_done():
+        with i18n.use(lang):
+            try:
+                n = _kuyruk().bitenleri_temizle()
+                gr.Info(t("{n} biten öğe listeden kaldırıldı; ses dosyaları klasörde duruyor.", n=n))
+            except kq.KuyrukHatasi as exc:
+                gr.Warning(qa.red_metni(exc.kod, exc.bilgi))
+        return full()
+
+    q.clear_done.click(clear_done, outputs=[*view, seen], **act)
+    q.clear_all.click(lambda: gr.update(visible=True), outputs=q.confirm_row, **quiet)
+    q.confirm_no.click(lambda: gr.update(visible=False), outputs=q.confirm_row, **quiet)
+
+    def clear_all():
+        with i18n.use(lang):
+            try:
+                _kuyruk().temizle()
+            except kq.KuyrukHatasi as exc:
+                gr.Warning(qa.red_metni(exc.kod, exc.bilgi))
+        return (gr.update(visible=False), *full())
+
+    q.confirm_yes.click(clear_all, outputs=[q.confirm_row, *view, seen], **act)
+
+    def open_folder():
+        klasor = _kuyruk().durum().get("oturum_klasoru")
+        if klasor and Path(klasor).is_dir():
+            ozet = Path(klasor) / "ozet.txt"
+            hata_raporu.reveal(ozet if ozet.is_file() else klasor)
+
+    q.folder_btn.click(open_folder, **quiet)
+
+    # İçe aktarma (taslak D): kart açılır, liste gizlenir; onaylamadan hiçbir şey eklenmez.
+    ice_inputs = [q.ice_file, q.ice_voice, q.ice_emotion, q.ice_quality, q.ice_mode]
+    ice_outputs = [q.ice_view, q.ice_add]
+
+    def ice_open(selected):
+        with i18n.use(lang):
+            choices = _voice_choices()
+        value = selected if any(v == selected for _, v in choices) else RANDOM_VOICE
+        return gr.update(visible=True), gr.update(visible=False), gr.update(choices=choices, value=value)
+
+    def ice_close():
+        return (gr.update(visible=False), gr.update(visible=True), None, "",
+                gr.update(value=t("Kuyruğa ekle", lang), interactive=False))
+
+    close_outputs = [q.ice_col, q.main_grid, q.ice_file, q.ice_view, q.ice_add]
+    q.import_btn.click(ice_open, inputs=q.lib.selected, outputs=[q.ice_col, q.main_grid, q.ice_voice], **quiet)
+    q.ice_close.click(ice_close, outputs=close_outputs, **quiet)
+    q.ice_cancel.click(ice_close, outputs=close_outputs, **quiet)
+    preview = _in_lang(ice_onizle_ui, lang)
+    for control in (q.ice_file, q.ice_voice, q.ice_emotion, q.ice_quality, q.ice_mode):
+        control.change(preview, inputs=ice_inputs, outputs=ice_outputs, **quiet)
+
+    def ice_add(*values):
+        with i18n.use(lang):
+            n = ice_ekle_ui(*values)
+            gr.Info(t("{n} öğe kuyruğa eklendi.", n=n))
+        return (*ice_close(), *full())
+
+    q.ice_add.click(ice_add, inputs=ice_inputs, outputs=[*close_outputs, *view, seen], **act)
 
 
 def _setup_logging():
