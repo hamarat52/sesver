@@ -15,7 +15,7 @@ Normal bir Windows programı gibi **İleri → İleri → Kur** ile kurulur; Ba�
 3. **Kurun:** Lisansı kabul edin → **İleri → İleri → Kur**. Masaüstü simgesi istemiyorsanız ilgili kutunun işaretini kaldırın.
 4. **Bekleyin:** Dosyalar kopyalanınca kurulum penceresinde **"SesVer hazırlanıyor"** sayfası açılır ve Python ile paketleri indirir; ilerleme çubuğu ve geçen süre görünür. **5–30 dakika** sürebilir, yaklaşık **3 GB** iner, internet gerekir. Ayrı bir siyah pencere açılmaz. İsterseniz **Kurulumu durdur** diyebilirsiniz; SesVer'i ilk açtığınızda kaldığı yerden devam eder.
 5. **Bitirin:** Son sayfada **"SesVer'i şimdi aç"** işaretli kalsın → **Bitir**. SesVer penceresi açılır.
-6. **Hata olursa:** Son sayfa hangi adımda durduğunu ve `kurulum_log.txt` dosyasının yerini yazar; **Günlüğü aç** düğmesiyle görebilirsiniz. İnterneti kontrol edip masaüstündeki **SesVer** simgesine çift tıklayın, kurulum kaldığı yerden devam eder. Sorun sürerse `kurulum_log.txt` dosyasını **hermes.agent.hamarat@gmail.com** adresine gönderin.
+6. **Hata olursa:** Son sayfa hangi adımda durduğunu yazar; **Günlüğü aç** düğmesi `kurulum_log_paylas.txt` dosyasını açar. İnterneti kontrol edip masaüstündeki **SesVer** simgesine çift tıklayın, kurulum kaldığı yerden devam eder. Sorun sürerse `kurulum_log_paylas.txt` dosyasını **hermes.agent.hamarat@gmail.com** adresine gönderin. Bu kopyada ev klasörü yollarınız (`C:\Users\<adınız>`) gizlenmiştir.
 7. **Pencere açılmazsa:** Tarayıcınızda (Chrome, Edge) **http://127.0.0.1:7860** adresini açmayı deneyin. Ayrıntı: `%LOCALAPPDATA%\Programs\SesVer\sesver_log.txt`.
 
 ### Sonra nasıl açarım?
@@ -134,6 +134,7 @@ Bu sürüm numarası kökteki `VERSION` dosyasındadır.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
 - **7860 portu kullanımda:** SesVer zaten açık. Daha önce açtığınız SesVer'i kapatın (**Windows**'ta SesVer penceresini kapatmanız yeterli; **Mac**'te Terminal penceresinde **Ctrl+C** basın), sonra tekrar başlatın.
 - **GitHub'da depo görünmüyor / ZIP inmiyor:** Depo herkese açıktır, giriş gerekmez. Adresin doğru yazıldığından (https://github.com/hamarat52/sesver) ve internet bağlantınızdan emin olun; birkaç dakika sonra tekrar deneyin.
+- **Destek için günlük göndermek:** SesVer açılıyorsa **Hata raporu gönder** düğmesini kullanın; rapor gönderilmeden önce size gösterilir. SesVer açılmıyorsa `sesver_log.txt`, Windows'ta ilk kurulum yarıda kaldıysa `kurulum_log_paylas.txt` dosyasını gönderin. Bu dosyalarda ev klasörü yollarınız (`C:\Users\<adınız>`, `/Users/<adınız>`) gizlidir. `kurulum_log.txt` dosyasının kendisini göndermeyin; içinde gizlenmemiş yollar vardır.
 
 Çözemediyseniz [AI_KURULUM.md](AI_KURULUM.md) dosyasını yapay zeka asistanınıza verin ya da [issue açın](https://github.com/hamarat52/sesver/issues). İşletim sistemi, Python sürümü, donanım ve kişisel bilgilerden arındırılmış hata mesajı yeterlidir; özel ses kayıtlarınızı paylaşmayın.
 

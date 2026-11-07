@@ -93,3 +93,75 @@ def bitis(metin):
     if metin.startswith(HATA_ONEKI):
         return "hata", metin[len(HATA_ONEKI):]
     return None
+
+
+# --- Paylaşılabilir günlük -------------------------------------------------------------
+# Kurulum hata ya da iptalle bitince sihirbaz (PaylasilabilirGunlukYaz) kurulum_log.txt'den
+# ev klasörü yolları gizlenmiş PAYLAS_GUNLUK_DOSYASI'nı üretir; kullanıcıya gönderilmesi
+# söylenen dosya budur. Aşağıdaki işlevler windows/SesVer.iss'teki HarfDuyarsizDegistir,
+# IlkEvIsareti, EvYollariniMaskele ve GunlukMaskele'nin birebir (1 tabanlı) karşılığıdır.
+
+PAYLAS_GUNLUK_DOSYASI = "kurulum_log_paylas.txt"
+EV_MASKESI = "<ev>"
+EV_ISARETLERI = (":\\users\\", ":\\\\users\\\\", ":/users/")
+EV_ADI_BITISLERI = "\\/\"'<>|\t\n\r"
+
+
+def _pascal_lowercase(s):
+    # Inno Lowercase: yalnız 7 bit A-Z küçülür (uzunluk korunur).
+    return "".join(chr(ord(c) + 32) if "A" <= c <= "Z" else c for c in s)
+
+
+def pascal_harf_duyarsiz_degistir(metin, bul, yeni):
+    if bul == "":
+        return metin
+    sonuc, kalan = "", metin
+    kucuk_bul, kucuk = _pascal_lowercase(bul), _pascal_lowercase(kalan)
+    p = kucuk.find(kucuk_bul) + 1
+    while p > 0:
+        sonuc += kalan[: p - 1] + yeni
+        kalan = kalan[p - 1 + len(bul):]
+        kucuk = kucuk[p - 1 + len(bul):]
+        p = kucuk.find(kucuk_bul) + 1
+    return sonuc + kalan
+
+
+def pascal_ilk_ev_isareti(kucuk):
+    """(konum, işaret uzunluğu); yoksa (0, 0). Konum 1 tabanlıdır (Pascal Pos)."""
+    sonuc, uzunluk = 0, 0
+    for isaret in EV_ISARETLERI:
+        p = kucuk.find(isaret) + 1
+        if p > 0 and (sonuc == 0 or p < sonuc):
+            sonuc, uzunluk = p, len(isaret)
+    return sonuc, uzunluk
+
+
+def pascal_ev_yollarini_maskele(metin):
+    sonuc, kalan = "", metin
+    kucuk = _pascal_lowercase(kalan)
+    p, uzunluk = pascal_ilk_ev_isareti(kucuk)
+    while p > 0:
+        bas = p
+        if p > 1 and "a" <= kucuk[p - 2] <= "z":  # Pascal Kucuk[P - 1]
+            bas = p - 1
+        son = p + uzunluk
+        while son <= len(kalan) and kalan[son - 1] not in EV_ADI_BITISLERI:
+            son += 1
+        sonuc += kalan[: bas - 1] + EV_MASKESI
+        kalan = kalan[son - 1:]
+        kucuk = kucuk[son - 1:]
+        p, uzunluk = pascal_ilk_ev_isareti(kucuk)
+    return sonuc + kalan
+
+
+def pascal_gunluk_maskele(metin, ev, kisa_ad=None):
+    """GunlukMaskele karşılığı. ``kisa_ad``: GetShortName(ev) sonucu (yoksa ev)."""
+    sonuc = metin
+    if len(ev) > 3:
+        egik = ev.replace("\\", "/")
+        kisa = ev if kisa_ad is None else kisa_ad
+        sonuc = pascal_harf_duyarsiz_degistir(sonuc, ev, EV_MASKESI)
+        sonuc = pascal_harf_duyarsiz_degistir(sonuc, egik, EV_MASKESI)
+        if kisa and kisa != ev:
+            sonuc = pascal_harf_duyarsiz_degistir(sonuc, kisa, EV_MASKESI)
+    return pascal_ev_yollarini_maskele(sonuc)

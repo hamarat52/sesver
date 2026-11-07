@@ -380,10 +380,70 @@ class UiTests(unittest.TestCase):
     def test_launchers_tell_where_to_send_log(self):
         bat = (ROOT / "WINDOWS_BASLAT.bat").read_bytes()
         line = b"echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.\r\n"
-        self.assertEqual(bat.count(line), 2)  # :baslat_durum ve :hata
+        # Yalnız :baslat_durum (desktop.py açılamadı): sesver_log.txt yazılırken maskelenir.
+        # :hata (kurulum adımı) bu dosyayı istemez: kurulum çıktısı yalnız konsoldadır.
+        self.assertEqual(bat.count(line), 1)
+        self.assertIn(b"echo Bu dosyada ev klasoru yollariniz gizlidir.\r\n", bat)
+        self.assertIn(b"echo Sorun surerse hermes.agent.hamarat@gmail.com adresine yazin ve durdugu adimi "
+                      b"bildirin: %ADIM%\r\n", bat)
         line.decode("ascii")  # eklenen satır ASCII (bat'ın echo satırlarında Türkçe karakter yok)
         sh = (ROOT / "macos_ortak.sh").read_text(encoding="utf-8")
         self.assertEqual(sh.count("hermes.agent.hamarat@gmail.com adresine gönderin."), 2)
+
+    def test_every_send_instruction_names_a_masked_file(self):
+        """Kabul ölçütü (bulgu 1): kullanıcıya gönderilmesi söylenen her dosya maskelidir.
+
+        sesver_log.txt desktop._Tee ile yazılırken, kurulum_log_paylas.txt sihirbazda
+        (SesVer.iss PaylasilabilirGunlukYaz) maskelenir; kurulum_log.txt hiçbir yerde
+        gönderilecek dosya olarak geçmez.
+        """
+        import re
+        masked = {"sesver_log.txt", "kurulum_log_paylas.txt"}
+        sources = {
+            "WINDOWS_BASLAT.bat": (ROOT / "WINDOWS_BASLAT.bat").read_text(encoding="utf-8"),
+            "windows/SesVer.iss": (ROOT / "windows" / "SesVer.iss").read_text(encoding="utf-8-sig"),
+            "windows-installer.yml": (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(
+                encoding="utf-8"),
+            "README.md": (ROOT / "README.md").read_text(encoding="utf-8"),
+            "AI_KURULUM.md": (ROOT / "AI_KURULUM.md").read_text(encoding="utf-8"),
+            "macos_ortak.sh": (ROOT / "macos_ortak.sh").read_text(encoding="utf-8"),
+        }
+        found = 0
+        for name, text in sources.items():
+            for line in text.splitlines():
+                if not re.search(r"gönder|gonder|\bsend\b", line, re.I):
+                    continue
+                if line.lstrip().lower().startswith(("rem ", ";", "#", "//")):
+                    continue  # yorum satırları kullanıcıya gösterilmez
+                files = set(re.findall(r"\b[a-z_]+_log(?:_[a-z]+)?\.txt\b", line))
+                for f in files - {"kurulum_log.txt"}:
+                    self.assertIn(f, masked, f"{name}: {line.strip()[:120]}")
+                found += bool(files & masked)
+                if "kurulum_log.txt" in files:
+                    self.assertRegex(line, r"göndermeyin|isteme\b", f"{name}: {line.strip()[:120]}")
+        self.assertGreaterEqual(found, 8)
+
+    def test_log_file_is_masked_while_writing(self):
+        """desktop._Tee: sesver_log.txt'ye ev klasörü yolu, e-posta ve anahtar yazılmaz; konsol aynen."""
+        import desktop
+        console, log = io.StringIO(), io.StringIO()
+        with mock.patch.object(hr, "_home_variants", return_value=[r"D:\Profiller\ozel kisi"]):
+            tee = desktop._Tee(console, log)
+        tee.write("SesVer günlüğü | Python 3.11.9 | C:\\Users\\Yusuf Hamarat\\AppData\\Local\\Programs\\"
+                  "SesVer\\python-embed\\pythonw.exe\n")
+        tee.write('  File "C:\\Us')  # yol iki write() çağrısına bölünür
+        tee.write('ers\\yusuf\\AppData\\Local\\Programs\\SesVer\\app.py", line 12\n')
+        tee.write("cache: d:\\profiller\\OZEL KISI\\hf | /Users/ornekkullanici/x | ali@example.com\n")
+        tee.write("yarim satir C:\\Users\\yusuf\\x")
+        self.assertNotIn("yarim satir", log.getvalue())  # satır sonu gelmeden yazılmaz
+        tee.flush()
+        out = log.getvalue()
+        for leaked in ("Yusuf", "yusuf", "Hamarat", "OZEL KISI", "ornekkullanici", "ali@example.com"):
+            self.assertNotIn(leaked, out)
+        self.assertIn(r"<ev>\AppData\Local\Programs\SesVer\app.py", out)
+        self.assertIn(r"cache: <ev>\hf | <ev>/x | <e-posta>", out)
+        self.assertTrue(out.endswith(r"yarim satir <ev>\x"))
+        self.assertIn("Yusuf Hamarat", console.getvalue())  # kullanıcının kendi ekranı değişmez
 
     def test_settings_and_result_cards_have_report_button(self):
         import app

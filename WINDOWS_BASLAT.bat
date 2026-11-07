@@ -325,7 +325,9 @@ echo ----------------------------------------------------------------
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath 'sesver_log.txt' -Tail 40 -Encoding UTF8" 2>nul || type "sesver_log.txt"
 echo ----------------------------------------------------------------
 echo Tum ayrinti: SesVer klasorundeki sesver_log.txt dosyasi.
+REM desktop.py sesver_log.txt'ye yazarken ev klasoru yollarini gizler (hata_raporu.sanitize).
 echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.
+echo Bu dosyada ev klasoru yollariniz gizlidir.
 pause
 exit /b 1
 
@@ -357,7 +359,10 @@ echo.
 echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
 echo Yukaridaki hata mesajini okuyun. Internet baglantinizi kontrol edip
 echo WINDOWS_BASLAT.bat dosyasini tekrar calistirin; kurulum kaldigi yerden devam eder.
-echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.
+REM Kurulum ciktisi yalniz bu pencerededir (dosyaya yazilmaz) ve ev klasoru yolunu
+REM (C:\Users\kullanici_adi) icerebilir: kullanicidan dosya ya da kopyala-yapistir istenmez.
+echo Sorun surerse hermes.agent.hamarat@gmail.com adresine yazin ve durdugu adimi bildirin: %ADIM%
+echo Bu penceredeki yazilari paylasacaksaniz once icindeki C:\Users\... klasor adinizi silin.
 pause
 exit /b 1
 

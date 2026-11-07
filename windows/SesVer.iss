@@ -49,8 +49,12 @@
 ;     "kaldığı yerden devam" mantığıyla sonraki çift tıkta sürer.
 ;   * Başarı: kısayollar aşağıdaki kurala göre pythonw'ye çevrilir; Bitir
 ;     sayfasında "SesVer'i şimdi aç" (pythonw, konsolsuz).
-;   * Hata/iptal: Bitir sayfasında açık metin + kurulum_log.txt yolu + e-posta
-;     adresi + "Günlüğü aç"; kısayollar WINDOWS_BASLAT.bat'ı gösterir.
+;   * Hata/iptal: Bitir sayfasında açık metin + e-posta adresi + "Günlüğü aç".
+;     Kullanıcıya gönderilmesi söylenen dosya kurulum_log.txt değil, sihirbazın
+;     ondan ürettiği kurulum_log_paylas.txt'dir: ev klasörü yolları (USERPROFILE ve
+;     X:\Users\<ad>) <ev> olarak gizlenir (PaylasilabilirGunlukYaz; kurallar
+;     tools/kurulum_durum_bicimi.py pascal_gunluk_maskele ile aynı). Kısayollar
+;     WINDOWS_BASLAT.bat'ı gösterir.
 ;   * Sessiz kurulum (/SILENT, /VERYSILENT): ortam kurulumu varsayılan olarak
 ;     ATLANIR (eski davranış); /ORTAMKUR verilirse sessizce yapılır ve başarısız
 ;     olursa Setup 30 çıkış koduyla biter (CI tam testi bunu kullanır).
@@ -163,8 +167,8 @@ turkish.OrtamYanitYok=kurulum başlatıcısı %1 sn içinde yanıt vermedi
 english.OrtamYanitYok=the setup launcher did not respond within %1 s
 turkish.OrtamBitirBaslikEksik=SesVer kuruldu, ilk hazırlık tamamlanamadı
 english.OrtamBitirBaslikEksik=SesVer is installed, but first-time setup did not finish
-turkish.OrtamHataMetni=İlk hazırlık şu adımda durdu: %1%n%nİnternet bağlantınızı kontrol edip masaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıklayın; kurulum kaldığı yerden devam eder.%n%nAyrıntılar: %2%nSorun sürerse kurulum_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin.
-english.OrtamHataMetni=First-time setup stopped at this step: %1%n%nCheck your internet connection, then double-click the SesVer icon on the desktop or in the Start menu; setup resumes where it left off.%n%nDetails: %2%nIf the problem persists, send the kurulum_log.txt file to hermes.agent.hamarat@gmail.com.
+turkish.OrtamHataMetni=İlk hazırlık şu adımda durdu: %1%n%nİnternet bağlantınızı kontrol edip masaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıklayın; kurulum kaldığı yerden devam eder.%n%nSorun sürerse kurulum_log_paylas.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin. Bu kopyada ev klasörü yollarınız gizlidir; Günlüğü aç ile içine bakabilirsiniz.%n%nDosya: %2
+english.OrtamHataMetni=First-time setup stopped at this step: %1%n%nCheck your internet connection, then double-click the SesVer icon on the desktop or in the Start menu; setup resumes where it left off.%n%nIf the problem persists, send the kurulum_log_paylas.txt file to hermes.agent.hamarat@gmail.com. Your home folder paths are hidden in this copy; use Open log to look inside.%n%nFile: %2
 turkish.OrtamIptalMetni=İlk hazırlık durduruldu.%n%nMasaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıkladığınızda kurulum kaldığı yerden devam eder.%n%nAyrıntılar: %1
 english.OrtamIptalMetni=First-time setup was stopped.%n%nDouble-click the SesVer icon on the desktop or in the Start menu and setup resumes where it left off.%n%nDetails: %1
 turkish.GunluguAc=Günlüğü aç
@@ -238,6 +242,8 @@ Type: files; Name: "{app}\sesver_log.txt"
 Type: files; Name: "{app}\sesver_durum.tmp"
 ; Sihirbazın ilk kurulum adımı (WINDOWS_BASLAT.bat /yalniz-kurulum) dosyaları.
 Type: files; Name: "{app}\kurulum_log.txt"
+; Sihirbazın hata/iptalde yazdığı, ev klasörü yolları gizli kopya (destek için gönderilir).
+Type: files; Name: "{app}\kurulum_log_paylas.txt"
 Type: files; Name: "{app}\kurulum_durum.txt"
 Type: files; Name: "{app}\kurulum_pid.txt"
 
@@ -250,6 +256,9 @@ const
   // sabitlerin oradakilerle ve bat'ın yazdığı satırlarla eşleştiğini sınar.
   OrtamDurumDosyasi = 'kurulum_durum.txt';
   OrtamGunlukDosyasi = 'kurulum_log.txt';
+  // Kullanıcıya gönderilmesi söylenen, ev klasörü yolları gizlenmiş kopya ve maske.
+  OrtamPaylasGunlukDosyasi = 'kurulum_log_paylas.txt';
+  OrtamEvMaskesi = '<ev>';
   OrtamPidDosyasi = 'kurulum_pid.txt';
   OrtamYalnizKurulumArg = '/yalniz-kurulum';
   OrtamToplamAdim = 6;
@@ -537,6 +546,146 @@ begin
     '' + #13#10 + '[SIHIRBAZ] ' + Satir + #13#10, True);
 end;
 
+// --- Paylaşılabilir günlük (destek e-postası için) ---
+// kurulum_log.txt pip/cmd çıktısıdır ve C:\Users\<ad>\... yolları içerir. Kullanıcıya
+// gönderilmesi söylenen dosya, buradan üretilen kurulum_log_paylas.txt'dir. Kurallar
+// tools/kurulum_durum_bicimi.py'deki pascal_gunluk_maskele ile birebir aynıdır;
+// tests/test_windows_kurulum.py ikisinin aynı parçaları taşıdığını sınar.
+
+// Metindeki Bul'un tüm geçişlerini (ASCII büyük/küçük harf duyarsız) Yeni ile değiştirir.
+function HarfDuyarsizDegistir(const Metin, Bul, Yeni: String): String;
+var
+  Kalan, Kucuk, KucukBul: String;
+  P: Integer;
+begin
+  Result := '';
+  Kalan := Metin;
+  if Bul = '' then
+  begin
+    Result := Kalan;
+    Exit;
+  end;
+  // Lowercase yalnız A-Z'yi değiştirir: uzunluk ve konumlar korunur.
+  KucukBul := Lowercase(Bul);
+  Kucuk := Lowercase(Kalan);
+  P := Pos(KucukBul, Kucuk);
+  while P > 0 do
+  begin
+    Result := Result + Copy(Kalan, 1, P - 1) + Yeni;
+    Delete(Kalan, 1, P - 1 + Length(Bul));
+    Delete(Kucuk, 1, P - 1 + Length(Bul));
+    P := Pos(KucukBul, Kucuk);
+  end;
+  Result := Result + Kalan;
+end;
+
+// Küçük harfli metinde ilk ':\users\', ':\\users\\' ya da ':/users/' geçişinin
+// konumu (yoksa 0); Uzunluk o işaretin uzunluğu.
+function IlkEvIsareti(const Kucuk: String; var Uzunluk: Integer): Integer;
+var
+  Isaretler: TArrayOfString;
+  I, P: Integer;
+begin
+  SetArrayLength(Isaretler, 3);
+  Isaretler[0] := ':\users\';
+  Isaretler[1] := ':\\users\\';
+  Isaretler[2] := ':/users/';
+  Result := 0;
+  Uzunluk := 0;
+  for I := 0 to GetArrayLength(Isaretler) - 1 do
+  begin
+    P := Pos(Isaretler[I], Kucuk);
+    if (P > 0) and ((Result = 0) or (P < Result)) then
+    begin
+      Result := P;
+      Uzunluk := Length(Isaretler[I]);
+    end;
+  end;
+end;
+
+// Her "X:\Users\<ad>" (ayırıcı \, \\ ya da /) <ev> olur. Ad; bir sonraki ayırıcıya,
+// tırnağa, < > | karakterine, sekmeye ya da satır sonuna kadardır (boşluklu adlar dahil).
+function EvYollariniMaskele(const Metin: String): String;
+var
+  Kalan, Kucuk, Bitis: String;
+  P, Uzunluk, Bas, Son: Integer;
+begin
+  Result := '';
+  Kalan := Metin;
+  Kucuk := Lowercase(Kalan);
+  Bitis := '\/"''<>|' + #9 + #10 + #13;
+  P := IlkEvIsareti(Kucuk, Uzunluk);
+  while P > 0 do
+  begin
+    Bas := P;
+    if P > 1 then
+      if (Kucuk[P - 1] >= 'a') and (Kucuk[P - 1] <= 'z') then
+        Bas := P - 1;
+    Son := P + Uzunluk;
+    while (Son <= Length(Kalan)) and (Pos(Copy(Kalan, Son, 1), Bitis) = 0) do
+      Son := Son + 1;
+    Result := Result + Copy(Kalan, 1, Bas - 1) + OrtamEvMaskesi;
+    Delete(Kalan, 1, Son - 1);
+    Delete(Kucuk, 1, Son - 1);
+    P := IlkEvIsareti(Kucuk, Uzunluk);
+  end;
+  Result := Result + Kalan;
+end;
+
+// Önce ev klasörünün kendisi (USERPROFILE, / ayırıcılı biçimi ve kısa 8.3 adı; profil
+// X:\Users dışında olsa da), sonra genel "X:\Users\<ad>" kalıbı <ev> olur.
+function GunlukMaskele(const Metin, Ev: String): String;
+var
+  Egik, Kisa: String;
+begin
+  Result := Metin;
+  if Length(Ev) > 3 then
+  begin
+    Egik := Ev;
+    StringChangeEx(Egik, '\', '/', True);
+    Kisa := GetShortName(Ev);
+    Result := HarfDuyarsizDegistir(Result, Ev, OrtamEvMaskesi);
+    Result := HarfDuyarsizDegistir(Result, Egik, OrtamEvMaskesi);
+    if (Kisa <> '') and (Kisa <> Ev) then
+      Result := HarfDuyarsizDegistir(Result, Kisa, OrtamEvMaskesi);
+  end;
+  Result := EvYollariniMaskele(Result);
+end;
+
+// kurulum_log.txt'nin ev klasörü yolları gizlenmiş kopyasını kurulum_log_paylas.txt
+// olarak yazar (ilk kurulum hata ya da iptalle bitince). Başarıda True.
+function PaylasilabilirGunlukYaz(): Boolean;
+var
+  Kaynak, Hedef: String;
+  Ham: AnsiString;
+begin
+  Result := False;
+  Kaynak := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+  Hedef := ExpandConstant('{app}\') + OrtamPaylasGunlukDosyasi;
+  DeleteFile(Hedef);
+  Ham := '';
+  if FileExists(Kaynak) then
+    if not LoadStringFromLockedFile(Kaynak, Ham) then
+    begin
+      Log('Paylaşılabilir günlük yazılamadı: ' + OrtamGunlukDosyasi + ' okunamadı.');
+      Exit;
+    end;
+  Result := SaveStringToFile(Hedef, AnsiString(GunlukMaskele(String(Ham), GetEnv('USERPROFILE'))), False);
+  if Result then
+    Log('Paylaşılabilir günlük yazıldı (ev klasörü yolları gizli): ' + OrtamPaylasGunlukDosyasi)
+  else
+    Log('Paylaşılabilir günlük yazılamadı: ' + OrtamPaylasGunlukDosyasi);
+end;
+
+// Bitir sayfasında gösterilen ve "Günlüğü aç"ın açtığı dosya: paylaşılabilir kopya
+// varsa o (kullanıcı göndereceği içeriği görür), yoksa asıl günlük.
+function GosterilecekGunluk(): String;
+begin
+  Result := ExpandConstant('{app}\') + OrtamPaylasGunlukDosyasi;
+  if not FileExists(Result) then
+    Result := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+end;
+
 // İlk kurulum süreç ağacını sonlandırır (cmd.exe + python/pip/curl alt süreçleri).
 // Konsol programları ExecAndLogOutput ile çalıştırılır: pencere açılmaz.
 procedure OrtamSureciniDurdur(Pid: Integer);
@@ -584,7 +733,7 @@ var
   Gunluk: String;
   Hata: Integer;
 begin
-  Gunluk := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+  Gunluk := GosterilecekGunluk();
   if ShellExec('open', Gunluk, '', '', SW_SHOWNORMAL, ewNoWait, Hata) then
     Exit;
   if Exec(ExpandConstant('{win}\notepad.exe'), '"' + Gunluk + '"', '', SW_SHOWNORMAL, ewNoWait, Hata) then
@@ -792,11 +941,13 @@ begin
       begin
         Log('İlk kurulum kullanıcı tarafından durduruldu.');
         ShortcutsBackToLauncher();
+        PaylasilabilirGunlukYaz();
       end;
   else
     begin
       Log('İlk kurulum tamamlanamadı: ' + OrtamHataAdimi);
       ShortcutsBackToLauncher();
+      PaylasilabilirGunlukYaz();
     end;
   end;
 end;
@@ -808,7 +959,7 @@ var
 begin
   if (CurPageID <> wpFinished) or ((OrtamSonuc <> osHata) and (OrtamSonuc <> osIptal)) then
     Exit;
-  Gunluk := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+  Gunluk := GosterilecekGunluk();
   if OrtamSonuc = osHata then
     Metin := FmtMessage(CustomMessage('OrtamHataMetni'), [OrtamHataAdimi, Gunluk])
   else

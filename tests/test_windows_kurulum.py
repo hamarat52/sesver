@@ -43,6 +43,13 @@ def iss_bolumu(ad):
     return m.group(1)
 
 
+def pascal_govde(kod, tur, ad):
+    """[Code] içindeki ``function Ad(...)`` / ``procedure Ad(...)`` gövdesi (ilk sütundaki end;'e dek)."""
+    m = re.search(rf"{tur} {ad}\(.*?\nend;", kod, re.S)
+    assert m, f"{tur} {ad} yok"
+    return m.group(0)
+
+
 # ---------------------------------------------------------------- bat akış çözümleyici
 
 GOTO = re.compile(r"\bgoto\s+:([A-Za-z0-9_]+)", re.I)
@@ -264,6 +271,8 @@ class IssTests(unittest.TestCase):
         beklenen = {
             "OrtamDurumDosyasi": f"'{kd.DURUM_DOSYASI}'",
             "OrtamGunlukDosyasi": f"'{kd.GUNLUK_DOSYASI}'",
+            "OrtamPaylasGunlukDosyasi": f"'{kd.PAYLAS_GUNLUK_DOSYASI}'",
+            "OrtamEvMaskesi": f"'{kd.EV_MASKESI}'",
             "OrtamPidDosyasi": f"'{kd.PID_DOSYASI}'",
             "OrtamYalnizKurulumArg": f"'{kd.YALNIZ_KURULUM_ARGUMANI}'",
             "OrtamToplamAdim": str(kd.TOPLAM_ADIM),
@@ -344,9 +353,91 @@ class IssTests(unittest.TestCase):
         kullanilan -= {"AdditionalIcons"}  # Inno'nun hazır mesajı
         self.assertEqual(sorted(kullanilan - diller["turkish"]), [])
         tr = dict(re.findall(r"^turkish\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
+        en = dict(re.findall(r"^english\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
         self.assertIn("hermes.agent.hamarat@gmail.com", tr["OrtamHataMetni"])
-        self.assertIn("kurulum_log.txt", tr["OrtamHataMetni"])
+        # Gönderilmesi söylenen dosya maskeli kopyadır, kurulum_log.txt değil (bulgu 1).
+        for metin in (tr["OrtamHataMetni"], en["OrtamHataMetni"]):
+            self.assertIn(kd.PAYLAS_GUNLUK_DOSYASI, metin)
+            self.assertNotIn(kd.GUNLUK_DOSYASI, metin)
         self.assertIn("3 GB", tr["OrtamSayfaAciklama"])
+
+
+# ---------------------------------------------------------------- paylaşılabilir günlük (bulgu 1)
+
+ORNEK_KURULUM_GUNLUGU = "\r\n".join([
+    "[SesVer baslatici calisiyor]",
+    "Kullanilan Python: python-embed - SesVer'e ozel tasinabilir Python",
+    "  Downloading torch-2.14.1+cu128-cp311-cp311-win_amd64.whl (3.1 GB)",
+    "  WARNING: The script x.exe is installed in 'C:\\Users\\Yusuf Hamarat\\AppData\\Local\\Programs\\SesVer"
+    "\\python-embed\\Scripts' which is not on PATH.",
+    "ERROR: Could not install packages due to an OSError: [Errno 28] No space left on device: "
+    "'c:\\users\\yusuf hamarat\\appdata\\local\\temp\\pip-unpack-1\\torch.whl'",
+    "Temp: C:\\Users\\YUSUFH~1\\AppData\\Local\\Temp\\pip-build",
+    "repr: 'C:\\\\Users\\\\Yusuf Hamarat\\\\AppData'",
+    "url bicimi: C:/Users/Yusuf Hamarat/AppData/Local/pip/cache",
+    "profil disarida: D:\\Profiller\\yusuf\\AppData\\Roaming\\pip\\pip.ini",
+    "[DURUM] 6/6|hata:requirements.txt kurulumu",
+    "",
+    "[SIHIRBAZ] Kurulum sureci son durum satirini yazmadan bitti; cikis kodu 1",
+])
+
+
+class PaylasilabilirGunlukTests(unittest.TestCase):
+    def test_python_karsiligi_ev_yollarini_gizler(self):
+        out = kd.pascal_gunluk_maskele(ORNEK_KURULUM_GUNLUGU, "D:\\Profiller\\yusuf")
+        for sizinti in ("Yusuf", "yusuf", "YUSUFH~1", "Hamarat", "hamarat"):
+            self.assertNotIn(sizinti, out)
+        self.assertIn("'<ev>\\AppData\\Local\\Programs\\SesVer\\python-embed\\Scripts'", out)
+        self.assertIn("'<ev>\\appdata\\local\\temp\\pip-unpack-1\\torch.whl'", out)
+        self.assertIn("Temp: <ev>\\AppData\\Local\\Temp\\pip-build", out)
+        self.assertIn("repr: '<ev>\\\\AppData'", out)
+        self.assertIn("url bicimi: <ev>/AppData/Local/pip/cache", out)
+        self.assertIn("profil disarida: <ev>\\AppData\\Roaming\\pip\\pip.ini", out)
+        # Teknik içerik ve satır yapısı korunur.
+        self.assertIn("[DURUM] 6/6|hata:requirements.txt kurulumu", out)
+        self.assertIn("No space left on device", out)
+        self.assertEqual(out.count("\r\n"), ORNEK_KURULUM_GUNLUGU.count("\r\n"))
+        # Kısa (8.3) ad profil X:\Users dışındaysa da gizlenir; ev kökü kısa yoldan da eşleşir.
+        kisa = kd.pascal_gunluk_maskele("a D:\\PROFIL~1\\yusuf\\x b", "D:\\Profiller\\yusuf",
+                                        kisa_ad="D:\\PROFIL~1\\yusuf")
+        self.assertEqual(kisa, "a <ev>\\x b")
+        self.assertEqual(kd.pascal_gunluk_maskele("x", ""), "x")  # USERPROFILE yoksa yalnız kalıp
+
+    def test_python_karsiligi_hata_raporu_maskesiyle_ayni_sonuc(self):
+        import hata_raporu
+        for satir in ORNEK_KURULUM_GUNLUGU.split("\r\n"):
+            with self.subTest(satir=satir):
+                self.assertEqual(kd.pascal_ev_yollarini_maskele(satir),
+                                 hata_raporu.sanitize(satir, homes=[]) if "@" not in satir else satir)
+
+    def test_iss_maskeleme_python_karsiligiyla_ayni_kurallar(self):
+        kod = iss_bolumu("Code")
+        isaret = pascal_govde(kod, "function", "IlkEvIsareti")
+        for p in kd.EV_ISARETLERI:
+            self.assertIn(f"'{p}'", isaret)
+        maske = pascal_govde(kod, "function", "EvYollariniMaskele")
+        # Pascal'da tek tırnak '' ile yazılır; #9 #10 #13 = sekme, LF, CR.
+        self.assertIn("Bitis := '\\/\"''<>|' + #9 + #10 + #13;", maske)
+        self.assertEqual(kd.EV_ADI_BITISLERI, "\\/\"'<>|\t\n\r")
+        for parca in ("(Kucuk[P - 1] >= 'a') and (Kucuk[P - 1] <= 'z')", "Bas := P - 1;", "Son := P + Uzunluk;",
+                      "Pos(Copy(Kalan, Son, 1), Bitis) = 0", "Copy(Kalan, 1, Bas - 1) + OrtamEvMaskesi"):
+            self.assertIn(parca, maske)
+        gunluk = pascal_govde(kod, "function", "GunlukMaskele")
+        for parca in ("if Length(Ev) > 3 then", "StringChangeEx(Egik, '\\', '/', True);", "GetShortName(Ev)",
+                      "Result := EvYollariniMaskele(Result);"):
+            self.assertIn(parca, gunluk)
+        yaz = pascal_govde(kod, "function", "PaylasilabilirGunlukYaz")
+        self.assertIn("GunlukMaskele(String(Ham), GetEnv('USERPROFILE'))", yaz)
+        self.assertIn("SaveStringToFile(Hedef,", yaz)
+
+    def test_iss_hata_ve_iptalde_kopya_yazilir_ve_gosterilir(self):
+        kod = iss_bolumu("Code")
+        adim = pascal_govde(kod, "procedure", "CurStepChanged")
+        self.assertEqual(adim.count("PaylasilabilirGunlukYaz();"), 2)  # iptal + hata dalı
+        self.assertNotIn("PaylasilabilirGunlukYaz", adim.split("osIptal:")[0])  # başarıda yazılmaz
+        for ad in ("CurPageChanged", "GunlukDugmesiClick"):
+            self.assertIn("Gunluk := GosterilecekGunluk();", pascal_govde(kod, "procedure", ad))
+        self.assertIn(f'Type: files; Name: "{{app}}\\{kd.PAYLAS_GUNLUK_DOSYASI}"', iss_bolumu("UninstallDelete"))
 
 
 if __name__ == "__main__":

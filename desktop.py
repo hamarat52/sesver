@@ -39,11 +39,25 @@ _STATUS_FILE = os.environ.get("SESVER_DURUM_DOSYASI", "")
 
 
 class _Tee:
-    """Yazılanı hem asıl akışa (varsa) hem log dosyasına yazar."""
+    """Yazılanı hem asıl akışa (varsa) hem log dosyasına yazar.
+
+    Log dosyasına giden metin satır satır ``hata_raporu.sanitize``'dan geçer: sesver_log.txt'de
+    ev klasörü yolları (``C:\\Users\\<ad>`` → ``<ev>``), e-posta adresleri ve erişim anahtarları
+    yer almaz. Kullanıcıdan bu dosyayı destek adresine göndermesi istendiği için maskeleme
+    yazarken yapılır (rapor düğmesinden geçmeyen yol). Konsola giden metin değişmez.
+    """
+
+    _PENDING_LIMIT = 8192  # satır sonu gelmeyen çok uzun çıktı yine de yazılsın
 
     def __init__(self, stream, log):
         self._stream = stream
         self._log = log
+        self._pending = ""
+        self._lock = threading.Lock()
+        self._homes = hata_raporu._home_variants()
+
+    def _clean(self, s):
+        return hata_raporu.sanitize(s, homes=self._homes)
 
     def write(self, s):
         if self._stream is not None:
@@ -51,13 +65,32 @@ class _Tee:
                 self._stream.write(s)
             except Exception:  # noqa: BLE001 — konsol hatası log yazımını engellemesin
                 pass
-        try:
-            self._log.write(s)
-        except Exception:  # noqa: BLE001
-            pass
+        # Yol ya da anahtar iki write() çağrısına bölünebilir: log'a yalnız tamamlanmış
+        # satırlar maskelenip yazılır, yarım satır flush()'ta yazılır.
+        with self._lock:
+            self._pending += s
+            if "\n" in self._pending:
+                ready, _sep, self._pending = self._pending.rpartition("\n")
+                ready += "\n"
+            elif len(self._pending) > self._PENDING_LIMIT:
+                ready, self._pending = self._pending, ""
+            else:
+                ready = ""
+            if ready:
+                self._write_log(ready)
         return len(s)
 
+    def _write_log(self, text):
+        try:
+            self._log.write(self._clean(text))
+        except Exception:  # noqa: BLE001
+            pass
+
     def flush(self):
+        with self._lock:
+            if self._pending:
+                self._write_log(self._pending)
+                self._pending = ""
         for f in (self._stream, self._log):
             if f is not None:
                 try:
@@ -352,7 +385,7 @@ def _load_ui(window, server):
         print(f"[HATA] {server.error}", flush=True)
         if server.traceback:
             print(server.traceback, end="", file=sys.stderr, flush=True)
-        print(f"Ayrıntı için: {LOG_PATH}", flush=True)
+        print(f"Ayrıntı için: {hata_raporu.sanitize(LOG_PATH)}", flush=True)  # ev klasörü yolu gizli
         hata_raporu.record_text_error(server.error or "", server.traceback, where="startup")
         guide = _print_guide(server.error)
         window.load_html(

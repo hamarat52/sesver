@@ -329,7 +329,7 @@ jobs:
             "1. **SesVer-Kurulum-Windows.exe** dosyasını indirin (aynı dosya: SesVer-Kurulum-$ver.exe).",
             '2. Çift tıklayın. "Windows bilgisayarınızı korudu" çıkarsa **Ek bilgi → Yine de çalıştır** (kurulum programı kod imzasızdır).',
             '3. **İleri → İleri → Kur**. Ardından "SesVer hazırlanıyor" sayfası Python ve paketleri indirir: 5–30 dk sürebilir, yaklaşık 3 GB iner, internet ve en az 20 GB boş alan gerekir. Ayrı bir siyah pencere açılmaz.',
-            '4. **Bitir** ("SesVer''i şimdi aç" işaretli kalsın). Bir sorun olursa son sayfadaki **Günlüğü aç** düğmesiyle kurulum_log.txt dosyasını görüp hermes.agent.hamarat@gmail.com adresine gönderebilirsiniz.',
+            '4. **Bitir** ("SesVer''i şimdi aç" işaretli kalsın). Bir sorun olursa son sayfadaki **Günlüğü aç** düğmesi kurulum_log_paylas.txt dosyasını açar; bu dosyayı hermes.agent.hamarat@gmail.com adresine gönderebilirsiniz (ev klasörü yollarınız bu kopyada gizlidir).',
             '',
             'Sonra açmak için: Başlat menüsünde **SesVer** yazın ya da masaüstündeki SesVer simgesine çift tıklayın.',
             'Kaldırmak için: Ayarlar → Uygulamalar → SesVer (Seslerim ve outputs klasörü korunur).',

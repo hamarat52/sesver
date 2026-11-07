@@ -46,7 +46,9 @@ LOG_TAIL_LINES = 300
 HOME_MASK = "<ev>"
 _SEP = r"(?:\\\\|\\|/)+"  # \, \\ (repr içinde) ya da /
 _HOME_PATTERNS = (
-    re.compile(rf"\b[A-Za-z]:{_SEP}(?:Users|Documents and Settings){_SEP}[^\\/\s'\"<>:|*?]+", re.I),
+    # Windows kullanıcı adı boşluk içerebilir ("C:\Users\Ad Soyad\..."): ad bir sonraki
+    # ayırıcıya, tırnağa ya da satır sonuna kadardır (SesVer.iss GunlukMaskele ile aynı kural).
+    re.compile(rf"\b[A-Za-z]:{_SEP}(?:Users|Documents and Settings){_SEP}[^\\/\r\n\t'\"<>:|*?]+", re.I),
     re.compile(r"(?<![\w.])/Users/[^/\s'\"<>:]+"),
     re.compile(r"(?<![\w.])/home/[^/\s'\"<>:]+"),
 )
