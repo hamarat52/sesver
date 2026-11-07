@@ -11,6 +11,8 @@ models/
 weights/
 checkpoints/
 outputs/
+# Üretim kuyruğu kaydı (kuyruk.py): kullanıcının metinleri ve referans kopyaları; yalnız yerelde kalır.
+/kuyruk/
 flagged/
 .gradio/
 *.safetensors
