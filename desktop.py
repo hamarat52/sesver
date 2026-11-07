@@ -41,10 +41,11 @@ _STATUS_FILE = os.environ.get("SESVER_DURUM_DOSYASI", "")
 class _Tee:
     """Yazılanı hem asıl akışa (varsa) hem log dosyasına yazar.
 
-    Log dosyasına giden metin satır satır ``hata_raporu.sanitize``'dan geçer: sesver_log.txt'de
-    ev klasörü yolları (``C:\\Users\\<ad>`` → ``<ev>``), e-posta adresleri ve erişim anahtarları
-    yer almaz. Kullanıcıdan bu dosyayı destek adresine göndermesi istendiği için maskeleme
-    yazarken yapılır (rapor düğmesinden geçmeyen yol). Konsola giden metin değişmez.
+    Log dosyasına giden metin satır satır ``hata_raporu.sanitize`` ve ``scrub_private``'tan
+    geçer: sesver_log.txt'de ev klasörü yolları (``C:\\Users\\<ad>`` → ``<ev>``), e-posta
+    adresleri, erişim anahtarları ve bu oturumdaki üretim metinleri yer almaz. Kullanıcıdan bu
+    dosyayı destek adresine göndermesi istendiği ve bir sonraki açılışta "önceki oturumun
+    günlüğü" olarak rapora eklenebildiği için maskeleme yazarken yapılır. Konsol değişmez.
     """
 
     _PENDING_LIMIT = 8192  # satır sonu gelmeyen çok uzun çıktı yine de yazılsın
@@ -57,7 +58,8 @@ class _Tee:
         self._homes = hata_raporu._home_variants()
 
     def _clean(self, s):
-        return hata_raporu.sanitize(s, homes=self._homes)
+        # Kullanıcının bu oturumdaki üretim metni (remember_private) de diske hiç yazılmaz.
+        return hata_raporu.sanitize(hata_raporu.scrub_private(s), homes=self._homes)
 
     def write(self, s):
         if self._stream is not None:
@@ -154,7 +156,7 @@ def _setup_log_file():
         log = open(os.devnull, "w", encoding="utf-8")
     sys.stdout = _Tee(sys.stdout, log)
     sys.stderr = _Tee(sys.stderr, log)
-    print(f"SesVer günlüğü {datetime.datetime.now():%Y-%m-%d %H:%M:%S} | "
+    print(f"SesVer günlüğü {hata_raporu.LOG_MARK} {datetime.datetime.now():%Y-%m-%d %H:%M:%S} | "
           f"Python {sys.version.split()[0]} | {sys.executable}", flush=True)
 
     default_hook = sys.excepthook

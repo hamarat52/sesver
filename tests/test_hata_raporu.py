@@ -213,12 +213,25 @@ class LogRotationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             log, prev = Path(tmp) / "sesver_log.txt", Path(tmp) / "sesver_log_onceki.txt"
             log.write_text("simdiki\n", encoding="utf-8")
-            prev.write_text("eski hata satiri\n", encoding="utf-8")
+            prev.write_text(f"SesVer günlüğü {hr.LOG_MARK} 2026-11-07\neski hata satiri\n", encoding="utf-8")
             kw = dict(error={}, log_path=log, prev_path=prev, system=FAKE_SYSTEM)
             self.assertNotIn("eski hata satiri", hr.build_report(**kw)["text"])
             text = hr.build_report(include_previous=True, **kw)["text"]
             self.assertIn("eski hata satiri", text)
             self.assertIn("sesver_log_onceki.txt (previous session", text)
+
+    def test_previous_log_from_unmasked_version_is_not_included(self):
+        """Bulgu 2: 1.2.0 günlüğünde o oturumun metni silinmemiş olabilir; rapora girmez."""
+        with tempfile.TemporaryDirectory() as tmp:
+            log, prev = Path(tmp) / "sesver_log.txt", Path(tmp) / "sesver_log_onceki.txt"
+            log.write_text("simdiki\n", encoding="utf-8")
+            prev.write_text("SesVer günlüğü 2026-11-01 | Python 3.11.9\nUserWarning: Gizli eski metin 4711\n",
+                            encoding="utf-8")
+            self.assertFalse(hr.log_is_masked(prev))
+            text = hr.build_report(error={}, include_previous=True, log_path=log, prev_path=prev,
+                                   system=FAKE_SYSTEM)["text"]
+            self.assertNotIn("4711", text)
+            self.assertIn("written by an older SesVer version without masking; not included", text)
 
 
 class PrivacyTests(unittest.TestCase):
@@ -250,6 +263,42 @@ class PrivacyTests(unittest.TestCase):
                 self.assertNotIn("kimseye gitmemeli", blob)
             self.assertIn("RuntimeError: tokenizer failed on", report["text"])
             self.assertEqual(hr.last_error()["code"], "other")
+
+    def test_text_warned_outside_record_error_never_reaches_disk_or_next_session(self):
+        """Bulgu 2: kütüphane uyarısı/yakalanmamış istisna metni günlüğe düşürse bile diskteki
+        sesver_log.txt'de olmaz; sonraki oturumda (bellek boş) önceki günlük rapora temiz girer."""
+        import app
+        import desktop
+        secret = "Bambaşka gizli paragraf 9182. Sonraki oturumda da görünmemeli"
+
+        def warn_then_fail():
+            print(f"UserWarning: tokenizer could not handle {secret!r}", file=sys.stderr, flush=True)
+            print(f"last chunk: {secret.split('. ')[1]}", file=sys.stderr, flush=True)
+            raise MemoryError("yapay")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            log_path, prev_path = Path(tmp) / "sesver_log.txt", Path(tmp) / "sesver_log_onceki.txt"
+            with open(log_path, "w", encoding="utf-8") as fh:
+                tee = desktop._Tee(io.StringIO(), fh)
+                print(f"SesVer günlüğü {hr.LOG_MARK} test", file=tee, flush=True)
+                with mock.patch.object(sys, "stderr", tee), mock.patch.object(app, "get_model",
+                                                                              side_effect=warn_then_fail):
+                    list(app.generate_audio(secret, None))
+                tee.flush()
+            on_disk = log_path.read_text(encoding="utf-8")
+            self.assertIn("UserWarning: tokenizer could not handle", on_disk)
+            self.assertIn("<metin>", on_disk)
+            # Yeni oturum: bellekteki silme listesi yok, günlük önceki oturuma döner.
+            with mock.patch.object(hr, "_redact", hr.collections.deque(maxlen=256)):
+                self.assertTrue(hr.rotate_log(log_path, prev_path))
+                log_path.write_text("yeni oturum\n", encoding="utf-8")
+                report = hr.build_report(error={}, include_previous=True, log_path=log_path,
+                                         prev_path=prev_path, system=FAKE_SYSTEM)
+            self.assertIn("(previous session", report["text"])
+            for blob in (on_disk, report["text"]):
+                self.assertNotIn("9182", blob)
+                self.assertNotIn("Bambaşka gizli", blob)
+                self.assertNotIn("görünmemeli", blob)
 
     def test_generation_status_names_cuda_error(self):
         import app

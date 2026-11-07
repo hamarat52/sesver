@@ -240,6 +240,10 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
         except (OSError, RuntimeError, ValueError) as exc:
             raise gr.Error(t("Referans ses okunamadı. 1–30 saniyelik geçerli bir WAV yükleyin.")) from exc
     started = perf_counter()
+    # Metin, tarif ve referans metni bundan sonra günlüğe (desktop._Tee) ve rapora hiç
+    # yazılmaz: yalnız hata yolunda değil, kütüphane uyarısında da (bulgu 2).
+    private = [text, prompt_text] + ([instruction] if instruction not in EMOTIONS.values() else [])
+    hata_raporu.remember_private(*[v for v in private if v])
     progress(0.05, desc=t("İlk kullanımda model indiriliyor/yükleniyor…"))
     yield None, None, t("İşleniyor… İlk kullanımda model indiriliyor/yükleniyor "
                         "(internet ve birkaç dakika gerekebilir).")
@@ -306,7 +310,6 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
     except Exception as exc:
         # Ayrıntı (traceback) sesver_log.txt'ye yazılır; kullanıcının metni oradan ve hata
         # raporundan silinir (hata_raporu.record_error). Kullanıcıya hatanın türü söylenir.
-        private = [text, prompt_text] + ([instruction] if instruction not in EMOTIONS.values() else [])
         entry = hata_raporu.record_error(exc, redact=private, where=log_mode or "generate")
         yield None, None, t(
             "Üretim başarısız: **{neden}**. Diğer ağır uygulamaları kapatıp kısa bir metinle tekrar deneyin; "
@@ -2071,6 +2074,7 @@ def _fast_generate_ui(text, speed, seed, want_srt, lang):
     if not ema_motor.ema_status().ready:
         raise gr.Error(t("Hızlı Mod kurulu değil. Önce “Hızlı Mod'u indir” düğmesine basın.", lang))
     started = perf_counter()
+    hata_raporu.remember_private(text)  # metin günlüğe/rapora hiç yazılmaz (bulgu 2)
     log.info("istek kip=hizli hiz=%.2f seed=%s srt=%s karakter=%d", float(speed), "var" if seed is not None
              else "rastgele", "evet" if want_srt else "hayir", len(text))
     try:
