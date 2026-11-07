@@ -129,5 +129,88 @@ class PrivacyPolicyTests(unittest.TestCase):
         self.assertIn("{param:GUNCELLEMEDENETIMI|}", iss)
 
 
+def _iss_mesajlari(dil):
+    iss = (ROOT / "windows" / "SesVer.iss").read_text(encoding="utf-8-sig")
+    return dict(re.findall(rf"^{dil}\.([A-Za-z0-9]+)=(.*)$", iss, re.M))
+
+
+# README gizlilik tablosundaki her satırın ("When" sütunundaki ayırt edici parça) kurulumdaki
+# özette (Türkçe, İngilizce) karşılığı. README'ye yeni satır eklenip burada karşılığı yoksa test
+# kırmızı olur: kurulum metni politikadan geri kalmaz (siberguvenlik 1.2.1 bulgu F).
+OZET_KARSILIKLARI = (
+    ("Every start", ("GuncellemeAciklama", "her açılışta GitHub"), ("GuncellemeAciklama", "at every start whether")),
+    ("First-time setup (Windows installer page", ("GizlilikOzeti", "kurulum"), ("GizlilikOzeti", "setup")),
+    ("after an update that changes `requirements.txt`",
+     ("GizlilikOzeti", "paketleri değiştiren güncellemeler"), ("GizlilikOzeti", "updates that change its packages")),
+    ("once more at start if the installed PyTorch cannot use the card",
+     ("GizlilikOzeti", "NVIDIA kartta PyTorch, gerekirse açılışta da"),
+     ("GizlilikOzeti", "PyTorch on NVIDIA cards, at startup too if needed")),
+    ("First **Generate**", ("GizlilikOzeti", "ilk üretimde indirme"), ("GizlilikOzeti", "downloaded on the first generation")),
+    ("check on the first generation of each session",
+     ("GizlilikOzeti", "sonraki oturumların ilk üretiminde kısa güncellik denetimi"),
+     ("GizlilikOzeti", "a short freshness check on the first generation of later sessions")),
+    ("First use of **Otomatik yazıya dök**", ("GizlilikOzeti", "yazıya dökme modeli"),
+     ("GizlilikOzeti", "the transcription model")),
+    ("Only when you click **Hızlı Mod'u indir**", ("GizlilikOzeti", "sizin başlattığınız indirmeler"),
+     ("GizlilikOzeti", "downloads you start yourself")),
+    ("Only when you click **Hızlandırmayı etkinleştir**", ("GizlilikOzeti", "sizin başlattığınız indirmeler"),
+     ("GizlilikOzeti", "downloads you start yourself")),
+    ("Only when you click **Hata raporu gönder**", ("GizlilikOzeti", "Hata raporu otomatik gönderilmez"),
+     ("GizlilikOzeti", "Error reports are never sent automatically")),
+)
+
+
+class InstallerSummaryTests(unittest.TestCase):
+    """Kurulumdaki kısa gizlilik özeti README Privacy policy tablosuyla çelişmez (SignPath ikisini okur)."""
+
+    def test_every_policy_row_has_a_counterpart_in_both_installer_languages(self):
+        policy = _section("Privacy policy")
+        table = policy.split("| When |")[1].split("\n\n")[0]
+        rows = [r.split("|")[1] for r in table.splitlines()[2:] if r.startswith("|")]
+        self.assertGreaterEqual(len(rows), 9)
+        tr, en = _iss_mesajlari("turkish"), _iss_mesajlari("english")
+        for row in rows:
+            with self.subTest(row=row.strip()):
+                eslesen = [k for k in OZET_KARSILIKLARI if k[0] in row]
+                self.assertTrue(eslesen, "README satırının kurulum özetinde karşılığı tanımlı değil")
+                for _parca, (tr_anahtar, tr_metin), (en_anahtar, en_metin) in eslesen:
+                    self.assertIn(tr_metin, tr[tr_anahtar])
+                    self.assertIn(en_metin, en[en_anahtar])
+        for parca, _tr, _en in OZET_KARSILIKLARI:  # karşılık tablosunda README'den kalkmış satır yok
+            self.assertTrue(any(parca in r for r in rows), parca)
+
+    def test_only_is_qualified_and_page_stays_short(self):
+        tr, en = _iss_mesajlari("turkish"), _iss_mesajlari("english")
+        # "yalnız/only" listesi güncelleme denetimini dışarıda bıraktığını açıkça söyler.
+        self.assertIn("Aşağıdaki güncelleme denetimi dışında internete yalnız şunlar için bağlanır:", tr["GizlilikOzeti"])
+        self.assertIn("Apart from the update check below, it connects to the internet only for:", en["GizlilikOzeti"])
+        for d in (tr, en):
+            self.assertLessEqual(len(d["GizlilikOzeti"]), 560)  # tam liste README'de; sayfa kısa kalır
+            self.assertIn("#privacy-policy", d["GizlilikBaglantisi"])
+
+    def test_the_three_connections_exist_in_code(self):
+        """F'de adı geçen üç bağlantının koddaki karşılığı (README tablosunda satırları var)."""
+        policy = _section("Privacy policy")
+        # 1) Her oturumun ilk üretiminde Hugging Face güncellik denetimi: model tembel yüklenir ve
+        #    from_pretrained local_files_only vermez (voxcpm 2.0.3 snapshot_download'a gider).
+        app = (ROOT / "app.py").read_text(encoding="utf-8")
+        yukle = app.split("_model = VoxCPM.from_pretrained(")[1].split(")")[0]
+        self.assertIn("hf_model_id=MODEL_ID", yukle)
+        self.assertNotIn("local_files_only", yukle)
+        self.assertIn('a short "is the cached model current?" check on the first generation of each session', policy)
+        # 2) requirements.txt değişen güncellemeden sonra pip (Windows ve macOS başlatıcıları).
+        bat = (ROOT / "WINDOWS_BASLAT.bat").read_text(encoding="utf-8")
+        self.assertIn('if not "%SV_ISARET%"=="%SV_BEKLENEN%" goto :esitle', bat)
+        self.assertIn('"%PYEXE%" -m pip install -r requirements.txt %SV_KISIT%', bat)
+        mac = (ROOT / "macos_ortak.sh").read_text(encoding="utf-8")
+        self.assertIn("req_sha256=", mac)
+        self.assertIn("after an update that changes `requirements.txt`", policy)
+        # 3) NVIDIA kartta PyTorch kartı kullanamazsa açılışta download.pytorch.org.
+        duzelt = bat.split('call :durum 6 "Ekran karti dogrulaniyor"')[1].split("\n:gpu_fix_isaretle\n")[0]
+        self.assertIn("hizlandirma.py --cuda-dogrula", duzelt)
+        self.assertIn("--index-url https://download.pytorch.org/whl/%CUDA_ETIKET%", duzelt)
+        self.assertIn("once more at start if the installed PyTorch cannot use the card | `download.pytorch.org`", policy)
+
+
 if __name__ == "__main__":
     unittest.main()
