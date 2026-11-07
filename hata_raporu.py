@@ -111,6 +111,9 @@ _redact = collections.deque(maxlen=256)  # yalnız bellekte; bu oturumdaki üret
 _lock = threading.Lock()
 _errors = []  # bu oturumda kaydedilen son hatalar (en çok 5)
 _error_count = 0  # arayüz: "bu üretim sırasında yeni hata oldu mu?"
+# Alt parçalar (cümleler) için en kısa uzunluk. Metnin kendisi 3 karakterden itibaren her zaman
+# silinir; yalnız 6 karakterden kısa ayrı cümleler ("Evet.", "Tamam.") tek başına silinmez.
+# Daha kısa sınır günlükteki sıradan sözcükleri de (<metin>Ver gibi) bozar, teşhisi zorlaştırır.
 _MIN_FRAGMENT = 6
 
 

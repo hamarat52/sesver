@@ -49,6 +49,9 @@ class _Tee:
     """
 
     _PENDING_LIMIT = 8192  # satır sonu gelmeyen çok uzun çıktı yine de yazılsın
+    # Taşmada tamponun son kısmı (maskelenmiş olarak) bekletilir: kesim yerine denk gelen ve
+    # sonraki write() ile tamamlanacak yol ya da üretim metni bölünüp maskeden kaçmaz.
+    _PENDING_TAIL = 2048
 
     def __init__(self, stream, log):
         self._stream = stream
@@ -60,6 +63,13 @@ class _Tee:
     def _clean(self, s):
         # Kullanıcının bu oturumdaki üretim metni (remember_private) de diske hiç yazılmaz.
         return hata_raporu.sanitize(hata_raporu.scrub_private(s), homes=self._homes)
+
+    def _clean_or_empty(self, s):
+        # Maskeleme hata verirse maskesiz metin yazılmaz (eski davranış: o parça atlanır).
+        try:
+            return self._clean(s)
+        except Exception:  # noqa: BLE001
+            return ""
 
     def write(self, s):
         if self._stream is not None:
@@ -75,18 +85,30 @@ class _Tee:
                 ready, _sep, self._pending = self._pending.rpartition("\n")
                 ready += "\n"
             elif len(self._pending) > self._PENDING_LIMIT:
-                ready, self._pending = self._pending, ""
+                # Satır sonu gelmeyen uzun çıktı (ör. tqdm \r çerçeveleri): önce tamponun tamamı
+                # maskelenir, sonra kesilir; son _PENDING_TAIL karakter bekletilir ve sonraki
+                # yazımla birlikte yeniden maskelenir (maskeleme tekrar uygulanınca değişmez).
+                clean = self._clean_or_empty(self._pending)
+                cut = max(len(clean) - self._PENDING_TAIL, 0)
+                self._write_clean(clean[:cut])
+                self._pending = clean[cut:]
+                ready = ""
             else:
                 ready = ""
             if ready:
                 self._write_log(ready)
         return len(s)
 
-    def _write_log(self, text):
+    def _write_clean(self, text):
+        if not text:
+            return
         try:
-            self._log.write(self._clean(text))
+            self._log.write(text)
         except Exception:  # noqa: BLE001
             pass
+
+    def _write_log(self, text):
+        self._write_clean(self._clean_or_empty(text))
 
     def flush(self):
         with self._lock:

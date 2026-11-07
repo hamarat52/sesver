@@ -543,6 +543,38 @@ class UiTests(unittest.TestCase):
         self.assertTrue(out.endswith(r"yarim satir <ev>\x"))
         self.assertIn("Ornek Kisi", console.getvalue())  # kullanıcının kendi ekranı değişmez
 
+    def test_long_line_without_newline_is_not_split_past_the_mask(self):
+        """Siberguvenlik 1.2.1 bulgu C: 8192 karakteri aşan satır sonu yok çıktı kesilirken,
+        kesime denk gelen ve sonraki write() ile tamamlanan metin/yol maskeden kaçmaz."""
+        import desktop
+        secret = "Bu benim gizli metnim, kimse görmesin"
+        with mock.patch.object(hr, "_redact", hr.collections.deque(maxlen=256)):
+            hr.remember_private(secret)
+            for split in (len("Bu benim gizli "), len("Bu b"), len(secret) - 2):
+                with self.subTest(split=split):
+                    log = io.StringIO()
+                    with mock.patch.object(hr, "_home_variants", return_value=[]):
+                        tee = desktop._Tee(None, log)
+                    dolgu = "\r" + "%" * (desktop._Tee._PENDING_LIMIT - 30)  # tqdm benzeri, satır sonu yok
+                    tee.write(dolgu + "x C:\\Users\\Orn")
+                    tee.write("ek Kisi\\AppData " + secret[:split])  # sınır aşılır: kesim burada
+                    tee.write(secret[split:] + " son")
+                    tee.flush()
+                    out = log.getvalue()
+                    for leaked in ("Bu benim", "gizli", "görmesin", "Orn", "Kisi"):
+                        self.assertNotIn(leaked, out)
+                    self.assertIn("x <ev>\\AppData <metin> son", out)
+                    self.assertEqual(out.count("%"), len(dolgu) - 1)  # teknik çıktı kaybolmaz
+
+    def test_mask_is_idempotent_for_pending_tail(self):
+        # Taşmada bekletilen kuyruk maskelenmiş metindir; sonra yeniden maskelenince değişmemeli.
+        import desktop
+        tee = desktop._Tee(None, io.StringIO())
+        for sample in ("C:\\Users\\Ornek Kisi\\x token=abc123 ali@example.com Bearer abcdefghijkl",
+                       "<ev>\\x <metin> <e-posta> <anahtar> password=<gizli>"):
+            once = tee._clean(sample)
+            self.assertEqual(tee._clean(once), once)
+
     def test_settings_and_result_cards_have_report_button(self):
         import app
         demo = app.build_app()
