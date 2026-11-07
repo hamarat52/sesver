@@ -45,6 +45,37 @@ class PinnedActionsTests(unittest.TestCase):
         self.assertIn("if ($vi.ProductName -ne 'SesVer') { throw", run)
         self.assertIn("if ($vi.ProductVersion -ne $env:APP_VERSION) { throw", run)
 
+    def test_error_path_step_proves_masked_log_and_update_option(self):
+        """Siberguvenlik 1.2.1 şartı: hata yolu CI'da koşulur; tutmazsa build job'u (ve release) düşer."""
+        data = _workflow()
+        steps = data["jobs"]["build"]["steps"]
+        names = [s.get("name", "") for s in steps]
+        idx = next(i for i, n in enumerate(names) if n.startswith("Hata yolu testi"))
+        self.assertGreater(idx, next(i for i, n in enumerate(names) if n.startswith("Duman testi")))
+        self.assertLess(idx, names.index("Release dosyalarını hazırla (iki asset + SHA256 + notlar)"))
+        step = steps[idx]
+        self.assertNotIn("continue-on-error", step)
+        self.assertNotIn("if", step)
+        run = step["run"]
+        for parca in ("$ErrorActionPreference = 'Stop'",
+                      "'/ORTAMKUR','/GUNCELLEMEDENETIMI=0'",
+                      "if ($p.ExitCode -ne 30)",
+                      "if (-not (Test-Path $paylas)) { throw 'kurulum_log_paylas.txt oluşmadı' }",
+                      "if ($hamMetin.IndexOf($ev, [StringComparison]::OrdinalIgnoreCase) -lt 0) { throw",
+                      "foreach ($iz in @($ev, $ev.Replace('\\', '/'), $kisa, \"\\Users\\$env:USERNAME\", $env:USERNAME))",
+                      "if ($a.guncelleme_kontrolu -isnot [bool] -or $a.guncelleme_kontrolu) { throw",
+                      "if ((Get-FileHash $ayar).Hash -ne $once) { throw",
+                      "'/GUNCELLEMEDENETIMI=1'"):
+            self.assertIn(parca, run)
+        # PM'in CI günlüğünde arayacağı satır (birebir).
+        self.assertIn("Write-Host 'Hata yolu testi BAŞARILI: ilk kurulum hatası (çıkış kodu 30) kurulum_log_paylas.txt "
+                      "üretti, ev klasörü yolu ve kullanıcı adı içermiyor; /GUNCELLEMEDENETIMI=0 ayarlar.json "
+                      "guncelleme_kontrolu=false yazdı, diğer ayar korundu, parametresiz yeniden kurulum seçimi ezmedi.'",
+                      run)
+        self.assertEqual(run.count("BAŞARILI"), 1)
+        self.assertTrue(run.rstrip().endswith("seçimi ezmedi.'"))  # BAŞARILI yalnız tüm denetimlerden sonra
+        self.assertEqual(data["jobs"]["release"]["needs"], "build")
+
     def test_write_token_only_in_release_job_without_checkout(self):
         data = _workflow()
         self.assertEqual(data["permissions"], {"contents": "read"})
