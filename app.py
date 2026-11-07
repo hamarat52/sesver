@@ -2020,12 +2020,13 @@ def _build_page(demo, lang):
                 queue = _queue_tab(lang, lib)
 
             with gr.Tab(t("Ayarlar"), id="ayarlar", elem_id="sv-tab-ayarlar"):
-                accel_refresh, accel_out = _settings_tab()
+                accel_refresh, accel_out, update_check = _settings_tab()
 
         # Sağ üst girişler: görünüm değişir (sekme), Ayarlar açılınca donanım taraması (~3 sn) yapılır.
         queue_btn.click(lambda: gr.Tabs(selected="kuyruk"), outputs=tabs, queue=False, show_progress="hidden")
         settings_btn.click(lambda: gr.Tabs(selected="ayarlar"), outputs=tabs, queue=False,
                            show_progress="hidden").then(accel_refresh, outputs=accel_out, show_progress="minimal")
+        settings_btn.click(guncelleme.ayar_acik_mi, outputs=update_check, queue=False, show_progress="hidden")
         _queue_wiring(demo, lang, queue, queue_btn, banner, banner_html, banner_go, banner_show, tabs)
 
         _html(_info())
@@ -2764,8 +2765,11 @@ def _settings_tab():
                       t("Bu sürüm: <b>v{surum}</b>. Açılışta yalnız GitHub'daki son sürüm numarasına "
                         "bakılır (tek bir istek, en fazla 3 sn); hiçbir kişisel veri gönderilmez.",
                         surum=escape(surum.__version__)))
+                # Değer sabit verilir; Ayarlar açılınca yenilenir (_build_page). Çağrılabilir değer
+                # (value=fonksiyon) Gradio'da her sayfa için önceki sayfaların yükleme olaylarını da
+                # biriktiriyordu: /ar'da 21, /ja'da 66 kuyruk isteği → "currently busy" (max_size=8).
                 update_check = gr.Checkbox(
-                    label=t("Açılışta güncellemeleri denetle"), value=guncelleme.ayar_acik_mi,
+                    label=t("Açılışta güncellemeleri denetle"), value=guncelleme.ayar_acik_mi(),
                     elem_classes=["sv-update-toggle"])
                 update_msg = gr.Markdown("", elem_classes=["sv-fine-md"])
     update_check.input(_in_lang(_update_toggle_ui, lang), inputs=update_check, outputs=update_msg,
@@ -2782,7 +2786,7 @@ def _settings_tab():
     install.click(enable_gpu, outputs=install_out, concurrency_limit=1, show_progress="hidden")
     rollback.click(back_to_cpu, outputs=install_out, concurrency_limit=1, show_progress="hidden")
     rescan.click(lambda: _accel_refresh(force=True), outputs=refresh_out, show_progress="minimal")
-    return lambda: _accel_refresh(), refresh_out
+    return lambda: _accel_refresh(), refresh_out, update_check
 
 
 # --- Üretim kuyruğu: akşam sıraya koy, sabah sonuçları gör ------------------------------

@@ -302,6 +302,11 @@ class KuyrukSayfaTestleri(unittest.TestCase):
         self.assertTrue({"Kuyruğa ekle", "Add to queue", "أضف إلى الطابور"} <= etiketler)
         ids = {c["props"].get("elem_id") for c in comps}
         self.assertTrue({"sv-tab-kuyruk", "sv-tab-ayarlar"} <= ids)
+        # Sayfa açılışında kuyruğa giden olaylar sayfa başına sınırlı kalır (Gradio max_size=8):
+        # aynı yükleme olayı birden çok kez bağlanmaz.
+        for dep in demo.config["dependencies"]:
+            yukleme = [tuple(t) for t in dep["targets"] if t[1] == "load"]
+            self.assertEqual(len(yukleme), len(set(yukleme)), dep["id"])
 
 
 if __name__ == "__main__":
