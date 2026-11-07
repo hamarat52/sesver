@@ -35,6 +35,11 @@ on:
 permissions:
   contents: read
 
+# Üçüncü taraf action'lar etiket (@v7) yerine 40 karakterlik commit SHA'sına sabittir; yanındaki
+# yorum o commit'in sürüm etiketidir. Etiket sonradan başka commit'e taşınsa da burada çalışan
+# kod değişmez (release job'u contents: write taşır). Güncellerken: git ls-remote --tags
+# https://github.com/actions/<ad> ile yeni etiketin commit'ini bulup SHA'yı ve yorumu birlikte
+# değiştirin; tests/test_ci_workflow.py biçimi denetler.
 jobs:
   build:
     runs-on: windows-latest
@@ -45,7 +50,7 @@ jobs:
       version: ${{ steps.surum.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Sürümü belirle (tag == VERSION → girdi → VERSION)
         id: surum
@@ -365,7 +370,7 @@ jobs:
           Get-Content 'windows\Output\RELEASE_NOTES.md' -Encoding utf8 | ForEach-Object { Write-Host "dry-run: | $_" }
 
       - name: Artifact yükle
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: SesVer-Kurulum-${{ env.APP_VERSION }}
           path: |
@@ -385,7 +390,7 @@ jobs:
       contents: write
     steps:
       - name: Build artifact'ını indir
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: SesVer-Kurulum-${{ needs.build.outputs.version }}
           path: dist
@@ -428,7 +433,7 @@ jobs:
       contents: read
     steps:
       - name: Build artifact'ını indir
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: SesVer-Kurulum-${{ needs.build.outputs.version }}
           path: dist
@@ -641,7 +646,7 @@ jobs:
 
       - name: Tam açılış günlükleri ve ekran görüntüleri
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sesver-full-launch-kanit
           path: |
