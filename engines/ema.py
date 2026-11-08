@@ -45,6 +45,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -70,6 +71,33 @@ NORMALIZER_RANGE = ((0, 4), (0, 5))
 # ema-lightning 1.0.3'ün diğer bağımlılıkları; SesVer'in .venv'inde zaten var, --no-deps ile korunur.
 REQUIRED_DEPENDENCIES = {"torch": (2, 1), "numpy": (1, 24), "huggingface-hub": (0, 20)}
 MIN_PYTHON = (3, 11)
+# pip --require-hashes için sabit SHA-256 özetleri (PyPI'deki tüm dosyalar; uv pip compile
+# --generate-hashes ile 2026-11-08'de okundu). Kurulum yalnız bu özetlerle yapılır.
+PACKAGE_HASHES = {
+    f"{PACKAGE}=={PACKAGE_VERSION}": (
+        "37d4f2773d97bb4e74d2f728a57177a5fa4ed7a38d62f7f1ea8e08766248fc6c",
+        "7c447a07965544760ffb3767a9db9d42cc1704f3de859aa68d6389fc1458dbe1",
+    ),
+    f"{NORMALIZER_PACKAGE}=={NORMALIZER_VERSION}": (
+        "22abf55a7f744a327944433af93c9377f48b872db4548afda6f128e08bd85316",
+        "2a5d8db9e87f95dd57aca7d632f1bc13aa43163d30ee7434ddab1235bb55b102",
+        "3436383e5c5e1cfe3e5f384dba7db83d739c48da81eb5139f806a32e5b3e8b63",
+        "3a6372e90fbed2dbf1f5636f1decdaec0da272a8dee00ef353e277c8a9d5aad3",
+        "3d8e4681abcddc76e7b25492208ffe6d79250fbd490a6bd96967b488d14dd8d4",
+        "50fc98a0333a3a5e65107bdef0888c14d3e74cb2ac1fcc1550fc975ba0c2c56f",
+        "539b27dba0cbaf15f34d52e55883c91e342a6c2f07e45457e230b494c14887b0",
+        "5e8de870cc2e2baa35a32f025fc85f095205b5fb2d10b4c71df1ad19b20f7a04",
+        "74bcc5aad552f996ef60400d156792d8eecea62abc34dc4f1e6f79aec80bff01",
+        "91272349685d74ecacd8dc3d45adb722c050fcdb5ce1402e6b703cb7de7c7c7a",
+        "97b36de1b31bd41b6380b0c6f16dec32d642651b59a9ac3e1c70784e934d4f67",
+        "a3f11ec6c160b0364a008158d0c0d7ebf090df67725a8f3535a107ba3106d80b",
+        "a85e35130cef42169abb86875ea41eb13df67fdbdf597894a7e2c6c4c0ef9bb7",
+        "cc44ca1b30b28cd1ae79218cd76a46be6fd568215f5a4d3c3872dfc708e9afe9",
+        "cdc9e96d669370f791d79b583e8e92e92696e47c2cabd8e2537e1ba24da3f4d3",
+        "d29f0ff194cd3fa50c25b574b15c2344eda4980f3b69809d156c7e8ab4c5e220",
+        "da2cb74d8da73e46f6a1acc5ed4f595f4990a9400ac18cbb0bdf31b75fbc6015",
+    ),
+}
 # Kurulacak tekerleklerin yaklaşık boyutu (PyPI: ema_lightning-1.0.3 32.095 B,
 # normalizer_tr-0.4.0 cp311 macOS arm64 1.266.516 B).
 PACKAGE_DOWNLOAD_BYTES = 32_095 + 1_266_516
@@ -331,7 +359,17 @@ def default_pip_runner(args: list, is_cancelled: Callable[[], bool], poll: float
 
 def _pip_install_args(specs: list) -> list:
     # --only-binary: normalizer-tr Rust eklentisidir; tekerlek yoksa derlemeye düşmek yerine açık hata.
-    return ["install", "--no-deps", "--only-binary=:all:", "--disable-pip-version-check", "--no-input", *specs]
+    args = ["install", "--no-deps", "--only-binary=:all:", "--disable-pip-version-check", "--no-input"]
+    if specs and all(s in PACKAGE_HASHES for s in specs):
+        # Sabit sürümler: özetli geçici bir gereksinim dosyasıyla --require-hashes kurulumu.
+        # (pip özetleri yalnız dosyadan okur; komut satırında --hash verilemez.)
+        satirlar = [s + "".join(f" --hash=sha256:{h}" for h in PACKAGE_HASHES[s]) for s in specs]
+        fd, yol = tempfile.mkstemp(prefix="sesver_ema_", suffix=".txt")
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("\n".join(satirlar) + "\n")
+        return [*args, "--require-hashes", "-r", yol]
+    # Yalnız geri alma: önceki (sabit olmayan) sürüme dönüş; özet bilinmez.
+    return [*args, *specs]
 
 
 class _Installer:

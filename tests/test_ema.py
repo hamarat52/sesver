@@ -67,7 +67,11 @@ class FakePip:
                 return None, "iptal"
             if self.code != 0:
                 return self.code, "ERROR: No matching distribution found for ema-lightning==1.0.3"
-            for spec in args:
+            specs = list(args)
+            if "-r" in args:  # --require-hashes: sabit sürümler özetli dosyada
+                with open(args[args.index("-r") + 1], encoding="utf-8") as f:
+                    specs += [satir.split(" ")[0] for satir in f if satir.strip()]
+            for spec in specs:
                 if "==" in spec:
                     dist, version = spec.split("==")
                     self.versions.versions[dist] = version
@@ -218,8 +222,14 @@ class InstallFlowTests(EmaInstallBase):
         self.assertEqual(args[0], "install")
         self.assertIn("--no-deps", args)
         self.assertIn("--only-binary=:all:", args)
-        self.assertIn("ema-lightning==1.0.3", args)
-        self.assertIn("normalizer-tr==0.4.0", args)
+        # Sabit sürümler özetli gereksinim dosyasıyla, --require-hashes ile kurulur.
+        self.assertIn("--require-hashes", args)
+        req = Path(args[args.index("-r") + 1]).read_text(encoding="utf-8")
+        self.assertIn("ema-lightning==1.0.3 --hash=sha256:", req)
+        self.assertIn("normalizer-tr==0.4.0 --hash=sha256:", req)
+        for satir in req.splitlines():
+            spec = satir.split(" --hash=")[0]
+            self.assertEqual(satir.count("--hash=sha256:"), len(ema.PACKAGE_HASHES[spec]))
         self.assertFalse(any(a.startswith("torch") for a in args))
         # indirme: sabit revizyondan, her dosya bir kez
         self.assertEqual(len(self.opener.urls), 3)
