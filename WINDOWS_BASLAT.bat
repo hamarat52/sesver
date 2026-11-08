@@ -204,7 +204,13 @@ if errorlevel 1 goto :esitle_pip
 if errorlevel 1 goto :esitle_pip
 set "SV_CUDA_KORU=1"
 set "SV_TORCH_ETIKET="
-for /f "usebackq delims=" %%T in (`"%PYEXE%" -c "import torch;v=torch.__version__;print(v.split('+')[1] if '+' in v else '')" 2^>nul`) do set "SV_TORCH_ETIKET=%%T"
+REM Etiket gecici dosyaya yazdirilip okunur. "for /f" kullanilmaz: for /f komutu
+REM "cmd /c" ile calistirir ve komut tirnakla baslayip ikiden fazla tirnak icerince
+REM cmd ilk ve SON tirnagi soyar ("%PYEXE%" -c "..." bozulur, cikti bos kalir).
+del /f /q "sesver_torch_etiket.tmp" >nul 2>nul
+"%PYEXE%" -c "import torch;v=torch.__version__;print(v.split('+')[1] if '+' in v else '')" >"sesver_torch_etiket.tmp" 2>nul
+if exist "sesver_torch_etiket.tmp" set /p SV_TORCH_ETIKET=<"sesver_torch_etiket.tmp"
+del /f /q "sesver_torch_etiket.tmp" >nul 2>nul
 set "TORCH_KILIT="
 if not "%SV_TORCH_ETIKET%"=="" if exist "kilit\torch-%SV_TORCH_ETIKET%.txt" set "TORCH_KILIT=kilit\torch-%SV_TORCH_ETIKET%.txt"
 echo CUDA destekli PyTorch korunuyor (gercek cekirdek testi basarili, etiket: %SV_TORCH_ETIKET%).
@@ -490,13 +496,23 @@ REM Bu Python surumu icin temel kilidi TEMEL_KILIT'e yazar (kilit\windows-x64-py
 REM Kilit yalniz 3.10-3.12 icin var; yoksa errorlevel 1 (hash'siz kuruluma dusulmez).
 set "TEMEL_KILIT="
 set "SV_PYV="
-for /f "usebackq delims=" %%V in (`"%PYEXE%" -c "import sys;print(str(sys.version_info[0])+str(sys.version_info[1]))" 2^>nul`) do set "SV_PYV=%%V"
-if "%SV_PYV%"=="" exit /b 1
+REM Surum gecici dosyaya yazdirilip "set /p" ile okunur (:isaret_hesapla ile ayni
+REM desen). "for /f" + "%PYEXE%" -c "..." KULLANILMAZ: for /f komutu cmd /c ile
+REM calistirir; komut tirnakla baslayip ikiden fazla tirnak icerince cmd ilk ve son
+REM tirnagi soyar, komut bozulur ve SV_PYV bos kalir (1.3.1 CI'da boyle dustu).
+del /f /q "sesver_pyv.tmp" >nul 2>nul
+"%PYEXE%" -c "import sys;print(str(sys.version_info[0])+str(sys.version_info[1]))" >"sesver_pyv.tmp" 2>nul
+if exist "sesver_pyv.tmp" set /p SV_PYV=<"sesver_pyv.tmp"
+del /f /q "sesver_pyv.tmp" >nul 2>nul
+if "%SV_PYV%"=="" goto :kilit_sec_okunamadi
 if not exist "kilit\windows-x64-py%SV_PYV%.txt" goto :kilit_sec_yok
 set "TEMEL_KILIT=kilit\windows-x64-py%SV_PYV%.txt"
 exit /b 0
 :kilit_sec_yok
 echo [UYARI] Python %SV_PYV% icin paket kilidi yok (desteklenen: 3.10, 3.11, 3.12).
+exit /b 1
+:kilit_sec_okunamadi
+echo [UYARI] Python surumu okunamadi: "%PYEXE%" -c calismadi.
 exit /b 1
 
 :kilitli_kur

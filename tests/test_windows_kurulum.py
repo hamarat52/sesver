@@ -117,6 +117,46 @@ def bat_akisi(kip):
 
 
 class BatAkisTests(unittest.TestCase):
+    def test_for_f_komutlari_cmd_tirnak_soymasina_dayanikli(self):
+        """``for /f ... in (`komut`)`` komutu ``cmd /c`` ile çalışır. cmd, komut tırnakla
+        başlıyorsa ve tam iki tırnak + aradaki adın boşluksuz bir dosya olması koşulları
+        tutmuyorsa İLK ve SON tırnağı soyar (``cmd /?``, "old behavior"). 1.3.1'in ilk
+        CI koşusu bu yüzden düştü: ``"%PYEXE%" -c "..." `` dört tırnaklıydı, soyulunca
+        komut bozuldu ve Python sürümü boş okundu. Kural: for /f komutunda en fazla iki
+        tırnak olur, ikisi de yalnız başlangıçtaki boşluksuz program yolunu sarar (soyulması
+        zararsız) ve ``python -c`` kullanılmaz (çıktı geçici dosyaya yazdırılıp set /p ile okunur).
+        """
+        komut_re = re.compile(r"\bin\s*\(`(.*)`\)\s*do\b", re.I)
+        bulunan = 0
+        for i, ham in enumerate(bat_satirlari()):
+            s = ham.strip()
+            if s.lower().startswith("rem") or not re.match(r"for\s+/f\b", s, re.I):
+                continue
+            m = komut_re.search(s)
+            if not m:
+                continue
+            bulunan += 1
+            komut = m.group(1)
+            self.assertNotRegex(komut, r"\s-c\s", f"satır {i + 1}: for /f içinde python -c: {s}")
+            self.assertLessEqual(komut.count('"'), 2, f"satır {i + 1}: for /f komutunda 2'den fazla tırnak: {s}")
+            if komut.count('"') == 2:
+                bas = re.match(r'^"([^"]*)"\s', komut)
+                assert bas is not None, f"satır {i + 1}: tırnaklar program yolunu sarmıyor: {s}"
+                self.assertNotRegex(bas.group(1), r"[\s&<>()@^|]",
+                                    f"satır {i + 1}: soyulan program yolunda boşluk/özel karakter: {s}")
+        self.assertGreaterEqual(bulunan, 2)  # --onerilen-etiket satırları
+
+    def test_python_cikti_okumalari_gecici_dosyadan(self):
+        bat = "\n".join(bat_satirlari())
+        for tmp, degisken in (("sesver_pyv.tmp", "SV_PYV"), ("sesver_torch_etiket.tmp", "SV_TORCH_ETIKET")):
+            self.assertIn(f'>"{tmp}" 2>nul', bat)
+            self.assertIn(f'if exist "{tmp}" set /p {degisken}=<"{tmp}"', bat)
+            self.assertIn(f'del /f /q "{tmp}" >nul 2>nul', bat)
+        # Sürüm okunamazsa sessizce değil, ayrı bir uyarıyla düşer.
+        kilit_sec = bat.split("\n:kilit_sec\n")[1].split("\n:kilitli_kur\n")[0]
+        self.assertIn('if "%SV_PYV%"=="" goto :kilit_sec_okunamadi', kilit_sec)
+        self.assertIn("[UYARI] Python surumu okunamadi", kilit_sec)
+
     def test_goto_hedefleri_etiketli_ve_var(self):
         satirlar = bat_satirlari()
         _, _, etiketler = bat_akisi("normal")
