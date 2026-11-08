@@ -201,8 +201,8 @@ turkish.GizlilikSayfaBaslik=Gizlilik ve güncelleme denetimi
 english.GizlilikSayfaBaslik=Privacy and update check
 turkish.GizlilikSayfaAciklama=SesVer internete ne zaman bağlanır?
 english.GizlilikSayfaAciklama=When does SesVer connect to the internet?
-turkish.GizlilikOzeti=SesVer bilgisayarınızda çalışır; metinleriniz, kayıtlarınız ve sesleriniz hiçbir yere gönderilmez. Hesap, telemetri ve analitik yoktur.%n%nAşağıdaki güncelleme denetimi dışında internete yalnız şunlar için bağlanır: kurulum ve paketleri değiştiren güncellemeler (Python, paketler; NVIDIA kartta PyTorch, gerekirse açılışta da), Hugging Face'ten ses modeli (ilk üretimde indirme, sonraki oturumların ilk üretiminde kısa güncellik denetimi), yazıya dökme modeli ve sizin başlattığınız indirmeler. Hata raporu otomatik gönderilmez.
-english.GizlilikOzeti=SesVer runs on your computer; your texts, recordings and audio are never sent anywhere. No account, telemetry or analytics.%n%nApart from the update check below, it connects to the internet only for: setup and updates that change its packages (Python, packages; PyTorch on NVIDIA cards, at startup too if needed), the voice model from Hugging Face (downloaded on the first generation, a short freshness check on the first generation of later sessions), the transcription model and downloads you start yourself. Error reports are never sent automatically.
+turkish.GizlilikOzeti=SesVer bilgisayarınızda çalışır; metinleriniz, kayıtlarınız ve sesleriniz hiçbir yere gönderilmez. Hesap, telemetri ve analitik yoktur.%n%nAşağıdaki güncelleme denetimi dışında internete yalnız şunlar için bağlanır: kurulum ve paketleri değiştiren güncellemeler (Python, paketler; NVIDIA kartta PyTorch, gerekirse açılışta da), Hugging Face'ten ses modeli (ilk üretimde indirme; sabit model sürümü, sonra önbellekten), yazıya dökme modeli ve sizin başlattığınız indirmeler. Hata raporu otomatik gönderilmez.
+english.GizlilikOzeti=SesVer runs on your computer; your texts, recordings and audio are never sent anywhere. No account, telemetry or analytics.%n%nApart from the update check below, it connects to the internet only for: setup and updates that change its packages (Python, packages; PyTorch on NVIDIA cards, at startup too if needed), the voice model from Hugging Face (downloaded on the first generation; fixed model revision, then used from the cache), the transcription model and downloads you start yourself. Error reports are never sent automatically.
 turkish.GuncellemeSecenegi=Açılışta güncellemeleri denetle
 english.GuncellemeSecenegi=Check for updates at startup
 turkish.GuncellemeAciklama=İşaretliyse SesVer her açılışta GitHub'a yeni sürüm olup olmadığını sorar. Yalnız sürüm bilgisi alınır; GitHub IP adresinizi görür. Bu seçimi sonra Ayarlar sekmesinden de değiştirebilirsiniz.
@@ -227,6 +227,8 @@ Source: "{#SrcRoot}\voice_design_map.json"; DestDir: "{app}"; Flags: ignoreversi
 ; Arayüz çevirileri (i18n.py okur); yoksa arayüz Türkçe kalır.
 Source: "{#SrcRoot}\locales\*.json"; DestDir: "{app}\locales"; Flags: ignoreversion
 Source: "{#SrcRoot}\requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
+; Kurulum kilitleri: WINDOWS_BASLAT.bat paketleri yalnız bunlardan, pip --require-hashes ile kurar.
+Source: "{#SrcRoot}\kilit\*.txt"; DestDir: "{app}\kilit"; Flags: ignoreversion
 ; Uygulama sürümü (surum.py okur; "Yeni sürüm var" kontrolü bununla karşılaştırır).
 Source: "{#SrcRoot}\VERSION"; DestDir: "{app}"; Flags: ignoreversion
 ; Ortam kurulumunu yapan başlatıcı (kısayol ve son ekran bunu çağırır).

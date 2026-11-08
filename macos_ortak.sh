@@ -221,7 +221,6 @@ kurulum_hatasi() {
     echo "İndirilen bir paketin SHA-256 özeti kilit dosyasındakiyle uyuşmuyor (bozuk indirme ya da"
     echo "değiştirilmiş paket). Güvenlik için kurulum durduruldu; hiçbir şey çalıştırılmadı."
     echo "Bir süre sonra SesVer'i tekrar açın; kurulum yeniden denenir."
-    echo "Sorun sürerse sesver_baslatici_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin."
     bekle_ve_cik 1 "$(sesver_metin "Kurulum adımı başarısız oldu: $ADIM_PENCERE
 
 İndirilen bir paket doğrulanamadı (SHA-256 özeti tutmuyor). Güvenlik için kurulum durduruldu. Bir süre sonra SesVer'i tekrar açın; kurulum yeniden denenir." \
