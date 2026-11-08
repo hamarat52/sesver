@@ -24,37 +24,135 @@
 # bitince yazılır.
 #
 # Güncelleme sonrası paket eşitleme: işaret dosyası tek satırdır:
-#   req_sha256=<requirements.txt'nin SHA-256 özeti> voxcpm=<voxcpm sürümü>
+#   kilit_sha256=<kilit/*.txt dosyalarının birlikte SHA-256 özeti> voxcpm=<voxcpm sürümü>
 # Her açılışta beklenen satırla karşılaştırılır:
 #   - işaret yok                      -> tam ilk kurulum (aşağıdaki akış)
 #   - aynı                            -> kurulum adımı tamamen atlanır
-#   - farklı ya da eski biçim "tamam" -> yalnız eşitleme: pip install -r
-#     requirements.txt (+ voxcpm pini değiştiyse/bilinmiyorsa voxcpm) ve işaret
-#     yeni satırla yazılır. Ortam silinmez, baştan kurulmaz.
+#   - farklı ya da eski biçim         -> yalnız eşitleme: kilitli paketler kurulur
+#     (pip --require-hashes; sürümü zaten tutan pakete dokunulmaz) ve işaret yeni
+#     satırla yazılır. Ortam silinmez, baştan kurulmaz.
 # Eşitleme başarısız olursa işaret ESKİ hâliyle kalır (bir sonraki açılışta
 # yeniden denenir) ve ilk kurulumdaki hata yolu gösterilir.
+#
+# Tedarik zinciri: ağdan inen her şey sabit sürüm + sabit SHA-256 ile iner.
+#   - Gömülü Python: tek sabit sürüm ve özet (PBS_* aşağıda); "en yeni" sorgusu yok.
+#   - pip paketleri: kilit/ klasöründeki dosyalar (tools/kilit_uret.py üretir),
+#     hepsi --require-hashes ile kurulur. Özet tutmazsa kurulum durur, işaret yazılmaz.
 
 SESVER_MOD="${SESVER_MOD:-konsol}"
 BASLATICI_LOG="sesver_baslatici_log.txt"
-# voxcpm requirements.txt'te değil (--no-deps ile ayrı kurulur); pini burada.
+# voxcpm kilit/voxcpm.txt'te (--no-deps ile ayrı kurulur); sürüm işarete de yazılır.
 # WINDOWS_BASLAT.bat'taki VOXCPM_SURUM ile aynı tutun.
 VOXCPM_SURUM="2.0.3"
+KILIT_DIR="kilit"
+# macOS'ta torch PyPI derlemesi (Apple Silicon, MPS) kilit/torch-pypi.txt'ten gelir.
+TORCH_KILIDI="$KILIT_DIR/torch-pypi.txt"
+# torch 2.14.1'in macOS tekerleği macosx_14_0_arm64: daha eski macOS'ta kurulamaz.
+SESVER_MIN_MACOS=14
 
-# requirements.txt'nin SHA-256 özeti (macOS'ta her zaman bulunan shasum).
-# shasum yoksa $1 ile verilen Python'un hashlib'i denenir. Hiçbiri yoksa boş:
-# işaret hiç eşleşmez, her açılışta (zararsız) eşitleme denenir.
-requirements_ozeti() {
+# kilit/*.txt dosyalarının (C sırasıyla birleştirilmiş) SHA-256 özeti. Herhangi bir
+# kilit değişince özet değişir ve eşitleme çalışır. shasum yoksa $1 ile verilen
+# Python'un hashlib'i denenir. Hiçbiri yoksa boş: işaret hiç eşleşmez, her
+# açılışta (zararsız) eşitleme denenir.
+kilit_ozeti() {
   local oz=""
-  oz="$(shasum -a 256 requirements.txt 2>/dev/null | awk '{print $1}')" || oz=""
+  oz="$( (LC_ALL=C; cat "$KILIT_DIR"/*.txt) 2>/dev/null | shasum -a 256 2>/dev/null | awk '{print $1}')" || oz=""
   if [ -z "$oz" ] && [ -n "$1" ] && [ -x "$1" ]; then
-    oz="$("$1" -c "import hashlib;print(hashlib.sha256(open('requirements.txt','rb').read()).hexdigest())" 2>/dev/null)" || oz=""
+    oz="$("$1" -c "import glob,hashlib;h=hashlib.sha256()
+for f in sorted(glob.glob('$KILIT_DIR/*.txt')): h.update(open(f,'rb').read())
+print(h.hexdigest())" 2>/dev/null)" || oz=""
   fi
   printf '%s' "$oz"
 }
 
 # Kurulum işaretine yazılan/karşılaştırılan tek satır. $1 = Python yolu (yedek özet için).
 kurulum_isareti() {
-  printf 'req_sha256=%s voxcpm=%s' "$(requirements_ozeti "$1")" "$VOXCPM_SURUM"
+  printf 'kilit_sha256=%s voxcpm=%s' "$(kilit_ozeti "$1")" "$VOXCPM_SURUM"
+}
+
+# $1 = Python. Bu Python sürümü için temel kilit dosyasının yolu; desteklenmeyen
+# sürümde (3.10-3.12 dışı) ya da dosya yoksa boş döner ve 1 ile biter.
+kilit_dosyasi() {
+  local v
+  v="$("$1" -c 'import sys;print("%d%d" % sys.version_info[:2])' 2>/dev/null)" || v=""
+  case "$v" in
+    310|311|312) ;;
+    *) return 1 ;;
+  esac
+  [ -f "$KILIT_DIR/macos-arm64-py$v.txt" ] || return 1
+  printf '%s' "$KILIT_DIR/macos-arm64-py$v.txt"
+}
+
+# Kilitli pip kurulumu. $1 = kilit dosyası, kalan = ek pip argümanları (ör. --no-deps).
+#   --require-hashes          : her paket kilitteki SHA-256 ile doğrulanır
+#   --only-binary=:all:       : kurulumda kaynak derleme yok ...
+#   --no-binary=proxy-tools   : ... tek istisna proxy-tools (PyPI'de yalnız kaynak paketi var)
+#   --no-build-isolation      : o paket hash'li kurulan setuptools ile derlenir; izole
+#                               derleme ortamı pip'te hash denetimsiz indirilirdi.
+# Çıktı ekrana/günlüğe akar; özet uyuşmazlığı ayrıca HASH_HATASI=1 ile işaretlenir.
+HASH_HATASI=0
+kilitli_kur() {
+  local dosya="$1" cikti kod
+  shift
+  cikti="$(mktemp -t sesver_pip 2>/dev/null || echo ".sesver_pip_cikti.txt")"
+  "$RUN_PY" -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools \
+    --no-build-isolation --disable-pip-version-check "$@" -r "$dosya" 2>&1 | tee "$cikti"
+  kod=${PIPESTATUS[0]}
+  if [ "$kod" -ne 0 ] && grep -qiE "DO NOT MATCH THE HASHES|Hashes are required|hash mismatch" "$cikti" 2>/dev/null; then
+    HASH_HATASI=1
+  fi
+  rm -f "$cikti" 2>/dev/null || true
+  return "$kod"
+}
+
+# Dört kilitli adım (ilk kurulum ve eşitleme aynı sırayı kullanır). $1/$2 = adım
+# adının TR/EN eki ("kurulumu"/"installing"), $3 = temel kilit dosyası.
+# Hata olursa ADIM başarısız adımı gösterir ve 1 döner (işaret yazılmaz).
+paketleri_kur() {
+  # pip + setuptools: --no-deps; setuptools proxy-tools derlemesi için gerekir.
+  adim "pip $1 ($KILIT_DIR/pip.txt)" "pip $2"
+  kilitli_kur "$KILIT_DIR/pip.txt" --no-deps || return 1
+  adim "PyTorch $1 ($TORCH_KILIDI)" "PyTorch $2"
+  kilitli_kur "$TORCH_KILIDI" --no-deps || return 1
+  # --no-deps: voxcpm'in gereksiz ağır bağımlılıkları (funasr, matplotlib,
+  # modelscope, datasets, spaces, argbind; hiçbiri kodda kullanılmıyor) kurulmaz.
+  adim "voxcpm $1 ($KILIT_DIR/voxcpm.txt)" "voxcpm $2"
+  kilitli_kur "$KILIT_DIR/voxcpm.txt" --no-deps || return 1
+  adim "paket $1 ($3)" "packages $2 ($3)"
+  kilitli_kur "$3" || return 1
+}
+
+# macOS ana sürümü (ör. 15). Enjekte edilebilir: testler yeniden tanımlar.
+sesver_macos_surumu() { /usr/bin/sw_vers -productVersion 2>/dev/null || true; }
+
+# 0 (doğru): macOS değil ya da macOS >= SESVER_MIN_MACOS.
+macos_surumu_yeterli() {
+  local ana
+  [ "$(sesver_uname -s)" = "Darwin" ] || return 0
+  ana="$(sesver_macos_surumu | cut -d. -f1)"
+  case "$ana" in ''|*[!0-9]*) return 0 ;; esac
+  [ "$ana" -ge "$SESVER_MIN_MACOS" ]
+}
+
+eski_macos_ve_cik() {
+  echo "[HATA] SesVer macOS $SESVER_MIN_MACOS (Sonoma) ya da daha yenisini gerektirir; bu Mac: macOS $(sesver_macos_surumu). Kurulum başlatılmadı."
+  bekle_ve_cik 1 "$(sesver_metin \
+"SesVer macOS $SESVER_MIN_MACOS (Sonoma) ya da daha yenisini gerektirir. Bu Mac'te macOS $(sesver_macos_surumu) var. macOS'u güncelleyip SesVer'i tekrar açın." \
+"SesVer requires macOS $SESVER_MIN_MACOS (Sonoma) or later. This Mac runs macOS $(sesver_macos_surumu). Update macOS and open SesVer again.")"
+}
+
+# $1 = Python komutu. Kilit yalnız 3.10-3.12 için var; hash'siz kuruluma düşülmez.
+desteklenmeyen_python_ve_cik() {
+  local surum
+  surum="$("$1" --version 2>&1)" || surum="$1"
+  echo "[HATA] $surum için SesVer paket kilidi yok (desteklenen: Python 3.10, 3.11, 3.12). Kurulum başlatılmadı."
+  bekle_ve_cik 1 "$(sesver_metin \
+"Bu Python sürümü ($surum) desteklenmiyor. SesVer'in kendi Python'u indirilemediği için sistemdeki Python denendi; SesVer Python 3.10, 3.11 ya da 3.12 ile kurulur.
+
+İnternet bağlantınızı kontrol edip SesVer'i tekrar açın ya da Python 3.11 kurun: https://www.python.org/downloads/" \
+"This Python version ($surum) is not supported. SesVer's own Python could not be downloaded, so the system Python was tried; SesVer installs with Python 3.10, 3.11 or 3.12.
+
+Check your internet connection and open SesVer again, or install Python 3.11: https://www.python.org/downloads/")"
 }
 
 # --- Pencere dili (TR/EN) --------------------------------------------------
@@ -116,8 +214,21 @@ ADIM=""
 ADIM_PENCERE=""
 adim() { ADIM="$1"; ADIM_PENCERE="$(sesver_metin "$1" "$2")"; }
 kurulum_hatasi() {
+  trap - ERR
   echo
   echo "[HATA] Kurulum adımı başarısız oldu: $ADIM"
+  if [ "$HASH_HATASI" = "1" ]; then
+    echo "İndirilen bir paketin SHA-256 özeti kilit dosyasındakiyle uyuşmuyor (bozuk indirme ya da"
+    echo "değiştirilmiş paket). Güvenlik için kurulum durduruldu; hiçbir şey çalıştırılmadı."
+    echo "Bir süre sonra SesVer'i tekrar açın; kurulum yeniden denenir."
+    echo "Sorun sürerse sesver_baslatici_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin."
+    bekle_ve_cik 1 "$(sesver_metin "Kurulum adımı başarısız oldu: $ADIM_PENCERE
+
+İndirilen bir paket doğrulanamadı (SHA-256 özeti tutmuyor). Güvenlik için kurulum durduruldu. Bir süre sonra SesVer'i tekrar açın; kurulum yeniden denenir." \
+"A setup step failed: $ADIM_PENCERE
+
+A downloaded package could not be verified (SHA-256 mismatch). Setup was stopped for your safety. Open SesVer again later; setup will be retried.")"
+  fi
   echo "Yukarıdaki hata mesajını okuyun. İnternet bağlantınızı kontrol edip"
   echo "SesVer'i (SesVer.app ya da MACOS_BASLAT.command) tekrar açın; kurulum kaldığı yerden devam eder."
   echo "Sorun sürerse sesver_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin."
@@ -166,68 +277,54 @@ intel_mac_uyarisi_ve_cik() {
 
 # --- Gömülü (taşınabilir) Python: python-build-standalone ------------------
 # Kaynak: https://github.com/astral-sh/python-build-standalone/releases
-# Güncel sürüm etiketi latest-release.json'dan, dosya adı ve SHA-256 özeti
-# o sürümün SHA256SUMS dosyasından okunur. Bunlar alınamazsa aşağıdaki
-# doğrulanmış sabit sürüm kullanılır.
+# TEK yol: aşağıdaki sabit sürüm ve sabit SHA-256 (yayın sırasında bilinçli
+# güncellenir). "En yeni sürüm" sorgusu ve aynı kaynaktan gelen SHA256SUMS yok:
+# kaynak sürüm sonradan değiştirilse bile özet tutmaz, kurulum durur.
+# 3.11.18+20261026: özetler bu dosyalar indirilip shasum -a 256 ile doğrulandı
+# (2026-11-08) ve sürümün SHA256SUMS listesiyle aynı.
 EMBED_DIR="python-embed"
 EMBED_PY="$EMBED_DIR/bin/python3"
 PBS_BASE="https://github.com/astral-sh/python-build-standalone/releases/download"
-PBS_LATEST_JSON="https://raw.githubusercontent.com/astral-sh/python-build-standalone/latest-release/latest-release.json"
-PBS_PY_SERIES="3\\.11"
-PBS_FALLBACK_TAG="20261013"
-PBS_FALLBACK_VER="3.11.17"
-PBS_FALLBACK_SHA_AARCH64="d81d757a9785850393cd695a9a686c765a6370fbdc83738589ef2ecd3e5c44b3"
-PBS_FALLBACK_SHA_X86_64="3acde87324867dab4e63329be3010130c75bfc4a3709db00866862d750a3bba3"
+PBS_TAG="20261026"
+PBS_VER="3.11.18"
+PBS_SHA_AARCH64="cba3455e18516fbe8668cff2820c9b6a53447c552d612443c2b2fb60d390a908"
+PBS_SHA_X86_64="a85474bcc78a98ca6b0070d8d615b0494b912b960239e6f18cc12d648f2dc270"
 
 # Başarılıysa 0 döner ve python-embed/bin/python3 çalışır durumdadır;
 # başarısızsa yarım kalan dosyaları temizleyip 1 döner (script durmaz,
-# eski yönteme geçilir). Not: "if/elif" koşulunda çağrıldığı için içeride
-# set -e etkisizdir; her adım bu yüzden açıkça denetlenir.
+# eski yönteme geçilir). Özet tutmazsa PBS_SHA_HATASI=1 olur ve sistem
+# Python'una geçilmez (sesver_baslat açık mesajla durur). Not: "if/elif"
+# koşulunda çağrıldığı için içeride set -e etkisizdir; her adım açıkça denetlenir.
+PBS_SHA_HATASI=0
 gomulu_python_kur() {
-  local arch triple fb_sha tag sums line asset sha tmp got
+  local arch triple sha asset tmp got
   case "$(sesver_uname -s)" in
     Darwin) ;;
     *) echo "[BİLGİ] Gömülü Python yalnız macOS için hazır; sistem Python'u kullanılacak."; return 1 ;;
   esac
   arch="$(sesver_mimari)"
   case "$arch" in
-    arm64|aarch64) triple="aarch64-apple-darwin"; fb_sha="$PBS_FALLBACK_SHA_AARCH64" ;;
-    x86_64)        triple="x86_64-apple-darwin";  fb_sha="$PBS_FALLBACK_SHA_X86_64" ;;
+    arm64|aarch64) triple="aarch64-apple-darwin"; sha="$PBS_SHA_AARCH64" ;;
+    x86_64)        triple="x86_64-apple-darwin";  sha="$PBS_SHA_X86_64" ;;
     *) echo "[UYARI] Tanınmayan işlemci mimarisi: $arch"; return 1 ;;
   esac
   echo "Uygulamaya özel Python indiriliyor (yalnız ilk sefer, ~26 MB; mimari: $arch)..."
-
-  tag="$(curl -fsSL --connect-timeout 15 --max-time 30 "$PBS_LATEST_JSON" 2>/dev/null \
-         | sed -n 's/.*"tag"[[:space:]]*:[[:space:]]*"\([0-9][0-9]*\)".*/\1/p' | head -n 1)" || tag=""
-  asset=""; sha=""
-  if [ -n "$tag" ]; then
-    sums="$(curl -fsSL --connect-timeout 15 --max-time 60 "$PBS_BASE/$tag/SHA256SUMS" 2>/dev/null)" || sums=""
-    line="$(printf '%s\n' "$sums" \
-            | grep -E "^[0-9a-f]{64}  cpython-${PBS_PY_SERIES}\.[0-9]+\+${tag}-${triple}-install_only\.tar\.gz$" \
-            | head -n 1)" || line=""
-    if [ -n "$line" ]; then
-      sha="${line%% *}"
-      asset="${line##* }"
-    fi
-  fi
-  if [ -z "$asset" ]; then
-    echo "[BİLGİ] Güncel sürüm bilgisi alınamadı; doğrulanmış sabit sürüm kullanılıyor ($PBS_FALLBACK_VER)."
-    tag="$PBS_FALLBACK_TAG"
-    asset="cpython-${PBS_FALLBACK_VER}+${PBS_FALLBACK_TAG}-${triple}-install_only.tar.gz"
-    sha="$fb_sha"
-  fi
+  asset="cpython-${PBS_VER}+${PBS_TAG}-${triple}-install_only.tar.gz"
 
   tmp="$EMBED_DIR.indiriliyor"
   rm -rf "$tmp" "$EMBED_DIR"
   mkdir -p "$tmp" || return 1
-  echo "İndiriliyor: $asset"
-  if ! curl -fL --connect-timeout 15 --retry 3 --progress-bar -o "$tmp/python.tar.gz" "$PBS_BASE/$tag/$asset"; then
+  echo "İndiriliyor: $asset (Python $PBS_VER, sürüm $PBS_TAG)"
+  if ! curl -fL --connect-timeout 15 --retry 3 --progress-bar -o "$tmp/python.tar.gz" "$PBS_BASE/$PBS_TAG/$asset"; then
     echo "[UYARI] Python indirilemedi."
     rm -rf "$tmp"; return 1
   fi
   got="$(shasum -a 256 "$tmp/python.tar.gz" 2>/dev/null | awk '{print $1}')" || got=""
   if [ "$got" != "$sha" ]; then
-    echo "[UYARI] İndirilen dosyanın SHA-256 özeti tutmuyor (bozuk ya da eksik indirme)."
+    echo "[HATA] İndirilen Python dosyasının SHA-256 özeti beklenenle aynı değil."
+    echo "  beklenen: $sha"
+    echo "  indirilen: ${got:-hesaplanamadı}"
+    PBS_SHA_HATASI=1
     rm -rf "$tmp"; return 1
   fi
   if ! tar -xzf "$tmp/python.tar.gz" -C "$tmp"; then
@@ -296,6 +393,8 @@ sesver_baslat() {
   elif [ -x ".venv/bin/python" ] && [ -f ".venv/sesver_kurulum_tamam.txt" ]; then
     RUN_PY="./.venv/bin/python"
   else
+    # İlk kurulum: hiçbir şey indirilmeden önce macOS sürümü denetlenir.
+    macos_surumu_yeterli || eski_macos_ve_cik
     if [ "$SESVER_MOD" = "app" ]; then
       # Bilgi penceresi arka planda: kurulum onu beklemeden sürer.
       sesver_dialog "$(sesver_metin "SesVer ilk kez kuruluyor (Python ve paketler indiriliyor, yalnız bir kere).
@@ -311,6 +410,11 @@ Progress: $PWD/$BASLATICI_LOG")" note 120 &
     fi
     if gomulu_python_kur; then
       RUN_PY="$EMBED_PY"
+    elif [ "$PBS_SHA_HATASI" = "1" ]; then
+      # Özet tutmadı: sistem Python'una sessizce geçilmez, açık mesajla durulur.
+      HASH_HATASI=1
+      adim "Python indirme ($PBS_VER, SHA-256 doğrulaması)" "downloading Python ($PBS_VER, SHA-256 check)"
+      kurulum_hatasi
     else
       echo "[BİLGİ] Sistemde kurulu Python aranıyor (eski yöntem)..."
     fi
@@ -338,62 +442,66 @@ Progress: $PWD/$BASLATICI_LOG")" note 120 &
 Check your internet connection and open SesVer again, or install Python 3.10–3.12: https://www.python.org/downloads/")"
     fi
     echo "Kullanılan Python komutu: $PY ($("$PY" --version 2>&1))"
-    "$PY" -c "import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,12) else 1)" \
-      || echo "[UYARI] Önerilen sürüm Python 3.10–3.12; kurulum başarısız olabilir."
+    # Kilit yalnız Python 3.10-3.12 için var: başka sürümde hash'siz kuruluma
+    # düşülmez, sanal ortam oluşturulmadan açık bir mesajla durulur.
+    if ! "$PY" -c "import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,12) else 1)"; then
+      desteklenmeyen_python_ve_cik "$PY"
+    fi
     RUN_PY="./.venv/bin/python"
     MARKER=".venv/sesver_kurulum_tamam.txt"
   fi
 
+  # Kilit dosyası: Python sürümüne göre seçilir (gömülü Python 3.11; .venv 3.10-3.12).
+  local temel_kilit=""
+  if [ -x "$RUN_PY" ]; then
+    temel_kilit="$(kilit_dosyasi "$RUN_PY")" || temel_kilit=""
+  elif [ -n "$PY" ]; then
+    temel_kilit="$(kilit_dosyasi "$PY")" || temel_kilit=""
+  fi
+
   if [ ! -x "$RUN_PY" ] || [ ! -f "$MARKER" ]; then
     echo "İlk kurulum yapılıyor (bu sadece bir kere çalışır)..."
+    [ -n "$temel_kilit" ] || desteklenmeyen_python_ve_cik "${RUN_PY:-$PY}"
+    macos_surumu_yeterli || eski_macos_ve_cik
     trap kurulum_hatasi ERR
     if [ ! -x "$RUN_PY" ]; then
       adim "sanal ortam oluşturma: $PY -m venv .venv" "creating the virtual environment: $PY -m venv .venv"
       "$PY" -m venv .venv
     fi
-    adim "pip güncelleme" "upgrading pip"
-    "$RUN_PY" -m pip install --upgrade pip --quiet
-    # --no-deps: voxcpm'in gereksiz ağır bağımlılıklarını (funasr, matplotlib,
-    # modelscope, datasets, spaces, argbind — hiçbiri kodda kullanılmıyor)
-    # atlayıp yalnız requirements.txt'teki gerçekten gerekli paketleri kurar.
-    adim "voxcpm kurulumu" "installing voxcpm"
-    "$RUN_PY" -m pip install --no-deps "voxcpm==$VOXCPM_SURUM"
-    adim "requirements.txt kurulumu" "installing requirements.txt"
-    "$RUN_PY" -m pip install -r requirements.txt
+    paketleri_kur "kurulumu" "installing" "$temel_kilit" || kurulum_hatasi
     printf '%s\n' "$(kurulum_isareti "$RUN_PY")" > "$MARKER"
     trap - ERR
     echo "Kurulum tamamlandı."
   else
-    # Kurulum daha önce bitmiş. SesVer güncellendiyse (requirements.txt ya da
-    # voxcpm pini değiştiyse, ya da işaret eski "tamam" biçimindeyse) yalnız
-    # eksik/değişen paketler kurulur; ortam baştan kurulmaz.
+    # Kurulum daha önce bitmiş. SesVer güncellendiyse (bir kilit dosyası ya da
+    # voxcpm sürümü değiştiyse, ya da işaret eski biçimdeyse) kilitli paketler
+    # eşitlenir: sürümü zaten tutan pakete dokunulmaz, ortam baştan kurulmaz.
     local isaret_simdi isaret_beklenen
     isaret_simdi="$(head -n 1 "$MARKER" 2>/dev/null | tr -d '\r')" || isaret_simdi=""
     isaret_beklenen="$(kurulum_isareti "$RUN_PY")"
     if [ "$isaret_simdi" != "$isaret_beklenen" ]; then
-      echo "SesVer güncellenmiş: paketler eşitleniyor (yalnız eksik/değişen paketler kurulur)..."
-      if [ "$SESVER_MOD" = "app" ]; then
-        sesver_dialog "$(sesver_metin "SesVer güncellendi; gerekli paketler denetleniyor. Genelde kısa sürer; yeni paket varsa internet hızınıza göre uzayabilir. Bitince SesVer kendiliğinden açılır.
+      if [ -z "$temel_kilit" ] || ! macos_surumu_yeterli; then
+        # Çalışan eski kurulum bozulmasın: hiçbir şey indirilmez/kurulmaz, işaret
+        # değişmez, SesVer mevcut paketlerle açılır.
+        echo "[UYARI] Bu ortam için paket kilidi yok (Python: $("$RUN_PY" --version 2>&1), macOS: $(sesver_macos_surumu))."
+        echo "[UYARI] Paket eşitlemesi atlandı; SesVer mevcut paketlerle açılıyor. Güncel paketler için"
+        echo "        SesVer'i README'deki yoldan yeniden kurun (macOS 14+ ve SesVer'in kendi Python'u)."
+      else
+        echo "SesVer güncellenmiş: paketler eşitleniyor (yalnız eksik/değişen paketler kurulur)..."
+        if [ "$SESVER_MOD" = "app" ]; then
+          sesver_dialog "$(sesver_metin "SesVer güncellendi; gerekli paketler denetleniyor. Genelde kısa sürer; yeni paket varsa internet hızınıza göre uzayabilir. Bitince SesVer kendiliğinden açılır.
 
 İlerleme: $PWD/$BASLATICI_LOG" \
 "SesVer was updated; checking the required packages. This is usually quick; if there are new packages it may take longer depending on your connection. SesVer opens by itself when done.
 
 Progress: $PWD/$BASLATICI_LOG")" note 20 &
+        fi
+        trap kurulum_hatasi ERR
+        paketleri_kur "eşitleme" "updating" "$temel_kilit" || kurulum_hatasi
+        printf '%s\n' "$isaret_beklenen" > "$MARKER"
+        trap - ERR
+        echo "Paket eşitleme tamamlandı."
       fi
-      trap kurulum_hatasi ERR
-      case " $isaret_simdi " in
-        *" voxcpm=$VOXCPM_SURUM "*) ;;
-        *)
-          adim "voxcpm eşitleme" "updating voxcpm"
-          "$RUN_PY" -m pip install --no-deps "voxcpm==$VOXCPM_SURUM"
-          ;;
-      esac
-      adim "requirements.txt eşitleme" "updating requirements.txt packages"
-      # --upgrade YOK: gereksinimi zaten karşılayan paketlere (ör. kurulu torch) dokunulmaz.
-      "$RUN_PY" -m pip install -r requirements.txt
-      printf '%s\n' "$isaret_beklenen" > "$MARKER"
-      trap - ERR
-      echo "Paket eşitleme tamamlandı."
     fi
   fi
 
