@@ -100,7 +100,8 @@ class PrivacyPolicyTests(unittest.TestCase):
         app = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('MODEL_ID = "openbmb/VoxCPM2"', app)
         self.assertIn("`openbmb/VoxCPM2`", policy)
-        self.assertIn('WhisperModel("small"', app)
+        self.assertIn('WHISPER_MODEL = "small"', app)
+        self.assertIn("WhisperModel(WHISPER_MODEL", app)
         self.assertIn('os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"', app)
         self.assertIn('os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"', app)
         ema = (ROOT / "engines" / "ema.py").read_text(encoding="utf-8")
@@ -140,15 +141,15 @@ def _iss_mesajlari(dil):
 OZET_KARSILIKLARI = (
     ("Every start", ("GuncellemeAciklama", "her açılışta GitHub"), ("GuncellemeAciklama", "at every start whether")),
     ("First-time setup (Windows installer page", ("GizlilikOzeti", "kurulum"), ("GizlilikOzeti", "setup")),
-    ("after an update that changes `requirements.txt`",
+    ("after an update that changes a lock file in `kilit/`",
      ("GizlilikOzeti", "paketleri değiştiren güncellemeler"), ("GizlilikOzeti", "updates that change its packages")),
     ("once more at start if the installed PyTorch cannot use the card",
      ("GizlilikOzeti", "NVIDIA kartta PyTorch, gerekirse açılışta da"),
      ("GizlilikOzeti", "PyTorch on NVIDIA cards, at startup too if needed")),
     ("First **Generate**", ("GizlilikOzeti", "ilk üretimde indirme"), ("GizlilikOzeti", "downloaded on the first generation")),
-    ("check on the first generation of each session",
-     ("GizlilikOzeti", "sonraki oturumların ilk üretiminde kısa güncellik denetimi"),
-     ("GizlilikOzeti", "a short freshness check on the first generation of later sessions")),
+    ("from a fixed model revision",
+     ("GizlilikOzeti", "sabit model sürümü, sonra önbellekten"),
+     ("GizlilikOzeti", "fixed model revision, then used from the cache")),
     ("First use of **Otomatik yazıya dök**", ("GizlilikOzeti", "yazıya dökme modeli"),
      ("GizlilikOzeti", "the transcription model")),
     ("Only when you click **Hızlı Mod'u indir**", ("GizlilikOzeti", "sizin başlattığınız indirmeler"),
@@ -195,20 +196,25 @@ class InstallerSummaryTests(unittest.TestCase):
         #    from_pretrained local_files_only vermez (voxcpm 2.0.3 snapshot_download'a gider).
         app = (ROOT / "app.py").read_text(encoding="utf-8")
         yukle = app.split("_model = VoxCPM.from_pretrained(")[1].split(")")[0]
-        self.assertIn("hf_model_id=MODEL_ID", yukle)
+        self.assertIn("hf_model_id=_model_yolu(", yukle)
         self.assertNotIn("local_files_only", yukle)
-        self.assertIn('a short "is the cached model current?" check on the first generation of each session', policy)
-        # 2) requirements.txt değişen güncellemeden sonra pip (Windows ve macOS başlatıcıları).
+        # Sabit revizyon (commit SHA): önbellekte varsa dosyalar yeniden indirilmez.
+        self.assertRegex(app, r'MODEL_REVISION = "[0-9a-f]{40}"')
+        self.assertIn("snapshot_download(repo_id=MODEL_ID, revision=MODEL_REVISION)", app)
+        self.assertIn("from a fixed model revision; afterwards the cached files are used", policy)
+        # 2) Kilit değişen güncellemeden sonra pip (Windows ve macOS başlatıcıları).
         bat = (ROOT / "WINDOWS_BASLAT.bat").read_text(encoding="utf-8")
         self.assertIn('if not "%SV_ISARET%"=="%SV_BEKLENEN%" goto :esitle', bat)
-        self.assertIn('"%PYEXE%" -m pip install -r requirements.txt %SV_KISIT%', bat)
+        self.assertIn('call :kilitli_kur "%TEMEL_KILIT%"', bat)
         mac = (ROOT / "macos_ortak.sh").read_text(encoding="utf-8")
-        self.assertIn("req_sha256=", mac)
-        self.assertIn("after an update that changes `requirements.txt`", policy)
+        self.assertIn("kilit_sha256=", mac)
+        self.assertIn("after an update that changes a lock file in `kilit/`", policy)
         # 3) NVIDIA kartta PyTorch kartı kullanamazsa açılışta download.pytorch.org.
         duzelt = bat.split('call :durum 6 "Ekran karti dogrulaniyor"')[1].split("\n:gpu_fix_isaretle\n")[0]
         self.assertIn("hizlandirma.py --cuda-dogrula", duzelt)
-        self.assertIn("--index-url https://download.pytorch.org/whl/%CUDA_ETIKET%", duzelt)
+        self.assertIn('call :kilitli_kur "kilit\\torch-%CUDA_ETIKET%.txt"', duzelt)
+        self.assertIn("--index-url https://download.pytorch.org/whl/cu130",
+                      (ROOT / "kilit" / "torch-cu130.txt").read_text(encoding="utf-8"))
         self.assertIn("once more at start if the installed PyTorch cannot use the card | `download.pytorch.org`", policy)
 
 

@@ -85,6 +85,7 @@ Notarize keychain profili: `${SESVER_NOTARY_PROFILE:-sesver-notary}`. Notarize b
 `notarytool log <id>` basılır ve betik durur.
 
 Payload izin listesi (başka hiçbir şey girmez): kökteki `*.py`, `requirements.txt`,
+`kilit/*.txt` (kurulum kilitleri; başlatıcı paketleri yalnız bunlardan `--require-hashes` ile kurar),
 `voice_design_map.json`, `macos_ortak.sh`, `locales/*.json`, `voices/hazir/**`, `LICENSE`,
 `README.md`, `AI_KURULUM.md` + `.sesver_payload_version` (`<sürüm> (<git sha>)`).
 `voices/seslerim/` HEAD'de görülürse yapı HATA ile durur; payload ayrıca `voices/seslerim`,

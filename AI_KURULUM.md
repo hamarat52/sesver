@@ -140,12 +140,12 @@ Destek durumu:
 **Yedek yol — elle (yalnız NVIDIA, tercih eden kullanıcılar için):**
 
 1. Önce SesVer'i normal kur ve bir kere çalıştığından emin ol (yukarıdaki adımlar).
-2. https://pytorch.org/get-started/locally/ adresindeki seçicide işletim sistemi, **Pip**, **Python** ve bir **CUDA** sürümü seç. Sayfa bir `pip install ...` komutu verir.
+2. Kartına uygun kilit dosyasını seç: SesVer klasöründeki `kilit\torch-cu130.txt` (sürücü 580 ve üstü), `kilit\torch-cu128.txt` (RTX 50xx, sürücü 570-579) ya da `kilit\torch-cu126.txt` (daha eski sürücü/kart).
 3. SesVer klasöründe komut penceresi aç (klasörün adres çubuğuna `powershell` yazıp Enter).
-4. Sayfanın verdiği komutu şu şekilde çalıştır: baştaki `pip install` yerine `.\python-embed\python.exe -m pip install` yaz (SesVer klasöründe `python-embed` yoksa, eski kurulumda, `.\.venv\Scripts\python.exe -m pip install`); komutun geri kalanını aynen bırak ve sonuna `--force-reinstall` ekle.
+4. Şu komutu çalıştır (`cu130` yerine seçtiğin etiketi yaz; `python-embed` yoksa, eski kurulumda, `.\.venv\Scripts\python.exe` kullan): `.\python-embed\python.exe -m pip install --require-hashes --no-deps -r kilit\torch-cu130.txt`
 5. Sonra başlatıcıyla SesVer'i yeniden aç. Model CUDA → Apple MPS → CPU sırasıyla uygun cihazı kendi seçer.
 
-Bu adımın komutu sürüme göre değiştiği için kesin komutu uydurma; pytorch.org'un verdiği komutu kullan.
+Kilit dosyası sürümü ve SHA-256 özetini sabitler; pytorch.org'dan sabitlenmemiş bir komut verdirme.
 
 ---
 
@@ -171,9 +171,9 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 - Çözüm: Güncel `WINDOWS_BASLAT.bat` sırasıyla `py -3.11`, `py`, `python` dener; ayrıca bir şey yapmak gerekmez. Elle komut yazılıyorsa `py -3.11` yerine `python` kullan.
 
 **5. `[HATA] Kurulum adimi basarisiz oldu: ...` / `Kurulum adımı başarısız oldu: ...`**
-- Sebep: Genelde internet kesintisi veya disk dolu. Hatanın hangi adımda olduğu satırda yazar (örn. `voxcpm kurulumu`, `requirements.txt kurulumu`).
+- Sebep: Genelde internet kesintisi veya disk dolu. Hatanın hangi adımda olduğu satırda yazar (örn. `voxcpm kurulumu (kilit/voxcpm.txt)`, `paket kurulumu (kilit/...)`). Satırda `SHA-256` geçiyorsa indirilen bir dosya kilitteki özetle uyuşmamıştır: kurulum güvenlik için durmuştur, bir süre sonra tekrar denenir.
 - Çözüm: İnterneti ve boş disk alanını (20 GB+) kontrol et, pencereyi kapat, başlatıcıyı **tekrar çalıştır**. Kurulum kaldığı yerden devam eder. Hata sürerse üstteki kırmızı/hata satırlarını iste ve incele.
-- Başlatıcı eski yönteme dönüp sistemdeki Python'u kullanıyorsa ve sürüm 3.13 veya üstüyse `[UYARI] Onerilen surum Python 3.10-3.12` görünür; Python 3.11 kurup klasörü baştan çıkarmayı öner.
+- Başlatıcı eski yönteme dönüp sistemdeki Python'u kullanıyorsa ve sürüm 3.10-3.12 dışındaysa kurulum `Python surumu desteklenmiyor` diyerek durur (paket kilitleri yalnız bu sürümler için var); Python 3.11 kurup başlatıcıyı tekrar çalıştırmayı öner.
 
 **6. `Cannot find empty port` / `address already in use` / 7860 portu kullanımda**
 - Sebep: SesVer zaten açık (başka bir pencerede çalışıyor).
@@ -240,23 +240,25 @@ Kullanıcı bir hata mesajı yapıştırırsa veya ekranda gördüğünü anlat�
 
 Başlatıcı sürekli başarısız oluyorsa, SesVer klasöründe komut penceresi açıp bu komutları **sırayla, tek tek** çalıştırt. Her komuttan sonra hata olup olmadığını sor.
 
-Windows (PowerShell — klasörün adres çubuğuna `powershell` yazıp Enter):
+Windows (PowerShell; klasörün adres çubuğuna `powershell` yazıp Enter):
 ```powershell
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install --no-deps voxcpm==2.0.3
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r kilit\pip.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r kilit\torch-pypi.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r kilit\voxcpm.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r kilit\windows-x64-py311.txt
 .\.venv\Scripts\python.exe app.py
 ```
-`py` çalışmazsa ilk satırda `python -m venv .venv` kullan.
+`py` çalışmazsa ilk satırda `python -m venv .venv` kullan. Python 3.10 ya da 3.12 ise son kurulum satırında `py311` yerine `py310` / `py312` yaz. Kilit dosyaları her paketi sabit sürüm ve SHA-256 ile verir; `requirements.txt`'yi doğrudan kurdurma.
 
-Mac (Terminal — `cd ` yazıp klasörü pencereye sürükle, Enter):
+Mac (Terminal; `cd ` yazıp klasörü pencereye sürükle, Enter):
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install --no-deps voxcpm==2.0.3
-pip install -r requirements.txt
+python -m pip install --require-hashes --no-deps -r kilit/pip.txt
+python -m pip install --require-hashes --no-deps -r kilit/torch-pypi.txt
+python -m pip install --require-hashes --no-deps -r kilit/voxcpm.txt
+python -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r kilit/macos-arm64-py311.txt
 python app.py
 ```
 
