@@ -1,5 +1,12 @@
 # Değişiklikler
 
+## 1.4.0 (2026-11-09)
+
+- Büyük "Yazdığınız metne ses verin." karşılaması artık panelde sürekli yer kaplamıyor: SesVer açılırken ekranın ortasında kısa bir açılış ekranı olarak belirip kayboluyor, çalışma alanı sayfanın üstünden başlıyor. Tıklama ya da bir tuşla hemen geçilebilir; dil değiştirince ya da sayfayı yenileyince tekrar oynamaz. Hareket azaltma açıksa animasyonsuz gösterilir.
+- Sol üstte küçük SesVer markası kalıcı olarak duruyor; uyarılar ve "AI ile üretildi" bilgisi yerinde.
+- Mac: SesVer oturum kapatılırken, sistem kapanırken ya da Etkinlik Monitörü'nden kapatıldığında yanlışlıkla çıkan "SesVer beklenmedik şekilde kapandı (çıkış kodu 143)" penceresi artık gösterilmiyor. Gerçek bir hata olursa pencere yine çıkar.
+- Mac: SesVer.app süreci kapatılınca (ör. Etkinlik Monitörü'nden) SesVer penceresi de kapanıyor; arkada sahipsiz açık kalmıyor.
+
 ## 1.3.1 (2026-11-08)
 
 - Mac kurulumu README'de baştan yazıldı: SesVer artık Apple onaylı bir DMG olarak iniyor. İndirip Uygulamalar'a sürüklemeniz ve açmanız yeterli; "Yine de Aç" adımı yok.
