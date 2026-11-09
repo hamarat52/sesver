@@ -4,7 +4,16 @@ ayarlar.json yokken arayüz dili işletim sisteminin dilinden gelir (i18n.system
 Testlerin çoğu Türkçe kaynak iletileri bekler; sonuç test eden makinenin diline bağlı
 olmasın diye sistem dili Türkçe olarak sabitlenir. Sistem dilini sınayan testler
 (tests/test_i18n.py) bu değişkeni kendileri değiştirir ya da hiç kullanmaz.
+
+Aynı nedenle testler geliştiricinin gerçek ayarlar.json dosyasını okumaz ve ona yazmaz:
+uygulamayı başka bir dilde açmış olmak (ör. "arayuz_dili": "en") Türkçe ileti bekleyen
+testleri kırmasın. Oturum boyunca ayar dosyası boş bir geçici klasöre yönlendirilir; kendi
+ayar yolunu kuran testler (SESVER_AYARLAR) bunu yerel olarak değiştirir.
 """
 import os
+import tempfile
+from pathlib import Path
 
 os.environ["SESVER_SISTEM_DILI"] = "tr-TR"
+_AYAR_DIZINI = tempfile.TemporaryDirectory(prefix="sesver-test-ayar-")
+os.environ["SESVER_AYARLAR"] = str(Path(_AYAR_DIZINI.name) / "ayarlar.json")

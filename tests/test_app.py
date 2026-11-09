@@ -225,13 +225,16 @@ class AppTests(unittest.TestCase):
         self.assertEqual(app.BRAND_NAME, "HamaratLabs")
         self.assertIn("by <b", app.BRAND_SIGNATURE_HTML)
         self.assertIn("HamaratLabs", app.BRAND_SIGNATURE_HTML)
-        self.assertIn(app.BRAND_SIGNATURE_HTML, app._hero())
-        # İmza, kaydırmadan görünen üst gezinme çubuğunda olmalı.
-        nav = app._hero().split('<nav class="sv-nav">', 1)[1].split("</nav>", 1)[0]
+        self.assertIn(app.BRAND_SIGNATURE_HTML, app._splash())
+        # İmza, kaydırmadan görünen kalıcı üst marka satırında olmalı (açılış ekranı kaybolur).
+        nav = app._brand().split('<nav class="sv-nav">', 1)[1].split("</nav>", 1)[0]
         self.assertIn(app.BRAND_SIGNATURE_HTML, nav)
         self.assertIn("HamaratLabs tarafından geliştirildi", app._footer())
         # .sv-brand büyük harfe çevirir; imza yazımı korunmalı (HAMARATLABS olmamalı).
-        sig_css = app._CSS.split(".sv-sig {", 1)[1].split("}", 1)[0]
+        import re
+        sig_rule = re.search(r"(?m)^\.sv-sig \{([^}]*)\}", app._CSS)  # temel kural (satır başı)
+        assert sig_rule is not None
+        sig_css = sig_rule.group(1)
         self.assertIn("text-transform: none", sig_css)
 
     def test_brand_spelling_is_consistent(self):
@@ -239,7 +242,7 @@ class AppTests(unittest.TestCase):
         import app
         readme = (Path(app.__file__).parent / "README.md").read_text(encoding="utf-8")
         self.assertIn("HamaratLabs tarafından geliştirilmiştir.", readme.splitlines()[:4])
-        for source in (app._hero(), app._footer(), readme):
+        for source in (app._brand(), app._splash(), app._footer(), readme):
             for match in re.findall(r"hamarat\s*-?\s*labs", source, flags=re.IGNORECASE):
                 self.assertEqual(match, "HamaratLabs")
 
@@ -259,6 +262,154 @@ class AppTests(unittest.TestCase):
         self.assertNotIn("filter", "".join(frames))
         # Hareket azaltma tercihi olanlarda animasyon kapalı.
         self.assertRegex(css, r"@media \(prefers-reduced-motion: reduce\) \{\s*\.sv-aura i \{ animation: none")
+
+
+# SPLASH_JS'i (gr.HTML js_on_load gövdesi) Node'da sahte DOM ile çalıştırır: depolama, zamanlayıcı
+# ve olay dinleyicileri taklit edilir; her senaryonun sonucu JSON olarak döner.
+_SPLASH_HARNESS = r"""
+const SPLASH_JS = process.env.SV_SPLASH_JS;
+const scenarios = JSON.parse(process.env.SV_SCENARIOS);
+const out = [];
+const shared = {};
+for (const sc of scenarios) {
+  const store = sc.fresh ? {} : shared;
+  const mkStorage = (broken) => ({
+    getItem(k) { if (broken) throw new Error('denied'); return k in store ? store[k] : null; },
+    setItem(k, v) { if (broken) throw new Error('denied'); store[k] = String(v); },
+  });
+  const listeners = {};
+  const timers = [];
+  const win = {
+    localStorage: mkStorage(sc.noLocal), sessionStorage: mkStorage(false),
+    matchMedia: () => ({ matches: !!sc.reduced }),
+    addEventListener(ev, fn) { (listeners[ev] = listeners[ev] || []).push(fn); },
+    removeEventListener(ev, fn) { listeners[ev] = (listeners[ev] || []).filter((f) => f !== fn); },
+  };
+  const cls = new Set();
+  let removed = false;
+  const s = { dataset: { boot: sc.boot }, classList: { add: (c) => cls.add(c) },
+              style: { setProperty() {} }, remove() { removed = true; } };
+  const element = { querySelector: (q) => (q === '.sv-splash' ? s : null) };
+  const setT = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
+  new Function('element', 'window', 'setTimeout', 'clearTimeout', SPLASH_JS)(element, win, setT, () => {});
+  const r = { removedAtOnce: removed, classes: [...cls], listeners: Object.keys(listeners).filter((k) => listeners[k].length),
+              hold: timers.length ? timers[0].ms : null };
+  if (sc.action === 'skip' && listeners.keydown) listeners.keydown[0]();
+  if (sc.action === 'wait' && timers.length) timers[0].fn();
+  if (sc.action) {
+    r.afterClasses = [...cls];
+    r.removeDelay = timers.length > 1 ? timers[timers.length - 1].ms : null;
+    timers.slice(1).forEach((t) => t.fn());
+    r.removedAtEnd = removed;
+    r.listenersLeft = Object.keys(listeners).filter((k) => listeners[k].length);
+  }
+  r.stored = store['sesver-acilis'] || null;
+  out.push(r);
+}
+console.log(JSON.stringify(out));
+"""
+
+
+class SplashTests(unittest.TestCase):
+    """Açılış ekranı: büyük karşılama panelde kalıcı değil; uygulama açılışı başına bir kez oynar."""
+
+    def _run_js(self, scenarios):
+        import json
+        import os
+        import shutil
+        import subprocess
+        import app
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node yok; açılış betiği davranış testi atlandı")
+        env = dict(os.environ, SV_SPLASH_JS=app.SPLASH_JS, SV_SCENARIOS=json.dumps(scenarios))
+        proc = subprocess.run([node, "-"], input=_SPLASH_HARNESS, env=env,
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        return json.loads(proc.stdout)
+
+    def test_plays_once_per_app_start_and_not_on_reload_or_language_change(self):
+        first, reload_, other_lang, new_start = self._run_js([
+            {"boot": "aaa"},  # ilk açılış (ortak depo başta boş)
+            {"boot": "aaa"},  # aynı sunucu: sayfa yenileme
+            {"boot": "aaa"},  # aynı sunucu: başka dil sayfası (/en, /ar …) aynı kimliği taşır
+            {"boot": "bbb"},  # uygulama yeniden açıldı: yeni kimlik
+        ])
+        self.assertFalse(first["removedAtOnce"])
+        self.assertIn("is-on", first["classes"])
+        self.assertEqual(first["stored"], "aaa")
+        for again in (reload_, other_lang):
+            self.assertTrue(again["removedAtOnce"])
+            self.assertNotIn("is-on", again["classes"])
+            self.assertEqual(again["listeners"], [])
+        self.assertIn("is-on", new_start["classes"])
+        self.assertEqual(new_start["stored"], "bbb")
+
+    def test_ends_by_itself_or_on_skip_and_cleans_up(self):
+        import app
+        waited, skipped = self._run_js([
+            {"boot": "x", "fresh": True, "action": "wait"},
+            {"boot": "y", "fresh": True, "action": "skip"},
+        ])
+        self.assertEqual(waited["hold"], app.SPLASH_HOLD_MS)
+        self.assertLessEqual(app.SPLASH_HOLD_MS, 2500)  # kullanıcıyı bekletmez
+        self.assertEqual(set(waited["listeners"]), {"pointerdown", "keydown", "wheel", "touchstart"})
+        self.assertIn("is-out", waited["afterClasses"])
+        self.assertIn("is-skip", skipped["afterClasses"])
+        self.assertLess(skipped["removeDelay"], waited["removeDelay"])  # geçince daha çabuk kaybolur
+        for r in (waited, skipped):
+            self.assertTrue(r["removedAtEnd"])
+            self.assertEqual(r["listenersLeft"], [])
+
+    def test_reduced_motion_and_storage_fallback(self):
+        import app
+        reduced, no_local = self._run_js([
+            {"boot": "r", "fresh": True, "reduced": True},
+            {"boot": "s", "fresh": True, "noLocal": True},
+        ])
+        self.assertIn("is-still", reduced["classes"])
+        self.assertEqual(reduced["hold"], app.SPLASH_HOLD_STILL_MS)
+        self.assertLess(app.SPLASH_HOLD_STILL_MS, app.SPLASH_HOLD_MS)
+        # localStorage kapalıysa sessionStorage'a yazılır (sekme içinde yine bir kez).
+        self.assertEqual(no_local["stored"], "s")
+        css = app._CSS
+        self.assertRegex(css, r"\.sv-splash \{ display: none;")  # betik çalışmazsa hiç görünmez
+        self.assertIn(".sv-splash.is-on { display: grid; }", css)
+        self.assertRegex(css, r"@media \(prefers-reduced-motion: reduce\) \{\s*\.sv-splash, \.sv-splash \*")
+
+    def test_splash_markup_is_decorative_and_rtl_aware(self):
+        import app
+        html = app._splash()
+        self.assertIn(f'data-boot="{app.SPLASH_BOOT_ID}"', html)
+        self.assertIn('aria-hidden="true"', html)
+        self.assertIn("<h1>", html)
+        self.assertNotIn('dir="rtl"', html)
+        with app.i18n.use("ar"):
+            self.assertIn('dir="rtl"', app._splash())
+
+    def test_pages_have_no_permanent_hero(self):
+        import asyncio
+        import app
+
+        async def construct():
+            return app.build_app()
+
+        with patch.object(app, "get_model"):
+            demo = asyncio.run(construct())
+        htmls = [c for c in demo.config["components"] if c.get("type") == "html"]
+        hosts = [c for c in htmls if "sv-splash-host" in (c["props"].get("elem_classes") or [])]
+        self.assertGreaterEqual(len(hosts), 1)
+        for host in hosts:
+            self.assertEqual(host["props"].get("js_on_load"), app.SPLASH_JS)
+        # Büyük başlık yalnız açılış ekranında; panelde kalıcı karşılama bölümü yok.
+        for c in htmls:
+            if c in hosts:
+                continue
+            value = str(c["props"].get("value") or "")
+            self.assertNotIn("sv-hero", value)
+            self.assertNotIn("<h1>", value)
+        brands = [c for c in htmls if "sv-brandbar" in (c["props"].get("elem_classes") or [])]
+        self.assertEqual(len(brands), len(hosts))  # her sayfada küçük kalıcı marka
 
 
 if __name__ == "__main__":

@@ -773,7 +773,8 @@ def _head(icon, title, text, step=None):
 
 
 # --- Şemsiye marka imzası (HamaratLabs) -------------------------------
-# İmza yalnız burada tanımlıdır; üst bilgi (_hero) ve alt bilgi (_footer) buradan okur.
+# İmza yalnız burada tanımlıdır; kalıcı marka (_brand), açılış ekranı (_splash) ve alt bilgi
+# (_footer) buradan okur.
 # Logo seçilince yalnız BRAND_SIGNATURE_HTML içindeki <b class="sv-sig-mark"> öğesini
 # satır içi SVG ile değiştirin, ör.:
 #   <svg class="sv-sig-mark" role="img" aria-label="HamaratLabs" viewBox="…">…</svg>
@@ -787,19 +788,32 @@ BRAND_SIGNATURE_HTML = (
 BRAND_FOOTER_TEXT = f"{BRAND_NAME} tarafından geliştirildi"  # Türkçe hâli; çevirisi _footer() içinde
 
 
-def _hero():
+def _brand():
+    """Kalıcı marka: sol üstte küçük logo + SesVer + "by HamaratLabs" (dil çubuğunun solunda)."""
+    return (f'<nav class="sv-nav"><div class="sv-brand"><span class="sv-logo">{_svg(_IC_WAVE)}</span>'
+            f'<span class="sv-brand-text"><span>SesVer</span>{BRAND_SIGNATURE_HTML}</span></div></nav>')
+
+
+# --- Açılış ekranı ---------------------------------------------------------
+# Büyük karşılama (rozetler, başlık, açıklama) panelde kalıcı yer kaplamaz: uygulama her
+# açıldığında bir kez ekranın ortasında belirir, kısa süre kalır ve kaybolur. Tıklama, tuş
+# ya da kaydırma hemen geçer. "Bir kez" sunucu sürecine bağlıdır: her açılışta yeni bir
+# kimlik üretilir; dil değiştirme (/en, /ar …), sayfa yenileme ve yeni sekme aynı kimliği
+# görür ve tekrar oynatmaz. Hareket azaltma tercihinde hareketsiz ve kısa gösterilir.
+SPLASH_BOOT_ID = uuid4().hex[:12]
+SPLASH_KEY = "sesver-acilis"
+SPLASH_HOLD_MS = 2000        # belirme dahil ekranda kalma süresi; ardından ~0,55 sn'de kaybolur
+SPLASH_HOLD_STILL_MS = 1200  # hareket azaltma açıkken (animasyonsuz)
+
+
+def _splash():
+    rtl = ' dir="rtl"' if i18n.is_rtl(i18n.get_lang()) else ""
     return f"""
-<div class="sv-hero">
-  <div class="sv-aura" aria-hidden="true"><i></i><i></i><i></i></div>
-  <nav class="sv-nav">
-    <div class="sv-brand"><span class="sv-logo">{_svg(_IC_WAVE)}</span>
+<div class="sv-splash" data-boot="{SPLASH_BOOT_ID}" aria-hidden="true"{rtl}>
+  <div class="sv-aura"><i></i><i></i><i></i></div>
+  <div class="sv-splash-in">
+    <div class="sv-brand sv-brand-lg"><span class="sv-logo">{_svg(_IC_WAVE)}</span>
       <span class="sv-brand-text"><span>SesVer</span>{BRAND_SIGNATURE_HTML}</span></div>
-    <div class="sv-nav-tags">
-      <span class="sv-tag"><span class="sv-live"></span>{t("Bilgisayarınızda çalışır")}</span>
-      <span class="sv-tag sv-hide-sm">{t("Açık kaynak (MIT) · Ücretsiz")}</span>
-    </div>
-  </nav>
-  <div class="sv-hero-body">
     <div class="sv-badges">
       <span class="sv-badge"><b>TR</b>{t("Türkçe")}</span>
       <span class="sv-badge">{_svg(_IC_LOCK)}{t("Hesap gerekmez")}</span>
@@ -808,8 +822,46 @@ def _hero():
     <h1>{t('Yazdığınız metne<br><span class="sv-accent">ses verin.</span>')}</h1>
     <p>{t("Türkçe metni doğal bir sese çevirin ya da kısa bir kayıtla bir sesi klonlayın. "
           "Kurulum bir kez yapılır, gerisi tek tık.")}</p>
+    <div class="sv-nav-tags">
+      <span class="sv-tag"><span class="sv-live"></span>{t("Bilgisayarınızda çalışır")}</span>
+      <span class="sv-tag">{t("Açık kaynak (MIT) · Ücretsiz")}</span>
+    </div>
+    <span class="sv-splash-bar"></span>
   </div>
 </div>
+"""
+
+
+# gr.HTML js_on_load: bileşen DOM'a bağlanır bağlanmaz (ilk boyamadan önce) çalışır.
+# Varsayılan CSS'te açılış ekranı gizlidir; yalnız oynayacaksa "is-on" eklenir, yoksa
+# öğe hemen kaldırılır (yenilemede yanıp sönme olmaz). localStorage yoksa sessionStorage.
+SPLASH_JS = f"""
+const s = element.querySelector('.sv-splash');
+if (!s) return;
+const key = {SPLASH_KEY!r}, id = s.dataset.boot;
+let seen = false;
+for (const st of ['localStorage', 'sessionStorage']) {{
+  try {{ seen = window[st].getItem(key) === id; window[st].setItem(key, id); break; }} catch (e) {{}}
+}}
+if (seen) {{ s.remove(); return; }}
+const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const hold = still ? {SPLASH_HOLD_STILL_MS} : {SPLASH_HOLD_MS};
+const evs = ['pointerdown', 'keydown', 'wheel', 'touchstart'];
+let done = false, timer = 0;
+const end = (skip) => {{
+  if (done) return;
+  done = true;
+  clearTimeout(timer);
+  evs.forEach((ev) => window.removeEventListener(ev, onSkip, true));
+  s.classList.add(skip ? 'is-skip' : 'is-out');
+  setTimeout(() => s.remove(), skip || still ? 260 : 600);
+}};
+const onSkip = () => end(true);
+s.style.setProperty('--sv-hold', hold + 'ms');
+s.classList.add('is-on');
+if (still) s.classList.add('is-still');
+evs.forEach((ev) => window.addEventListener(ev, onSkip, {{ capture: true, passive: true }}));
+timer = setTimeout(() => end(false), hold);
 """
 
 
@@ -905,10 +957,22 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-ic { width: 18px; height: 18px; flex: none; }
 .gradio-container .html-container { padding: 0 !important; }
 
-/* --- Üst bilgi ------------------------------------------------------- */
-.sv-hero { position: relative; padding: 18px 0 34px; text-align: center; }
-.sv-aura { position: absolute; left: 50%; top: 40px; width: min(980px, 100%); height: 330px;
-  transform: translateX(-50%); pointer-events: none; z-index: -1; }
+/* --- Açılış ekranı (bkz. _splash / SPLASH_JS) --------------------------
+   Varsayılan gizli; JS yalnız oynayacağı açılışta "is-on" ekler. Ekranı örten sabit
+   katman: krem zemin, ortada marka + rozetler + başlık + açıklama, altta kalma süresini
+   gösteren ince çizgi. Belirme ~0,9 sn (sırayla yükselerek), kalma SPLASH_HOLD_MS,
+   kaybolma 0,55 sn (geçince 0,24 sn). Yalnız opacity + transform canlandırılır. */
+.sv-splash { display: none; position: fixed; inset: 0; z-index: 1000; place-items: center;
+  padding: 32px 20px; overflow: hidden; text-align: center; background: var(--sv-cream);
+  color: var(--sv-ink); cursor: default; -webkit-user-select: none; user-select: none; }
+.sv-splash.is-on { display: grid; }
+/* Taşıyıcı blok akıştan çıkar: sütun aralığı (gap) eklemez, sayfa yukarıdan başlar. */
+.block.sv-splash-host { position: absolute !important; width: 0 !important; height: 0 !important;
+  margin: 0 !important; padding: 0 !important; border: 0 !important; }
+.sv-splash-in { position: relative; z-index: 1; max-width: 760px; display: flex; flex-direction: column;
+  align-items: center; }
+.sv-aura { position: absolute; left: 50%; top: 50%; width: min(1100px, 100%); height: 520px;
+  transform: translate(-50%, -52%); pointer-events: none; z-index: 0; }
 .sv-aura i { position: absolute; inset: 0; display: block;
   background-image: radial-gradient(var(--sv-ink) var(--r), transparent calc(var(--r) + 0.6px));
   background-size: 9px 9px; background-position: center; }
@@ -921,11 +985,9 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-aura i:nth-child(3) { --r: 2.2px; opacity: .10;
   -webkit-mask-image: radial-gradient(ellipse 20% 12% at 50% 60%, #000 0%, transparent 100%);
           mask-image: radial-gradient(ellipse 20% 12% at 50% 60%, #000 0%, transparent 100%); }
-/* Açılış: nokta katmanları merkezden dışa doğru sırayla büyüyüp belirir (~1,9 sn),
-   sonra durur. Yalnız transform + opacity (GPU dostu); döngü yok. Bitiş anahtar
-   karesi yazılmadı ve fill-mode "backwards": animasyon bitince katman doğrudan
-   yukarıdaki sabit stile döner (son görünüm birebir aynı, getAnimations() boşalır).
-   Statik HTML bir kez bağlandığı için yalnız ilk açılışta oynar. */
+/* Nokta katmanları merkezden dışa doğru sırayla büyüyüp belirir (~1,9 sn), sonra durur.
+   Bitiş anahtar karesi yok, fill-mode "backwards": bitince sabit stile döner. Katman
+   display:none iken animasyon başlamaz; "is-on" ile görünür olunca bir kez oynar. */
 @keyframes sv-aura-in { from { opacity: 0; transform: scale(var(--s0)); } }
 .sv-aura i { transform-origin: 50% 58%;
   animation: sv-aura-in var(--d) var(--sv-ease) var(--dl) 1 backwards; }
@@ -934,13 +996,45 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-aura i:nth-child(1) { --s0: .75; --d: 1.7s; --dl: .24s; }
 @media (prefers-reduced-motion: reduce) { .sv-aura i { animation: none !important; } }
 
-.sv-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 6px 0 0; margin-bottom: 46px; }
+@keyframes sv-rise { from { opacity: 0; transform: translateY(16px); } }
+@keyframes sv-splash-out { to { opacity: 0; } }
+@keyframes sv-lift { to { opacity: 0; transform: translateY(-14px) scale(.985); } }
+@keyframes sv-fill { from { transform: scaleX(0); } }
+.sv-splash-in > * { animation: sv-rise .75s var(--sv-ease) calc(80ms + var(--n) * 90ms) 1 backwards; }
+.sv-splash-in > :nth-child(1) { --n: 0; }
+.sv-splash-in > :nth-child(2) { --n: 1; }
+.sv-splash-in > :nth-child(3) { --n: 2; }
+.sv-splash-in > :nth-child(4) { --n: 3.4; }
+.sv-splash-in > :nth-child(5) { --n: 4.4; }
+.sv-splash-in > :nth-child(6) { --n: 5.4; }
+.sv-splash.is-out { animation: sv-splash-out .55s var(--sv-ease) forwards; pointer-events: none; }
+.sv-splash.is-out .sv-splash-in { animation: sv-lift .55s var(--sv-ease) forwards; }
+.sv-splash.is-skip { animation: sv-splash-out .24s ease-out forwards; }
+.sv-splash.is-skip .sv-splash-in { animation: sv-lift .24s ease-out forwards; }
+.sv-splash-bar { position: relative; width: 112px; height: 2px; margin-top: 34px; border-radius: 2px;
+  overflow: hidden; background: var(--sv-line); }
+.sv-splash-bar::after { content: ""; position: absolute; inset: 0; background: var(--sv-grad);
+  transform-origin: left center; animation: sv-fill var(--sv-hold, 2s) linear 1 backwards; }
+.sv-splash[dir="rtl"] .sv-splash-bar::after { transform-origin: right center; }
+/* Hareket azaltma: animasyon yok; kısa süre durağan görünür, 0,2 sn'de söner. */
+.sv-splash.is-still, .sv-splash.is-still *, .sv-splash.is-still *::after { animation: none !important; }
+.sv-splash.is-still { transition: opacity .2s linear; }
+.sv-splash.is-still.is-out, .sv-splash.is-still.is-skip { opacity: 0; }
+.sv-splash.is-still .sv-splash-bar { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .sv-splash, .sv-splash *, .sv-splash *::after { animation: none !important; } }
+
+/* --- Marka (sol üst, kalıcı) ------------------------------------------ */
+.sv-nav { display: flex; align-items: center; }
 .sv-brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 700;
   font-size: 1.05rem; letter-spacing: 0.02em; color: var(--sv-ink); text-transform: uppercase; }
 .sv-logo { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
   background: var(--sv-paper); border: 1px solid var(--sv-line); box-shadow: var(--sv-shadow-sm); }
 .sv-logo .sv-ic { width: 17px; height: 17px; stroke-width: 2.2; }
+.sv-brand-lg { gap: 12px; margin-bottom: 30px; font-size: 1.2rem; text-align: start; }
+.sv-brand-lg .sv-logo { width: 46px; height: 46px; border-radius: 15px; }
+.sv-brand-lg .sv-logo .sv-ic { width: 22px; height: 22px; }
+.sv-brand-lg .sv-sig { font-size: .74rem; }
 /* Ürün adı + altında küçük "by HamaratLabs" imzası (ürün markasını bastırmaz). */
 .sv-brand-text { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px;
   line-height: 1.1; }
@@ -948,14 +1042,13 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   color: var(--sv-muted); white-space: nowrap; }
 .sv-sig-mark { font-weight: 650; color: var(--sv-ink-2); }
 .sv-foot-sig { color: var(--sv-ink-2); }
-.sv-nav-tags { display: flex; gap: 8px; }
+.sv-nav-tags { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 28px; }
 .sv-tag { display: inline-flex; align-items: center; gap: 8px; padding: 7px 13px; border-radius: 999px;
   font-size: .8rem; font-weight: 500; color: var(--sv-ink-2); background: rgba(255,255,255,.75);
-  border: 1px solid var(--sv-line); box-shadow: var(--sv-shadow-sm); backdrop-filter: blur(6px); }
+  border: 1px solid var(--sv-line); box-shadow: var(--sv-shadow-sm); }
 .sv-live { width: 7px; height: 7px; border-radius: 50%; background: #2DBE6C;
   box-shadow: 0 0 0 3px rgba(45, 190, 108, .18); }
 
-.sv-hero-body { max-width: 720px; margin: 0 auto; }
 .sv-badges { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 22px; }
 .sv-badge { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 8px;
   border-radius: 999px; background: var(--sv-paper); border: 1px solid var(--sv-line);
@@ -963,11 +1056,11 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-badge .sv-ic { width: 15px; height: 15px; color: var(--sv-coral); }
 .sv-badge b { font-size: .64rem; font-weight: 700; letter-spacing: .04em; color: #fff;
   background: #E30A17; border-radius: 4px; padding: 2px 4px; line-height: 1; }
-.sv-hero h1 { margin: 0; font-size: clamp(2.5rem, 5.4vw, 4.1rem); line-height: 1.02;
+.sv-splash h1 { margin: 0; font-size: clamp(2.5rem, 5.4vw, 4.1rem); line-height: 1.02;
   font-weight: 700; letter-spacing: -0.032em; word-spacing: 0.04em; color: var(--sv-ink); }
 .sv-accent { background: linear-gradient(92deg, #FF7A4D 0%, #F2476A 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent; padding-right: .04em; }
-.sv-hero-body p { margin: 20px auto 0; max-width: 540px; font-size: 1.08rem; line-height: 1.6;
+.sv-splash-in p { margin: 20px auto 0; max-width: 540px; font-size: 1.08rem; line-height: 1.6;
   color: var(--sv-muted); }
 
 /* --- Sekmeler: ortalanmış hap anahtar ------------------------------ */
@@ -1092,7 +1185,7 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 /* Gradio'nun çok sayfalı gezinme çubuğu ("Home") gizlenir; diller arası geçiş seçiciyle yapılır. */
 .nav-holder { display: none !important; }
 .sv-langbar { flex-direction: row-reverse !important; justify-content: flex-start !important;
-  align-items: center !important; gap: 8px 14px !important; padding-top: 12px; margin-bottom: -4px;
+  align-items: center !important; gap: 8px 14px !important; padding-top: 12px; margin-bottom: 22px;
   position: relative; z-index: 3; flex-wrap: wrap !important; }
 .sv-langbar > * { flex: 0 1 auto !important; min-width: 0 !important; }
 .sv-langbar > .form { flex: 0 0 200px !important; width: 200px !important; background: transparent !important;
@@ -1106,6 +1199,9 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
   border: 1px solid var(--sv-line) !important; box-shadow: var(--sv-shadow-sm) !important; }
 .sv-langbar .sv-lang input { font-size: .85rem !important; cursor: pointer; }
 .sv-langbar > .block { flex: 1 1 240px !important; }
+/* Kalıcı marka: satırın en solunda, doğal genişliğinde; boşluk not ile marka arasında kalır. */
+.sv-langbar > .block.sv-brandbar { flex: 0 0 auto !important; width: auto !important; margin-right: auto;
+  align-self: center; }
 .sv-tts-lang { max-width: 320px; margin-left: auto; font-size: .74rem; line-height: 1.4; color: var(--sv-muted);
   text-align: right; }
 .sv-tts-lang b { color: var(--sv-ink-2); font-weight: 600; }
@@ -1115,7 +1211,7 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
    Pragmatik orta yol: metin RTL okunur ve sağa hizalanır, sayfa düzeni (ızgara,
    kartların yeri, sekmeler) LTR kalır. Kullanıcının yazdığı metin kutuları
    içeriğin kendi yönünü izler (Türkçe/İngilizce metin yine soldan sağa). */
-body.sv-rtl .sv-hero-body, body.sv-rtl .sv-head > div, body.sv-rtl .sv-tile > div, body.sv-rtl .sv-ethics ul,
+body.sv-rtl .sv-head > div, body.sv-rtl .sv-tile > div, body.sv-rtl .sv-ethics ul,
 body.sv-rtl .sv-hint, body.sv-rtl .sv-note, body.sv-rtl .sv-fine, body.sv-rtl .prose, body.sv-rtl .sv-vmeta,
 body.sv-rtl .sv-empty, body.sv-rtl .sv-group-title, body.sv-rtl [data-testid="block-info"],
 body.sv-rtl .sv-tts-lang, body.sv-rtl .sv-foot span { direction: rtl; }
@@ -1317,9 +1413,6 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 
 /* --- Mobil --------------------------------------------------------- */
 @media (max-width: 860px) {
-  .sv-nav { margin-bottom: 30px; }
-  .sv-hide-sm { display: none !important; }
-  .sv-hero { padding-bottom: 26px; }
   .sv-panel { padding: 20px 18px 18px !important; }
   .sv-card { padding: 20px !important; }
   .sv-actionbar { flex-wrap: wrap !important; }
@@ -1966,6 +2059,7 @@ def _language_bar(lang):
         _html('<div class="sv-tts-lang">' + t(
             "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur "
             "(Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).") + "</div>")
+        _html(_brand(), elem_classes=["sv-brandbar"])  # DOM'da en sonda = görünümde en solda
     picker.change(None, inputs=picker, js=_switch_js())
     return queue_btn, settings_btn
 
@@ -1987,8 +2081,9 @@ def _guncelleme_bildirimi(lang):
 def _build_page(demo, lang):
     """Bir dilin tam sayfası; tüm metinler kurulurken o dilde üretilir."""
     with i18n.use(lang):
+        # Açılış ekranı: sabit katman (akışta yer kaplamaz); uygulama açılışı başına bir kez oynar.
+        _html(_splash(), js_on_load=SPLASH_JS, elem_classes=["sv-splash-host"])
         queue_btn, settings_btn = _language_bar(lang)
-        _html(_hero())
         update_note = _html("", visible=False, elem_id="sv-update-note")
         demo.load(_guncelleme_bildirimi(lang), outputs=update_note, show_progress="hidden",
                   concurrency_limit=None, concurrency_id="sv-guncelleme", api_visibility="private")
