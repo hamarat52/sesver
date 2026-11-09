@@ -166,7 +166,6 @@
  "Bu ses bana ait ya da sahibinden açık izin aldım.": "这个声音属于我，或我已获得声音所有者的明确许可。",
  "<b>İzin kutucuğu zorunlu.</b><br>İşaretlenmeden kaydedilemez.": "<b>必须勾选同意框。</b><br>未勾选无法保存。",
  "SesVer — Türkçe yerel ses üretimi": "SesVer — 本地土耳其语语音生成",
- "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur (Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).": "<b>语音语言是独立的：</b>VoxCPM2 会用你书写文本所用的语言朗读（支持包括土耳其语在内的 30 种语言；无需另外选择语言）。",
  "Arayüz dili": "界面语言",
  "Ses Kütüphanesi": "音色库",
  "Ses Oluştur": "创建音色",

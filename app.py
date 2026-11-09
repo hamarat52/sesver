@@ -1219,14 +1219,9 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-langbar .sv-lang .container > .wrap { border-radius: 999px !important; background: rgba(255,255,255,.85) !important;
   border: 1px solid var(--sv-line) !important; box-shadow: var(--sv-shadow-sm) !important; }
 .sv-langbar .sv-lang input { font-size: .85rem !important; cursor: pointer; }
-.sv-langbar > .block { flex: 1 1 240px !important; }
-/* Kalıcı marka: satırın en solunda, doğal genişliğinde; boşluk not ile marka arasında kalır. */
+/* Kalıcı marka: satırın en solunda, doğal genişliğinde; boşluk girişler ile marka arasında kalır. */
 .sv-langbar > .block.sv-brandbar { flex: 0 0 auto !important; width: auto !important; margin-right: auto;
   align-self: center; }
-.sv-tts-lang { max-width: 320px; margin-left: auto; font-size: .74rem; line-height: 1.4; color: var(--sv-muted);
-  text-align: right; }
-.sv-tts-lang b { color: var(--sv-ink-2); font-weight: 600; }
-@media (max-width: 480px) { .sv-tts-lang { max-width: none; margin-left: 0; text-align: start; } }
 
 /* --- Sağdan sola diller (Arapça) ----------------------------------
    Pragmatik orta yol: metin RTL okunur ve sağa hizalanır, sayfa düzeni (ızgara,
@@ -1235,7 +1230,7 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 body.sv-rtl .sv-head > div, body.sv-rtl .sv-tile > div, body.sv-rtl .sv-ethics ul,
 body.sv-rtl .sv-hint, body.sv-rtl .sv-note, body.sv-rtl .sv-fine, body.sv-rtl .prose, body.sv-rtl .sv-vmeta,
 body.sv-rtl .sv-empty, body.sv-rtl .sv-group-title, body.sv-rtl [data-testid="block-info"],
-body.sv-rtl .sv-tts-lang, body.sv-rtl .sv-foot span { direction: rtl; }
+body.sv-rtl .sv-foot span { direction: rtl; }
 body.sv-rtl .sv-head > div, body.sv-rtl .sv-tile > div, body.sv-rtl .sv-hint, body.sv-rtl .sv-fine,
 body.sv-rtl .prose, body.sv-rtl .sv-vmeta, body.sv-rtl .sv-empty { text-align: right; }
 body.sv-rtl .sv-ethics li { padding-left: 0; padding-right: 22px; }
@@ -2064,7 +2059,7 @@ def _remember_language(lang):
 
 
 def _language_bar(lang):
-    # DOM sırası: seçici, sonra Kuyruk/Ayarlar girişleri, sonra not (CSS row-reverse ile seçici sağ
+    # DOM sırası: seçici, sonra Kuyruk/Ayarlar girişleri, sonra marka (CSS row-reverse ile seçici sağ
     # üstte, girişler hemen solunda durur). Girişler gizli sekmeleri açar (bkz. _build_page).
     with gr.Row(elem_classes=["sv-langbar"]):
         picker = gr.Dropdown(
@@ -2077,9 +2072,6 @@ def _language_bar(lang):
                                   elem_classes=["sv-btn", "sv-topbtn", "sv-top-kuyruk", "is-empty"])
             settings_btn = gr.Button(t("Ayarlar"), scale=0, min_width=0,
                                      elem_classes=["sv-btn", "sv-topbtn", "sv-top-ayarlar"])
-        _html('<div class="sv-tts-lang">' + t(
-            "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur "
-            "(Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).") + "</div>")
         _html(_brand(), elem_classes=["sv-brandbar"])  # DOM'da en sonda = görünümde en solda
     picker.change(None, inputs=picker, js=_switch_js())
     return queue_btn, settings_btn

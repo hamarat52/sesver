@@ -166,7 +166,6 @@
  "Bu ses bana ait ya da sahibinden açık izin aldım.": "この声は自分のもの、または持ち主から明確な許可を得ています。",
  "<b>İzin kutucuğu zorunlu.</b><br>İşaretlenmeden kaydedilemez.": "<b>同意のチェックは必須です。</b><br>チェックしないと保存できません。",
  "SesVer — Türkçe yerel ses üretimi": "SesVer — ローカルのトルコ語音声生成",
- "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur (Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).": "<b>音声の言語は別です：</b>VoxCPM2 はテキストを書いた言語のまま読み上げます（トルコ語を含む 30 言語。言語の選択は不要）。",
  "Arayüz dili": "表示言語",
  "Ses Kütüphanesi": "ボイスライブラリ",
  "Ses Oluştur": "声を作成",

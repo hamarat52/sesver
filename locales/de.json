@@ -166,7 +166,6 @@
  "Bu ses bana ait ya da sahibinden açık izin aldım.": "Diese Stimme gehört mir oder ich habe die ausdrückliche Erlaubnis ihres Inhabers.",
  "<b>İzin kutucuğu zorunlu.</b><br>İşaretlenmeden kaydedilemez.": "<b>Das Einwilligungsfeld ist Pflicht.</b><br>Ohne Häkchen kann nicht gespeichert werden.",
  "SesVer — Türkçe yerel ses üretimi": "SesVer — lokale türkische Sprachsynthese",
- "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur (Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).": "<b>Die Sprache der Stimme ist davon unabhängig:</b> VoxCPM2 liest den Text in der Sprache, in der Sie ihn schreiben (30 Sprachen inkl. Türkisch; keine Spracheinstellung nötig).",
  "Arayüz dili": "Sprache der Oberfläche",
  "Ses Kütüphanesi": "Stimmbibliothek",
  "Ses Oluştur": "Stimme erstellen",

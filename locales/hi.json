@@ -166,7 +166,6 @@
  "Bu ses bana ait ya da sahibinden açık izin aldım.": "यह आवाज़ मेरी है या मेरे पास इसके मालिक की स्पष्ट अनुमति है।",
  "<b>İzin kutucuğu zorunlu.</b><br>İşaretlenmeden kaydedilemez.": "<b>सहमति बॉक्स अनिवार्य है।</b><br>इसके बिना सहेजा नहीं जा सकता।",
  "SesVer — Türkçe yerel ses üretimi": "SesVer — स्थानीय तुर्की आवाज़ निर्माण",
- "<b>Ses üretim dili ayrıdır:</b> VoxCPM2 metni hangi dilde yazarsanız o dilde okur (Türkçe dahil 30 dil; ayrıca dil seçmeniz gerekmez).": "<b>आवाज़ की भाषा अलग है:</b> VoxCPM2 पाठ को उसी भाषा में पढ़ता है जिसमें आप लिखते हैं (तुर्की सहित 30 भाषाएँ; अलग से भाषा चुनने की ज़रूरत नहीं)।",
  "Arayüz dili": "इंटरफ़ेस भाषा",
  "Ses Kütüphanesi": "आवाज़ लाइब्रेरी",
  "Ses Oluştur": "आवाज़ बनाएँ",
