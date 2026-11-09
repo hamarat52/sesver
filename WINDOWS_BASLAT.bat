@@ -41,6 +41,16 @@ del /f /q "kurulum_pid.txt" >nul 2>nul
 REM PowerShell'in ust sureci bu betigi calistiran cmd.exe'dir (dogrudan cagri).
 powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "(Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID)).ParentProcessId" >"kurulum_pid.txt" 2>nul
 if errorlevel 1 echo [UYARI] Surec numarasi yazilamadi; sihirbaz iptal dugmesi yedek yontemi kullanir.
+REM Gunlugun geri kalani tek kodlamayla (UTF-8) yazilsin: cmd ciktisi konsol kod
+REM sayfasini, Python ciktisi PYTHONIOENCODING degiskenini kullanir. Sihirbaz paylasilabilir
+REM kopyayi uretirken gunlugu UTF-8 okur; ASCII disi kullanici adi da USERPROFILE ile
+REM eslesip gizlenir (windows\SesVer.iss PaylasilabilirGunlukBaytlari). PID satiri bundan
+REM once yazilir: PowerShell ciktisi kod sayfasi degisikliginden etkilenmesin. Yalniz bu
+REM kipte; normal cift tik calismasinda kod sayfasina dokunulmaz.
+chcp 65001 >nul 2>nul
+set "PYTHONIOENCODING=utf-8"
+REM Destek icin kurulum klasoru; paylasilabilir kopyada ev klasoru kismi gizlenir.
+echo [BILGI] Kurulum klasoru: "%CD%"
 call :durum 0 "Basliyor"
 :yk_hazir
 
@@ -325,7 +335,9 @@ echo ----------------------------------------------------------------
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-Content -LiteralPath 'sesver_log.txt' -Tail 40 -Encoding UTF8" 2>nul || type "sesver_log.txt"
 echo ----------------------------------------------------------------
 echo Tum ayrinti: SesVer klasorundeki sesver_log.txt dosyasi.
+REM desktop.py sesver_log.txt'ye yazarken ev klasoru yollarini gizler (hata_raporu.sanitize).
 echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.
+echo Bu dosyada ev klasoru yollariniz gizlidir.
 pause
 exit /b 1
 
@@ -357,7 +369,10 @@ echo.
 echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
 echo Yukaridaki hata mesajini okuyun. Internet baglantinizi kontrol edip
 echo WINDOWS_BASLAT.bat dosyasini tekrar calistirin; kurulum kaldigi yerden devam eder.
-echo Sorun surerse sesver_log.txt dosyasini hermes.agent.hamarat@gmail.com adresine gonderin.
+REM Kurulum ciktisi yalniz bu pencerededir (dosyaya yazilmaz) ve ev klasoru yolunu
+REM (C:\Users\kullanici_adi) icerebilir: kullanicidan dosya ya da kopyala-yapistir istenmez.
+echo Sorun surerse hermes.agent.hamarat@gmail.com adresine yazin ve durdugu adimi bildirin: %ADIM%
+echo Bu penceredeki yazilari paylasacaksaniz once icindeki C:\Users\... klasor adinizi silin.
 pause
 exit /b 1
 

@@ -77,6 +77,76 @@ class CatalogTests(unittest.TestCase):
                     os.environ["SESVER_AYARLAR"] = old
 
 
+class CorruptSettingsTests(unittest.TestCase):
+    """Siberguvenlik 1.2.1 G: bozuk ayarlar.json'da uygulama varsayılanla açılır, içerik kaybolmaz."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self._tmp.name) / "ayarlar.json"
+        self._old = os.environ.get("SESVER_AYARLAR")
+        os.environ["SESVER_AYARLAR"] = str(self.path)
+
+    def tearDown(self):
+        if self._old is None:
+            os.environ.pop("SESVER_AYARLAR", None)
+        else:
+            os.environ["SESVER_AYARLAR"] = self._old
+        self._tmp.cleanup()
+
+    def test_corrupt_file_is_backed_up_before_first_write(self):
+        import guncelleme
+        for raw in (b'{"arayuz_dili": "en", "guncelleme_kontrolu": false',  # yarım kalmış
+                    b"[1, 2]\n", b"\xff\xfe bozuk", "{'tek': 'tirnak'}".encode("utf-8")):
+            with self.subTest(raw=raw):
+                for f in Path(self._tmp.name).iterdir():
+                    f.unlink()
+                self.path.write_bytes(raw)
+                self.assertTrue(guncelleme.ayar_acik_mi())  # varsayılan: açık
+                self.assertIsNone(i18n.get_setting("arayuz_dili"))
+                guncelleme.ayar_degistir(False)
+                self.assertEqual(Path(str(self.path) + ".bozuk").read_bytes(), raw)  # olduğu gibi
+                self.assertEqual(json.loads(self.path.read_text(encoding="utf-8")), {"guncelleme_kontrolu": False})
+                self.assertFalse(guncelleme.ayar_acik_mi())
+                guncelleme.ayar_degistir(True)  # artık geçerli: yeni yedek yok
+                self.assertEqual(sorted(f.name for f in Path(self._tmp.name).iterdir()),
+                                 ["ayarlar.json", "ayarlar.json.bozuk"])
+
+    def test_valid_or_empty_file_is_not_backed_up(self):
+        for raw in (None, b"", b"  \n", b'{"arayuz_dili": "de"}\n'):
+            with self.subTest(raw=raw):
+                for f in Path(self._tmp.name).iterdir():
+                    f.unlink()
+                if raw is not None:
+                    self.path.write_bytes(raw)
+                i18n.set_setting("guncelleme_kontrolu", False)
+                self.assertEqual(sorted(f.name for f in Path(self._tmp.name).iterdir()), ["ayarlar.json"])
+                beklenen: dict = {"guncelleme_kontrolu": False}
+                if raw and raw.strip():
+                    beklenen["arayuz_dili"] = "de"
+                self.assertEqual(json.loads(self.path.read_text(encoding="utf-8")), beklenen)
+
+    def test_backup_names_never_overwrite_and_stop_at_limit(self):
+        self.path.write_bytes(b"bozuk-0")
+        for n in range(1, 21):
+            i18n.set_setting("arayuz_dili", "en")
+            self.path.write_bytes(f"bozuk-{n}".encode())
+        adlar = {f.name: f.read_bytes() for f in Path(self._tmp.name).iterdir()}
+        self.assertEqual(adlar["ayarlar.json.bozuk"], b"bozuk-0")
+        for n in range(2, 21):
+            self.assertEqual(adlar[f"ayarlar.json.bozuk-{n}"], f"bozuk-{n - 1}".encode())
+        # 20 yedek dolu: dosyaya dokunulmaz, içerik kaybolmaz (ayar kaydedilmez).
+        i18n.set_setting("arayuz_dili", "en")
+        self.assertEqual(self.path.read_bytes(), b"bozuk-20")
+        self.assertEqual(len(list(Path(self._tmp.name).iterdir())), 21)
+        # Kurulum programı aynı adları aynı sırayla seçer.
+        sys.path.insert(0, str(ROOT / "tools"))
+        import kurulum_durum_bicimi as kd
+        for f in Path(self._tmp.name).glob("ayarlar.json.bozuk-1*"):
+            f.unlink()
+        var = lambda ad: (Path(self._tmp.name) / ad).exists()  # noqa: E731
+        self.assertEqual(kd.pascal_ayar_yedek_adi("ayarlar.json", var), i18n._backup_path(self.path).name)
+
+
 class SystemLanguageTests(unittest.TestCase):
     """İlk açılış dili: kayıtlı tercih yoksa işletim sisteminin dili (desteklenmiyorsa en)."""
 

@@ -6,7 +6,7 @@ import subprocess
 
 from PIL import Image
 
-ROOT = "/Users/hamaratbey/Desktop/Projeler/sesver/assets/app_icon"
+ROOT = os.path.dirname(os.path.abspath(__file__))  # bu klasör (yerel kullanıcı yolu gömülmez)
 SLUGS = ["concept1_soundwave", "concept2_microphone", "concept3_speech_wave", "concept4_letter_s"]
 
 # iconutil icin gerekli standart boyutlar (ad, piksel)

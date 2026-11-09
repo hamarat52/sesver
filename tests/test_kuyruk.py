@@ -584,6 +584,64 @@ class KalicilikTests(KuyrukTestBase):
         k.ekle("kutuphane", "Yeni.")
         self.assertEqual(len(self.yeni().durum()["ogeler"]), 1)
 
+    def test_kayittaki_kimlik_ve_yollar_kuyruk_disina_cikamaz(self):
+        """Siberguvenlik 1.3.0 bulgu B: elle bozulmuş kuyruk.json'daki "../" ya da mutlak yol içeren
+        kimlik/ref/parça/çıktı/oturum kuyruk klasörü dışında dosya silemez; öğe yok sayılır, kaydın
+        özgün hâli kenara kopyalanır, geçerli öğe korunur."""
+        import copy
+        k = self.yeni()
+        gecerli = k.ekle("kutuphane", "Bir.", **self.ses())
+        kurban = self.kok / "kurban.txt"
+        kurban.write_text("kullanıcı verisi", encoding="utf-8")
+        kurban_klasor = self.kok / "kurban_klasor"
+        kurban_klasor.mkdir()
+        (kurban_klasor / "belge.txt").write_text("kullanıcı verisi", encoding="utf-8")
+        (kurban_klasor / "taslak.yaziliyor.wav").write_bytes(b"veri")
+        veri = json.loads(k.yol.read_text(encoding="utf-8"))
+        ornek = veri["ogeler"][0]
+
+        def kotu(**alanlar):
+            o = copy.deepcopy(ornek)
+            parca = alanlar.pop("dosya", None)
+            o.update(alanlar)
+            if parca:
+                o["parcalar"][0].update(durum=kq.BITTI, dosya=parca)
+            return o
+
+        kotuler = [
+            kotu(id="../../kurban_klasor", ref=None),
+            kotu(id="ab" * 6 + "/..", ref=None),
+            kotu(id="0123456789ab", ref="ref/../../kurban.txt"),
+            kotu(id="0123456789ac", ref=str(kurban)),
+            kotu(id="0123456789ad", ref="ref"),
+            kotu(id="0123456789ae", dosya="parca/0123456789ae/../../../kurban.txt"),
+            kotu(id="0123456789af", dosya=str(kurban)),
+            kotu(id="0123456789b0", cikti="kuyruk/../../kurban.txt", durum=kq.BITTI),
+            kotu(id="0123456789b1", efektli=str(kurban), durum=kq.BITTI),
+            kotu(id=gecerli["id"]),  # yinelenen kimlik
+            "öğe değil",
+        ]
+        veri["ogeler"] += kotuler
+        veri["oturum"] = "kuyruk/../../kurban_klasor"
+        ozgun = json.dumps(veri, ensure_ascii=False)
+        k.yol.write_text(ozgun, encoding="utf-8")
+
+        k2 = self.yeni()
+        d = k2.durum()
+        self.assertEqual([o["id"] for o in d["ogeler"]], [gecerli["id"]])
+        self.assertIsNone(d["oturum_klasoru"])
+        self.assertTrue(Path(d["bozuk_kayit"]).name.startswith("kuyruk.json.bozuk-"))
+        self.assertEqual(Path(d["bozuk_kayit"]).read_text(encoding="utf-8"), ozgun)
+        for o in kotuler:
+            if isinstance(o, dict) and o["id"] != gecerli["id"]:
+                with contextlib.suppress(kq.KuyrukHatasi):
+                    k2.cikar(o["id"])
+        k2.bitenleri_temizle()
+        k2.cikar(gecerli["id"])
+        self.assertEqual(kurban.read_text(encoding="utf-8"), "kullanıcı verisi")
+        self.assertEqual(sorted(p.name for p in kurban_klasor.iterdir()), ["belge.txt", "taslak.yaziliyor.wav"])
+        self.assertFalse((k2.dizin / "ref" / f"{gecerli['id']}.wav").exists(), "geçerli öğe normal silinir")
+
     def test_kayit_yazilamazsa_onceki_dosya_bozulmaz(self):
         k = self.yeni()
         k.ekle("kutuphane", "Bir.")

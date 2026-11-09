@@ -503,6 +503,7 @@
  "Dosya boş ya da okunacak metin yok.": "फ़ाइल ख़ाली है या उसमें पढ़ने लायक पाठ नहीं है।",
  "Dosya çok büyük (en fazla 2 MB).": "फ़ाइल बहुत बड़ी है (अधिकतम 2 MB)।",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.": "CSV में “metin” (या “text”) कॉलम नहीं मिला। पहली पंक्ति में कॉलम नाम होने चाहिए।",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.": "CSV पढ़ी नहीं जा सकी: कोई सेल बहुत लंबा है या उद्धरण चिह्न बंद नहीं हुआ है। हर टेक्स्ट में अधिकतम {n} अक्षर हो सकते हैं।",
  "Klon": "क्लोन",
  "Klon ({ad})": "क्लोन ({ad})",
  "efekt: {adlar}": "इफ़ेक्ट: {adlar}",

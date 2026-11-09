@@ -503,6 +503,7 @@
  "Dosya boş ya da okunacak metin yok.": "文件为空或没有可朗读的文本。",
  "Dosya çok büyük (en fazla 2 MB).": "文件过大（最大 2 MB）。",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.": "CSV 中未找到“metin”（或“text”）列。第一行必须是列名。",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.": "无法读取 CSV：某个单元格过长，或引号未闭合。每段文本最多 {n} 个字符。",
  "Klon": "克隆",
  "Klon ({ad})": "克隆（{ad}）",
  "efekt: {adlar}": "效果：{adlar}",

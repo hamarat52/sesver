@@ -39,11 +39,37 @@ _STATUS_FILE = os.environ.get("SESVER_DURUM_DOSYASI", "")
 
 
 class _Tee:
-    """Yazılanı hem asıl akışa (varsa) hem log dosyasına yazar."""
+    """Yazılanı hem asıl akışa (varsa) hem log dosyasına yazar.
+
+    Log dosyasına giden metin satır satır ``hata_raporu.sanitize`` ve ``scrub_private``'tan
+    geçer: sesver_log.txt'de ev klasörü yolları (``C:\\Users\\<ad>`` → ``<ev>``), e-posta
+    adresleri, erişim anahtarları ve bu oturumdaki üretim metinleri yer almaz. Kullanıcıdan bu
+    dosyayı destek adresine göndermesi istendiği ve bir sonraki açılışta "önceki oturumun
+    günlüğü" olarak rapora eklenebildiği için maskeleme yazarken yapılır. Konsol değişmez.
+    """
+
+    _PENDING_LIMIT = 8192  # satır sonu gelmeyen çok uzun çıktı yine de yazılsın
+    # Taşmada tamponun son kısmı (maskelenmiş olarak) bekletilir: kesim yerine denk gelen ve
+    # sonraki write() ile tamamlanacak yol ya da üretim metni bölünüp maskeden kaçmaz.
+    _PENDING_TAIL = 2048
 
     def __init__(self, stream, log):
         self._stream = stream
         self._log = log
+        self._pending = ""
+        self._lock = threading.Lock()
+        self._homes = hata_raporu._home_variants()
+
+    def _clean(self, s):
+        # Kullanıcının bu oturumdaki üretim metni (remember_private) de diske hiç yazılmaz.
+        return hata_raporu.sanitize(hata_raporu.scrub_private(s), homes=self._homes)
+
+    def _clean_or_empty(self, s):
+        # Maskeleme hata verirse maskesiz metin yazılmaz (eski davranış: o parça atlanır).
+        try:
+            return self._clean(s)
+        except Exception:  # noqa: BLE001
+            return ""
 
     def write(self, s):
         if self._stream is not None:
@@ -51,13 +77,44 @@ class _Tee:
                 self._stream.write(s)
             except Exception:  # noqa: BLE001 — konsol hatası log yazımını engellemesin
                 pass
-        try:
-            self._log.write(s)
-        except Exception:  # noqa: BLE001
-            pass
+        # Yol ya da anahtar iki write() çağrısına bölünebilir: log'a yalnız tamamlanmış
+        # satırlar maskelenip yazılır, yarım satır flush()'ta yazılır.
+        with self._lock:
+            self._pending += s
+            if "\n" in self._pending:
+                ready, _sep, self._pending = self._pending.rpartition("\n")
+                ready += "\n"
+            elif len(self._pending) > self._PENDING_LIMIT:
+                # Satır sonu gelmeyen uzun çıktı (ör. tqdm \r çerçeveleri): önce tamponun tamamı
+                # maskelenir, sonra kesilir; son _PENDING_TAIL karakter bekletilir ve sonraki
+                # yazımla birlikte yeniden maskelenir (maskeleme tekrar uygulanınca değişmez).
+                clean = self._clean_or_empty(self._pending)
+                cut = max(len(clean) - self._PENDING_TAIL, 0)
+                self._write_clean(clean[:cut])
+                self._pending = clean[cut:]
+                ready = ""
+            else:
+                ready = ""
+            if ready:
+                self._write_log(ready)
         return len(s)
 
+    def _write_clean(self, text):
+        if not text:
+            return
+        try:
+            self._log.write(text)
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _write_log(self, text):
+        self._write_clean(self._clean_or_empty(text))
+
     def flush(self):
+        with self._lock:
+            if self._pending:
+                self._write_log(self._pending)
+                self._pending = ""
         for f in (self._stream, self._log):
             if f is not None:
                 try:
@@ -121,7 +178,7 @@ def _setup_log_file():
         log = open(os.devnull, "w", encoding="utf-8")
     sys.stdout = _Tee(sys.stdout, log)
     sys.stderr = _Tee(sys.stderr, log)
-    print(f"SesVer günlüğü {datetime.datetime.now():%Y-%m-%d %H:%M:%S} | "
+    print(f"SesVer günlüğü {hata_raporu.LOG_MARK} {datetime.datetime.now():%Y-%m-%d %H:%M:%S} | "
           f"Python {sys.version.split()[0]} | {sys.executable}", flush=True)
 
     default_hook = sys.excepthook
@@ -207,13 +264,30 @@ border-radius:10px;padding:10px;font:12px ui-monospace,Menlo,Consolas,monospace}
 
 
 class ReportApi:
-    """pywebview js_api: başlatma hatası ekranındaki rapor düğmeleri (yalnız kullanıcı tıklayınca)."""
+    """pywebview js_api: başlatma hatası ekranındaki rapor düğmeleri (yalnız kullanıcı tıklayınca).
+
+    js_api pencereye bağlıdır; aynı pencerede sonradan açılan 127.0.0.1 Gradio sayfası da
+    ``window.pywebview.api``'yi görür. Bu yüzden yöntemler yalnız ``_load_ui`` başlatma hatası
+    ekranını açarken ``_arm()`` çağırdıysa çalışır; Gradio sayfası açıldıysa (başarılı açılış)
+    hiçbiri rapor yazmaz, taslak açmaz, panoya dokunmaz (``PermissionError``).
+    """
 
     def __init__(self):
         self._report = None
+        self._armed = False
+
+    def _arm(self):
+        """Yalnız _load_ui'nin hata dalı çağırır (Gradio sayfası hiç açılmayacak). Alt çizgili:
+        pywebview js_api'ye yalnız alt çizgisiz yöntemleri açar, sayfa bunu çağıramaz."""
+        self._armed = True
+
+    def _require_armed(self):
+        if not self._armed:
+            raise PermissionError("ReportApi yalnız SesVer başlatma hatası ekranında kullanılabilir.")
 
     def hazirla(self, prev=None):
         """Raporu kurar ve önizleme için döndürür; hiçbir şey açılmaz/gönderilmez."""
+        self._require_armed()
         prev_exists = os.path.isfile(PREV_LOG_PATH)
         if prev is None:
             prev = prev_exists and hata_raporu.log_has_error(PREV_LOG_PATH)
@@ -222,6 +296,7 @@ class ReportApi:
         return {"text": self._report["text"], "prev_exists": prev_exists, "prev_checked": prev}
 
     def eposta(self):
+        self._require_armed()
         if not self._report:
             return t("Önce “Hata raporu gönder” ile raporu hazırlayın.")
         try:
@@ -231,6 +306,7 @@ class ReportApi:
         return hata_raporu.send_message(path, opened)
 
     def kopyala(self):
+        self._require_armed()
         if not self._report:
             return t("Önce “Hata raporu gönder” ile raporu hazırlayın.")
         return hata_raporu.copy_message(hata_raporu.copy_to_clipboard(hata_raporu.clipboard_text(self._report)))
@@ -342,8 +418,11 @@ def _check_webview_backend(webview):
             )
 
 
-def _load_ui(window, server):
-    """pywebview GUI döngüsü başladıktan sonra ayrı thread'de çalışır."""
+def _load_ui(window, server, api=None):
+    """pywebview GUI döngüsü başladıktan sonra ayrı thread'de çalışır.
+
+    ``api``: pencerenin ReportApi'si. Yalnız başlatma hatası ekranında etkinleşir
+    (``_arm``); Gradio arayüzü yüklenirse kapalı kalır."""
     # Pencere ekranda (yükleniyor görünümü): başlatıcı konsolu artık kapanabilir.
     _report_status("acildi")
     if server.wait_ready():
@@ -352,9 +431,11 @@ def _load_ui(window, server):
         print(f"[HATA] {server.error}", flush=True)
         if server.traceback:
             print(server.traceback, end="", file=sys.stderr, flush=True)
-        print(f"Ayrıntı için: {LOG_PATH}", flush=True)
+        print(f"Ayrıntı için: {hata_raporu.sanitize(LOG_PATH)}", flush=True)  # ev klasörü yolu gizli
         hata_raporu.record_text_error(server.error or "", server.traceback, where="startup")
         guide = _print_guide(server.error)
+        if api is not None:
+            api._arm()  # rapor düğmeleri yalnız bu ekranda; Gradio sayfası bu pencerede hiç açılmaz
         window.load_html(
             _ERROR_HTML.replace("{title}", html.escape(t("SesVer başlatılamadı")))
             .replace("{see_log}", html.escape(t("Ayrıntı için SesVer klasöründeki sesver_log.txt dosyasına bakın:")))
@@ -372,12 +453,13 @@ def _run_window(server):
 
     _check_webview_backend(webview)
     webview.settings["ALLOW_DOWNLOADS"] = True  # "WAV indir" düğmeleri için
+    api = ReportApi()  # kapalı başlar; yalnız başlatma hatası ekranı açar (bkz. _load_ui)
     window = webview.create_window(
         "SesVer", html=_LOADING_HTML.replace("{opening}", html.escape(t("SesVer açılıyor…"))),
         width=1280, height=860, min_size=(900, 600),
-        background_color="#0f1115", js_api=ReportApi(),
+        background_color="#0f1115", js_api=api,
     )
-    webview.start(_load_ui, (window, server))
+    webview.start(_load_ui, (window, server, api))
 
 
 def _run_browser(server):

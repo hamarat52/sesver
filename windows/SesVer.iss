@@ -49,11 +49,20 @@
 ;     "kaldığı yerden devam" mantığıyla sonraki çift tıkta sürer.
 ;   * Başarı: kısayollar aşağıdaki kurala göre pythonw'ye çevrilir; Bitir
 ;     sayfasında "SesVer'i şimdi aç" (pythonw, konsolsuz).
-;   * Hata/iptal: Bitir sayfasında açık metin + kurulum_log.txt yolu + e-posta
-;     adresi + "Günlüğü aç"; kısayollar WINDOWS_BASLAT.bat'ı gösterir.
+;   * Hata/iptal: Bitir sayfasında açık metin + e-posta adresi + "Günlüğü aç".
+;     Kullanıcıya gönderilmesi söylenen dosya kurulum_log.txt değil, sihirbazın
+;     ondan ürettiği kurulum_log_paylas.txt'dir: ev klasörü yolları (USERPROFILE ve
+;     X:\Users\<ad>) <ev> olarak gizlenir (PaylasilabilirGunlukYaz; kurallar
+;     tools/kurulum_durum_bicimi.py pascal_gunluk_maskele ile aynı). Kopya yazılamazsa
+;     ham günlük gösterilmez; metin yalnız durduğu adımı bildirmeyi ister. Kısayollar
+;     WINDOWS_BASLAT.bat'ı gösterir.
 ;   * Sessiz kurulum (/SILENT, /VERYSILENT): ortam kurulumu varsayılan olarak
 ;     ATLANIR (eski davranış); /ORTAMKUR verilirse sessizce yapılır ve başarısız
 ;     olursa Setup 30 çıkış koduyla biter (CI tam testi bunu kullanır).
+; - Gizlilik ve güncelleme denetimi sayfası (ek görevlerden sonra): ağ erişiminin kısa özeti,
+;   README'deki gizlilik politikasının adresi ve "Açılışta güncellemeleri denetle" kutusu.
+;   Kutu {app}\ayarlar.json'daki mevcut seçimle açılır; seçim değiştiyse yazılır (Ayarlar
+;   sekmesindeki aynı ayar). Sessiz kurulumda /GUNCELLEMEDENETIMI=0|1 ile verilir.
 ; - Kaldırma: kopyalanan dosyalar + indirilen python-embed\ ve geçici/günlük
 ;   dosyaları silinir. KULLANICI VERİSİ SİLİNMEZ: voices\seslerim\ (kişisel
 ;   ses klonları) ve outputs\ (üretilen sesler) klasörde kalır.
@@ -104,6 +113,21 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 UninstallDisplayName={#AppName}
+; Kurulum programının dosya özellikleri (Özellikler → Ayrıntılar). SignPath Foundation imzası
+; ürün adı ve ürün sürümü özniteliklerinin her derlemede proje adı ve VERSION ile aynı olmasını
+; şart koşar (file metadata restrictions). Inno varsayılanı VersionInfoVersion için 0.0.0.0
+; olduğundan hepsi açıkça verilir; CI derlemeden sonra .exe'de ProductName/ProductVersion'ı denetler.
+; Inno dizgileri sabit uzunluklu boşluk yer tutucularının üstüne yazar (ProductName/Company/
+; Description 60, ProductVersion 50, FileVersion 20, Copyright 100 karakter; uzunu kesilir) ve
+; kalan boşluğu bırakır. CI imzadan önce tools/pe_surum_bilgisi.py --kirp ile kaynakta kırpar.
+VersionInfoProductName={#AppName}
+VersionInfoProductVersion={#AppVersion}
+VersionInfoProductTextVersion={#AppVersion}
+VersionInfoVersion={#AppVersion}
+VersionInfoTextVersion={#AppVersion}
+VersionInfoCompany={#AppPublisher}
+VersionInfoDescription={#AppName} kurulum programı
+VersionInfoCopyright=Muhammed Yusuf Hamarat - Founder of HamaratLabs
 CloseApplications=yes
 SetupLogging=yes
 
@@ -163,10 +187,28 @@ turkish.OrtamYanitYok=kurulum başlatıcısı %1 sn içinde yanıt vermedi
 english.OrtamYanitYok=the setup launcher did not respond within %1 s
 turkish.OrtamBitirBaslikEksik=SesVer kuruldu, ilk hazırlık tamamlanamadı
 english.OrtamBitirBaslikEksik=SesVer is installed, but first-time setup did not finish
-turkish.OrtamHataMetni=İlk hazırlık şu adımda durdu: %1%n%nİnternet bağlantınızı kontrol edip masaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıklayın; kurulum kaldığı yerden devam eder.%n%nAyrıntılar: %2%nSorun sürerse kurulum_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin.
-english.OrtamHataMetni=First-time setup stopped at this step: %1%n%nCheck your internet connection, then double-click the SesVer icon on the desktop or in the Start menu; setup resumes where it left off.%n%nDetails: %2%nIf the problem persists, send the kurulum_log.txt file to hermes.agent.hamarat@gmail.com.
+turkish.OrtamHataMetni=İlk hazırlık şu adımda durdu: %1%n%nİnternet bağlantınızı kontrol edip masaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıklayın; kurulum kaldığı yerden devam eder.%n%nSorun sürerse kurulum_log_paylas.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin. Bu kopyada ev klasörü yollarınız gizlidir; Günlüğü aç ile içine bakabilirsiniz.%n%nDosya: %2
+english.OrtamHataMetni=First-time setup stopped at this step: %1%n%nCheck your internet connection, then double-click the SesVer icon on the desktop or in the Start menu; setup resumes where it left off.%n%nIf the problem persists, send the kurulum_log_paylas.txt file to hermes.agent.hamarat@gmail.com. Your home folder paths are hidden in this copy; use Open log to look inside.%n%nFile: %2
 turkish.OrtamIptalMetni=İlk hazırlık durduruldu.%n%nMasaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıkladığınızda kurulum kaldığı yerden devam eder.%n%nAyrıntılar: %1
 english.OrtamIptalMetni=First-time setup was stopped.%n%nDouble-click the SesVer icon on the desktop or in the Start menu and setup resumes where it left off.%n%nDetails: %1
+; Ev klasörü yolları gizlenmiş kopya yazılamadıysa: dosya gösterilmez ve istenmez (ham günlük asla).
+turkish.OrtamHataMetniGunluksuz=İlk hazırlık şu adımda durdu: %1%n%nİnternet bağlantınızı kontrol edip masaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıklayın; kurulum kaldığı yerden devam eder.%n%nSorun sürerse hermes.agent.hamarat@gmail.com adresine yazın ve durduğu adımı bildirin: %1
+english.OrtamHataMetniGunluksuz=First-time setup stopped at this step: %1%n%nCheck your internet connection, then double-click the SesVer icon on the desktop or in the Start menu; setup resumes where it left off.%n%nIf the problem persists, write to hermes.agent.hamarat@gmail.com and mention the step where it stopped: %1
+turkish.OrtamIptalMetniGunluksuz=İlk hazırlık durduruldu.%n%nMasaüstündeki ya da Başlat menüsündeki SesVer simgesine çift tıkladığınızda kurulum kaldığı yerden devam eder.
+english.OrtamIptalMetniGunluksuz=First-time setup was stopped.%n%nDouble-click the SesVer icon on the desktop or in the Start menu and setup resumes where it left off.
+; --- Gizlilik ve güncelleme denetimi sayfası (SignPath: kurulumda gizlilik özeti + kapatma seçeneği) ---
+turkish.GizlilikSayfaBaslik=Gizlilik ve güncelleme denetimi
+english.GizlilikSayfaBaslik=Privacy and update check
+turkish.GizlilikSayfaAciklama=SesVer internete ne zaman bağlanır?
+english.GizlilikSayfaAciklama=When does SesVer connect to the internet?
+turkish.GizlilikOzeti=SesVer bilgisayarınızda çalışır; metinleriniz, kayıtlarınız ve sesleriniz hiçbir yere gönderilmez. Hesap, telemetri ve analitik yoktur.%n%nAşağıdaki güncelleme denetimi dışında internete yalnız şunlar için bağlanır: kurulum ve paketleri değiştiren güncellemeler (Python, paketler; NVIDIA kartta PyTorch, gerekirse açılışta da), Hugging Face'ten ses modeli (ilk üretimde indirme, sonraki oturumların ilk üretiminde kısa güncellik denetimi), yazıya dökme modeli ve sizin başlattığınız indirmeler. Hata raporu otomatik gönderilmez.
+english.GizlilikOzeti=SesVer runs on your computer; your texts, recordings and audio are never sent anywhere. No account, telemetry or analytics.%n%nApart from the update check below, it connects to the internet only for: setup and updates that change its packages (Python, packages; PyTorch on NVIDIA cards, at startup too if needed), the voice model from Hugging Face (downloaded on the first generation, a short freshness check on the first generation of later sessions), the transcription model and downloads you start yourself. Error reports are never sent automatically.
+turkish.GuncellemeSecenegi=Açılışta güncellemeleri denetle
+english.GuncellemeSecenegi=Check for updates at startup
+turkish.GuncellemeAciklama=İşaretliyse SesVer her açılışta GitHub'a yeni sürüm olup olmadığını sorar. Yalnız sürüm bilgisi alınır; GitHub IP adresinizi görür. Bu seçimi sonra Ayarlar sekmesinden de değiştirebilirsiniz.
+english.GuncellemeAciklama=If checked, SesVer asks GitHub at every start whether a new version exists. Only version information is fetched; GitHub sees your IP address. You can change this later in the Settings tab.
+turkish.GizlilikBaglantisi=Gizlilik politikasının tamamı: github.com/hamarat52/sesver#privacy-policy
+english.GizlilikBaglantisi=Full privacy policy: github.com/hamarat52/sesver#privacy-policy
 turkish.GunluguAc=Günlüğü aç
 english.GunluguAc=Open log
 turkish.GunlukAcilamadi=Günlük açılamadı: %1%n%n%2
@@ -238,6 +280,8 @@ Type: files; Name: "{app}\sesver_log.txt"
 Type: files; Name: "{app}\sesver_durum.tmp"
 ; Sihirbazın ilk kurulum adımı (WINDOWS_BASLAT.bat /yalniz-kurulum) dosyaları.
 Type: files; Name: "{app}\kurulum_log.txt"
+; Sihirbazın hata/iptalde yazdığı, ev klasörü yolları gizli kopya (destek için gönderilir).
+Type: files; Name: "{app}\kurulum_log_paylas.txt"
 Type: files; Name: "{app}\kurulum_durum.txt"
 Type: files; Name: "{app}\kurulum_pid.txt"
 
@@ -250,6 +294,9 @@ const
   // sabitlerin oradakilerle ve bat'ın yazdığı satırlarla eşleştiğini sınar.
   OrtamDurumDosyasi = 'kurulum_durum.txt';
   OrtamGunlukDosyasi = 'kurulum_log.txt';
+  // Kullanıcıya gönderilmesi söylenen, ev klasörü yolları gizlenmiş kopya ve maske.
+  OrtamPaylasGunlukDosyasi = 'kurulum_log_paylas.txt';
+  OrtamEvMaskesi = '<ev>';
   OrtamPidDosyasi = 'kurulum_pid.txt';
   OrtamYalnizKurulumArg = '/yalniz-kurulum';
   OrtamToplamAdim = 6;
@@ -269,6 +316,25 @@ const
   OrtamSurecSorguErisimi = $1000;
   OrtamSurecCalisiyor = 259;
 
+  // --- Açılışta güncelleme denetimi (uygulamanın Ayarlar'daki aynı seçeneği) ---
+  // Uygulama bu ayarı {app}\ayarlar.json'daki "guncelleme_kontrolu" anahtarından okur
+  // (guncelleme.py AYAR_ANAHTARI; yalnız JSON false kapalıdır). Sihirbaz yalnız kullanıcı
+  // seçimi değiştirdiyse yazar: yeniden kurulum/güncelleme önceki seçimi ezmez. Sessiz
+  // kurulumda yalnız /GUNCELLEMEDENETIMI=0|1 verilirse yazılır. Kurallar ve Python karşılığı:
+  // tools/kurulum_durum_bicimi.py (pascal_guncelleme_*).
+  AyarDosyasi = 'ayarlar.json';
+  GuncellemeAyarAnahtari = 'guncelleme_kontrolu';
+  GizlilikPolitikasiAdresi = '{#AppURL}#privacy-policy';
+  // ayarlar.json'un biçimi (GuncellemeYazimBicimi). Uygulamanın yazdığı biçim dışındaki bir
+  // dosya yerinde düzenlenmez: bozuksa önce olduğu gibi yedeklenir (uygulama da aynı adla
+  // yedekler: i18n._keep_unreadable), anahtarın değeri boolean değilse dosyaya dokunulmaz.
+  AyarYok = 0;
+  AyarTanidik = 1;
+  AyarBozuk = 2;
+  AyarDegerBeklenmedik = 3;
+  AyarYedekEki = '.bozuk';
+  AyarYedekSiniri = 20;
+
 type
   TOrtamSonuc = (osDenenmedi, osTamam, osHata, osIptal);
 
@@ -280,6 +346,12 @@ var
   OrtamIptalDugmesi: TNewButton;
   OrtamNotuEtiketi: TNewStaticText;
   GunlukDugmesi: TNewButton;
+  // Bu kurulumda kurulum_log_paylas.txt yazıldı mı (eski bir denemeden kalan kopya sayılmaz).
+  PaylasGunlukHazir: Boolean;
+  GuncellemeSayfasi: TWizardPage;
+  GuncellemeKutusu: TNewCheckBox;
+  // Kutunun ilk değeri hangi kurulum klasörünün ayarlar.json'undan okundu ('' = henüz okunmadı).
+  GuncellemeKutusuKlasoru: String;
 
 // BOOL dönüşleri Boolean: Pascal Script'te BOOL (LongBool) 'and' ile Boolean'a karışınca 'Type mismatch' verir.
 function OpenProcess(dwDesiredAccess: DWORD; bInheritHandle: BOOL; dwProcessId: DWORD): THandle;
@@ -537,6 +609,501 @@ begin
     '' + #13#10 + '[SIHIRBAZ] ' + Satir + #13#10, True);
 end;
 
+// --- Paylaşılabilir günlük (destek e-postası için) ---
+// kurulum_log.txt pip/cmd çıktısıdır ve C:\Users\<ad>\... yolları içerir. Kullanıcıya
+// gönderilmesi söylenen dosya, buradan üretilen kurulum_log_paylas.txt'dir. Kurallar
+// tools/kurulum_durum_bicimi.py'deki pascal_gunluk_maskele ile birebir aynıdır;
+// tests/test_windows_kurulum.py ikisinin aynı parçaları taşıdığını sınar.
+
+// Metindeki Bul'un tüm geçişlerini (büyük/küçük harf duyarsız) Yeni ile değiştirir.
+function HarfDuyarsizDegistir(const Metin, Bul, Yeni: String): String;
+var
+  Kalan, Kucuk, KucukBul: String;
+  P: Integer;
+begin
+  Result := '';
+  Kalan := Metin;
+  if Bul = '' then
+  begin
+    Result := Kalan;
+    Exit;
+  end;
+  // AnsiLowercase (CharLowerBuff) ASCII dışı harfleri de küçültür ve her UTF-16 birimini
+  // tek birime çevirir: uzunluk ve konumlar korunur. pip Windows yollarını küçük harfle
+  // yazar (c:\users\şükrü...); USERPROFILE (C:\Users\Şükrü) yine eşleşir (bulgu B).
+  KucukBul := AnsiLowercase(Bul);
+  Kucuk := AnsiLowercase(Kalan);
+  P := Pos(KucukBul, Kucuk);
+  while P > 0 do
+  begin
+    Result := Result + Copy(Kalan, 1, P - 1) + Yeni;
+    Delete(Kalan, 1, P - 1 + Length(Bul));
+    Delete(Kucuk, 1, P - 1 + Length(Bul));
+    P := Pos(KucukBul, Kucuk);
+  end;
+  Result := Result + Kalan;
+end;
+
+// Küçük harfli metinde ilk ':\users\', ':\\users\\' ya da ':/users/' geçişinin
+// konumu (yoksa 0); Uzunluk o işaretin uzunluğu.
+function IlkEvIsareti(const Kucuk: String; var Uzunluk: Integer): Integer;
+var
+  Isaretler: TArrayOfString;
+  I, P: Integer;
+begin
+  SetArrayLength(Isaretler, 3);
+  Isaretler[0] := ':\users\';
+  Isaretler[1] := ':\\users\\';
+  Isaretler[2] := ':/users/';
+  Result := 0;
+  Uzunluk := 0;
+  for I := 0 to GetArrayLength(Isaretler) - 1 do
+  begin
+    P := Pos(Isaretler[I], Kucuk);
+    if (P > 0) and ((Result = 0) or (P < Result)) then
+    begin
+      Result := P;
+      Uzunluk := Length(Isaretler[I]);
+    end;
+  end;
+end;
+
+// Her "X:\Users\<ad>" (ayırıcı \, \\ ya da /) <ev> olur. Ad; bir sonraki ayırıcıya,
+// tırnağa, < > | karakterine, sekmeye ya da satır sonuna kadardır (boşluklu adlar dahil).
+function EvYollariniMaskele(const Metin: String): String;
+var
+  Kalan, Kucuk, Bitis: String;
+  P, Uzunluk, Bas, Son: Integer;
+begin
+  Result := '';
+  Kalan := Metin;
+  Kucuk := Lowercase(Kalan);
+  Bitis := '\/"''<>|' + #9 + #10 + #13;
+  P := IlkEvIsareti(Kucuk, Uzunluk);
+  while P > 0 do
+  begin
+    Bas := P;
+    if P > 1 then
+      if (Kucuk[P - 1] >= 'a') and (Kucuk[P - 1] <= 'z') then
+        Bas := P - 1;
+    Son := P + Uzunluk;
+    while (Son <= Length(Kalan)) and (Pos(Copy(Kalan, Son, 1), Bitis) = 0) do
+      Son := Son + 1;
+    Result := Result + Copy(Kalan, 1, Bas - 1) + OrtamEvMaskesi;
+    Delete(Kalan, 1, Son - 1);
+    Delete(Kucuk, 1, Son - 1);
+    P := IlkEvIsareti(Kucuk, Uzunluk);
+  end;
+  Result := Result + Kalan;
+end;
+
+// Önce ev klasörünün kendisi (USERPROFILE, / ayırıcılı biçimi ve kısa 8.3 adı; profil
+// X:\Users dışında olsa da), sonra genel "X:\Users\<ad>" kalıbı <ev> olur.
+function GunlukMaskele(const Metin, Ev: String): String;
+var
+  Egik, Kisa: String;
+begin
+  Result := Metin;
+  if Length(Ev) > 3 then
+  begin
+    Egik := Ev;
+    StringChangeEx(Egik, '\', '/', True);
+    Kisa := GetShortName(Ev);
+    Result := HarfDuyarsizDegistir(Result, Ev, OrtamEvMaskesi);
+    Result := HarfDuyarsizDegistir(Result, Egik, OrtamEvMaskesi);
+    if (Kisa <> '') and (Kisa <> Ev) then
+      Result := HarfDuyarsizDegistir(Result, Kisa, OrtamEvMaskesi);
+  end;
+  Result := EvYollariniMaskele(Result);
+end;
+
+// Baytlar katı UTF-8 mi? Python'un utf-8 çözücüsüyle aynı kurallar: C0/C1 ve F5-FF öncü
+// bayt, fazla uzun biçim (E0 + <A0, F0 + <90), vekil (ED + >9F) ve U+10FFFF üstü (F4 + >8F)
+// geçersizdir. Python karşılığı: tools/kurulum_durum_bicimi.py pascal_gecerli_utf8.
+function GecerliUtf8(const B: AnsiString): Boolean;
+var
+  I, J, N, Ek, C, Alt, Ust: Integer;
+begin
+  Result := False;
+  N := Length(B);
+  I := 1;
+  while I <= N do
+  begin
+    C := Ord(B[I]);
+    Alt := $80;
+    Ust := $BF;
+    if C < $80 then
+      Ek := 0
+    else if (C >= $C2) and (C <= $DF) then
+      Ek := 1
+    else if (C >= $E0) and (C <= $EF) then
+    begin
+      Ek := 2;
+      if C = $E0 then
+        Alt := $A0;
+      if C = $ED then
+        Ust := $9F;
+    end
+    else if (C >= $F0) and (C <= $F4) then
+    begin
+      Ek := 3;
+      if C = $F0 then
+        Alt := $90;
+      if C = $F4 then
+        Ust := $8F;
+    end
+    else
+      Exit;
+    if I + Ek > N then
+      Exit;
+    if Ek > 0 then
+    begin
+      C := Ord(B[I + 1]);
+      if (C < Alt) or (C > Ust) then
+        Exit;
+      for J := I + 2 to I + Ek do
+        if (Ord(B[J]) < $80) or (Ord(B[J]) > $BF) then
+          Exit;
+    end;
+    I := I + Ek + 1;
+  end;
+  Result := True;
+end;
+
+// Ham günlüğün ev klasörü yolları gizlenmiş hâli (dosyaya yazılacak baytlar). Bat günlüğü
+// yalnız-kurulum kipinde UTF-8 yazar (chcp 65001 + PYTHONIOENCODING=utf-8). Günlük geçerli
+// UTF-8 ise UTF-8 olarak çözülür, maskelenir ve UTF-8 yazılır: ASCII dışı kullanıcı adı da
+// USERPROFILE ile aynı metin üzerinde karşılaştırılır (bulgu B). Değilse (araya ANSI çıktı
+// karışmış) sistemin ANSI kod sayfasıyla çözülür ve ev klasörü hem kendi hâliyle hem UTF-8
+// baytlarının ANSI okunuşuyla aranır; çıktı yine ANSI'dir (baytlar korunur).
+function PaylasilabilirGunlukBaytlari(const Ham: AnsiString; const Ev: String): AnsiString;
+var
+  Metin, EvUtf8Okunusu, KucukEvUtf8Okunusu: String;
+  EvUtf8, KucukEvUtf8: AnsiString;
+begin
+  if GecerliUtf8(Ham) then
+    Result := Utf8Encode(GunlukMaskele(Utf8Decode(Ham), Ev))
+  else
+  begin
+    // pip yolu küçük harfle yazar; UTF-8 baytlarının ANSI okunuşunda büyük/küçük harf
+    // ilişkisi kaybolduğu için küçük harfli biçim ayrıca aranır.
+    EvUtf8 := Utf8Encode(Ev);
+    EvUtf8Okunusu := String(EvUtf8);
+    KucukEvUtf8 := Utf8Encode(AnsiLowercase(Ev));
+    KucukEvUtf8Okunusu := String(KucukEvUtf8);
+    Metin := GunlukMaskele(String(Ham), EvUtf8Okunusu);
+    Metin := GunlukMaskele(Metin, KucukEvUtf8Okunusu);
+    Metin := GunlukMaskele(Metin, Ev);
+    Result := Metin;
+  end;
+end;
+
+// kurulum_log.txt'nin ev klasörü yolları gizlenmiş kopyasını kurulum_log_paylas.txt
+// olarak yazar (ilk kurulum hata ya da iptalle bitince). Başarıda True; sonuç
+// PaylasGunlukHazir'a da yazılır (yalnız bu kurulumda yazılan kopya gösterilir).
+function PaylasilabilirGunlukYaz(): Boolean;
+var
+  Kaynak, Hedef: String;
+  Ham: AnsiString;
+begin
+  Result := False;
+  PaylasGunlukHazir := False;
+  Kaynak := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+  Hedef := ExpandConstant('{app}\') + OrtamPaylasGunlukDosyasi;
+  DeleteFile(Hedef);
+  if not FileExists(Kaynak) then
+  begin
+    Log('Paylaşılabilir günlük yazılmadı: ' + OrtamGunlukDosyasi + ' yok.');
+    Exit;
+  end;
+  if not LoadStringFromLockedFile(Kaynak, Ham) then
+  begin
+    Log('Paylaşılabilir günlük yazılamadı: ' + OrtamGunlukDosyasi + ' okunamadı.');
+    Exit;
+  end;
+  Result := SaveStringToFile(Hedef, PaylasilabilirGunlukBaytlari(Ham, GetEnv('USERPROFILE')), False);
+  PaylasGunlukHazir := Result;
+  if Result then
+    Log('Paylaşılabilir günlük yazıldı (ev klasörü yolları gizli): ' + OrtamPaylasGunlukDosyasi)
+  else
+    Log('Paylaşılabilir günlük yazılamadı: ' + OrtamPaylasGunlukDosyasi);
+end;
+
+// Bitir sayfasında gösterilen ve "Günlüğü aç"ın açtığı dosya: yalnız bu kurulumda yazılan
+// paylaşılabilir (maskeli) kopya. Yazılamadıysa '' döner; ham kurulum_log.txt hiçbir durumda
+// gösterilmez ve Bitir metni dosya istemez (bulgu A).
+function GosterilecekGunluk(): String;
+begin
+  Result := '';
+  if PaylasGunlukHazir and FileExists(ExpandConstant('{app}\') + OrtamPaylasGunlukDosyasi) then
+    Result := ExpandConstant('{app}\') + OrtamPaylasGunlukDosyasi;
+end;
+
+// --- Açılışta güncelleme denetimi: ayarlar.json okuma/yazma ---
+// JSON ayrıştırıcı yok; yalnız uygulamanın yazdığı düz nesnede tek bir boolean anahtar
+// okunur/değiştirilir. Python karşılıkları tools/kurulum_durum_bicimi.py'dedir.
+
+// ayarlar.json'un ham baytları. Dosya yoksa True ve Ham = ''; var ama okunamadıysa False
+// (o durumda dosyaya hiç dokunulmaz).
+function AyarDosyasiniOku(const Yol: String; var Ham: AnsiString): Boolean;
+begin
+  Ham := '';
+  Result := True;
+  if FileExists(Yol) then
+    Result := LoadStringFromFile(Yol, Ham);
+end;
+
+// Ham baytların metni (UTF-8; değilse ANSI).
+function AyarMetni(const Ham: AnsiString): String;
+begin
+  if GecerliUtf8(Ham) then
+    Result := Utf8Decode(Ham)
+  else
+    Result := String(Ham);
+end;
+
+// ayarlar.json metni. Dosya yoksa ya da okunamazsa ''.
+function AyarMetniniOku(const Yol: String): String;
+var
+  Ham: AnsiString;
+begin
+  Result := '';
+  if AyarDosyasiniOku(Yol, Ham) then
+    Result := AyarMetni(Ham);
+end;
+
+// Metin bir JSON nesnesi gibi görünüyor mu ({ ile başlayıp } ile bitiyor). Değilse uygulama
+// da dosyayı yok sayar (i18n._read_settings: bozuk dosya = boş ayar).
+function AyarGovdesiGecerli(const Metin: String): Boolean;
+var
+  G: String;
+begin
+  G := Trim(Metin);
+  Result := (Length(G) >= 2) and (Copy(G, 1, 1) = '{') and (Copy(G, Length(G), 1) = '}');
+end;
+
+// "guncelleme_kontrolu" anahtarının değerinin başladığı konum (1 tabanlı); yoksa 0.
+function GuncellemeDegerKonumu(const Metin: String): Integer;
+var
+  P, I: Integer;
+begin
+  Result := 0;
+  P := Pos('"' + GuncellemeAyarAnahtari + '"', Metin);
+  if P = 0 then
+    Exit;
+  I := P + Length(GuncellemeAyarAnahtari) + 2;
+  while (I <= Length(Metin)) and (Copy(Metin, I, 1) <= ' ') do
+    I := I + 1;
+  if Copy(Metin, I, 1) <> ':' then
+    Exit;
+  I := I + 1;
+  while (I <= Length(Metin)) and (Copy(Metin, I, 1) <= ' ') do
+    I := I + 1;
+  Result := I;
+end;
+
+// Uygulamanın gördüğü değer (guncelleme.ayar_acik_mi): yalnız JSON false kapalıdır; dosya,
+// anahtar ya da geçerli gövde yoksa açık.
+function GuncellemeAyariAcikMi(const Metin: String): Boolean;
+var
+  P: Integer;
+begin
+  Result := True;
+  if not AyarGovdesiGecerli(Metin) then
+    Exit;
+  P := GuncellemeDegerKonumu(Metin);
+  if P > 0 then
+    Result := Copy(Metin, P, 5) <> 'false';
+end;
+
+// I. karakter bir değerin bitişi mi (sınırlayıcı ya da metnin sonu).
+function DegerSinirindaMi(const Metin: String; I: Integer): Boolean;
+begin
+  if I > Length(Metin) then
+    Result := True
+  else
+    Result := Pos(Copy(Metin, I, 1), ',}] ' + #9 + #10 + #13) > 0;
+end;
+
+// Dosya yerinde düzenlenebilir mi? AyarYok: boş/yok (yeni nesne yazılır); AyarTanidik:
+// uygulamanın yazdığı gibi bir nesne, anahtar yok ya da değeri true/false; AyarBozuk: nesne
+// değil (uygulama da yok sayar; önce yedeklenir); AyarDegerBeklenmedik: anahtarın değeri
+// true/false değil (dokunulmaz). Python karşılığı: pascal_guncelleme_yazim_bicimi.
+function GuncellemeYazimBicimi(const Metin: String): Integer;
+var
+  P: Integer;
+begin
+  if Trim(Metin) = '' then
+    Result := AyarYok
+  else if not AyarGovdesiGecerli(Metin) then
+    Result := AyarBozuk
+  else
+  begin
+    Result := AyarTanidik;
+    P := GuncellemeDegerKonumu(Metin);
+    if P = 0 then
+      Exit;
+    if (Copy(Metin, P, 4) = 'true') and DegerSinirindaMi(Metin, P + 4) then
+      Exit;
+    if (Copy(Metin, P, 5) = 'false') and DegerSinirindaMi(Metin, P + 5) then
+      Exit;
+    Result := AyarDegerBeklenmedik;
+  end;
+end;
+
+// Bozuk dosyanın yedeği için boş bir ad: ayarlar.json.bozuk, sonra .bozuk-2 ... .bozuk-20.
+// Hepsi doluysa ''. Uygulamadaki karşılığı: i18n._backup_path.
+function AyarYedekAdi(const Yol: String): String;
+var
+  N: Integer;
+begin
+  Result := Yol + AyarYedekEki;
+  N := 2;
+  while FileExists(Result) do
+  begin
+    if N > AyarYedekSiniri then
+    begin
+      Result := '';
+      Exit;
+    end;
+    Result := Yol + AyarYedekEki + '-' + IntToStr(N);
+    N := N + 1;
+  end;
+end;
+
+// Metne "guncelleme_kontrolu": true|false yazar; diğer anahtarlar ve biçim korunur.
+function GuncellemeAyariniYerlestir(const Metin: String; Acik: Boolean): String;
+var
+  Deger, Kalan: String;
+  P, Son: Integer;
+begin
+  if Acik then
+    Deger := 'true'
+  else
+    Deger := 'false';
+  if not AyarGovdesiGecerli(Metin) then
+  begin
+    Result := '{' + #10 + '  "' + GuncellemeAyarAnahtari + '": ' + Deger + #10 + '}' + #10;
+    Exit;
+  end;
+  P := GuncellemeDegerKonumu(Metin);
+  if P > 0 then
+  begin
+    Son := P;
+    while (Son <= Length(Metin)) and (Pos(Copy(Metin, Son, 1), ',}] ' + #9 + #10 + #13) = 0) do
+      Son := Son + 1;
+    Result := Copy(Metin, 1, P - 1) + Deger + Copy(Metin, Son, Length(Metin));
+    Exit;
+  end;
+  P := Pos('{', Metin);
+  Kalan := Copy(Metin, P + 1, Length(Metin));
+  if Copy(TrimLeft(Kalan), 1, 1) = '}' then
+    Result := Copy(Metin, 1, P) + #10 + '  "' + GuncellemeAyarAnahtari + '": ' + Deger + #10 + TrimLeft(Kalan)
+  else
+    Result := Copy(Metin, 1, P) + #10 + '  "' + GuncellemeAyarAnahtari + '": ' + Deger + ',' + Kalan;
+end;
+
+// /GUNCELLEMEDENETIMI=0|1 komut satırı parametresi: 0 ya da 1; verilmediyse/tanınmadıysa -1.
+function GuncellemeParametresi(): Integer;
+var
+  Deger: String;
+begin
+  Deger := Trim(ExpandConstant('{param:GUNCELLEMEDENETIMI|}'));
+  if Deger = '0' then
+    Result := 0
+  else if Deger = '1' then
+    Result := 1
+  else
+    Result := -1;
+end;
+
+// Yazılacak mı? Sessiz kurulumda yalnız parametre verildiyse, etkileşimli kurulumda kutunun
+// değeri. Seçim mevcut ayarla aynıysa yazılmaz: önceki seçim (Ayarlar'da değiştirilmiş olsa
+// da) ezilmez. Python karşılığı: pascal_guncelleme_karari.
+function GuncellemeKarari(Sessiz: Boolean; Parametre: Integer; Kutu, Mevcut: Boolean; var Yeni: Boolean): Boolean;
+begin
+  Result := False;
+  if Sessiz then
+  begin
+    if Parametre < 0 then
+      Exit;
+    Yeni := Parametre = 1;
+  end
+  else
+    Yeni := Kutu;
+  Result := Yeni <> Mevcut;
+end;
+
+// ssPostInstall: seçimi {app}\ayarlar.json'a yansıtır (gerekirse). Dosya okunamıyorsa ya da
+// anahtarın değeri beklenmedikse dokunulmaz; bozuksa önce olduğu gibi yedeklenir.
+procedure GuncellemeTercihiniUygula();
+var
+  Yol, Yedek, Metin: String;
+  Ham: AnsiString;
+  Sessiz, Mevcut, Yeni: Boolean;
+  Bicim: Integer;
+begin
+  Yol := ExpandConstant('{app}\') + AyarDosyasi;
+  if not AyarDosyasiniOku(Yol, Ham) then
+  begin
+    Log('Açılışta güncelleme denetimi: ' + AyarDosyasi + ' okunamadı, dosyaya dokunulmadı.');
+    Exit;
+  end;
+  Metin := AyarMetni(Ham);
+  Mevcut := GuncellemeAyariAcikMi(Metin);
+  // Sayfa hiç gösterilmediyse (sessiz kurulum) kutu değil, yalnız parametre geçerlidir.
+  Sessiz := WizardSilent() or (GuncellemeKutusuKlasoru = '');
+  if not GuncellemeKarari(Sessiz, GuncellemeParametresi(), GuncellemeKutusu.Checked, Mevcut, Yeni) then
+  begin
+    Log('Açılışta güncelleme denetimi ayarı değişmedi (' + IntToStr(Ord(Mevcut)) + ').');
+    Exit;
+  end;
+  Bicim := GuncellemeYazimBicimi(Metin);
+  if Bicim = AyarDegerBeklenmedik then
+  begin
+    Log('Açılışta güncelleme denetimi: ' + GuncellemeAyarAnahtari + ' değeri true/false değil, dosyaya dokunulmadı.');
+    Exit;
+  end;
+  if Bicim = AyarBozuk then
+  begin
+    Yedek := AyarYedekAdi(Yol);
+    if (Yedek = '') or not SaveStringToFile(Yedek, Ham, False) then
+    begin
+      Log('Açılışta güncelleme denetimi: bozuk ' + AyarDosyasi + ' yedeklenemedi, dosyaya dokunulmadı.');
+      Exit;
+    end;
+    Log('Bozuk ' + AyarDosyasi + ' olduğu gibi yedeklendi: ' + ExtractFileName(Yedek));
+  end;
+  if SaveStringToFile(Yol, Utf8Encode(GuncellemeAyariniYerlestir(Metin, Yeni)), False) then
+    Log('Açılışta güncelleme denetimi ayarı yazıldı: ' + AyarDosyasi + ' ' + GuncellemeAyarAnahtari + '=' + IntToStr(Ord(Yeni)))
+  else
+    Log('Açılışta güncelleme denetimi ayarı yazılamadı: ' + Yol);
+end;
+
+// Gizlilik sayfası açılınca kutunun ilk değeri: parametre, yoksa kurulum klasöründeki mevcut ayar.
+procedure GuncellemeKutusunuHazirla();
+var
+  Klasor: String;
+  Parametre: Integer;
+begin
+  Klasor := WizardDirValue;
+  if Klasor = GuncellemeKutusuKlasoru then
+    Exit;  // geri/ileri gezinmede kullanıcının seçimi korunur
+  GuncellemeKutusuKlasoru := Klasor;
+  Parametre := GuncellemeParametresi();
+  if Parametre >= 0 then
+    GuncellemeKutusu.Checked := Parametre = 1
+  else
+    GuncellemeKutusu.Checked := GuncellemeAyariAcikMi(AyarMetniniOku(AddBackslash(Klasor) + AyarDosyasi));
+end;
+
+procedure GizlilikBaglantisiClick(Sender: TObject);
+var
+  Hata: Integer;
+begin
+  ShellExecAsOriginalUser('open', GizlilikPolitikasiAdresi, '', '', SW_SHOWNORMAL, ewNoWait, Hata);
+end;
+
 // İlk kurulum süreç ağacını sonlandırır (cmd.exe + python/pip/curl alt süreçleri).
 // Konsol programları ExecAndLogOutput ile çalıştırılır: pencere açılmaz.
 procedure OrtamSureciniDurdur(Pid: Integer);
@@ -584,7 +1151,9 @@ var
   Gunluk: String;
   Hata: Integer;
 begin
-  Gunluk := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+  Gunluk := GosterilecekGunluk();
+  if Gunluk = '' then
+    Exit;  // maskeli kopya yoksa düğme zaten gizlidir; ham günlük açılmaz
   if ShellExec('open', Gunluk, '', '', SW_SHOWNORMAL, ewNoWait, Hata) then
     Exit;
   if Exec(ExpandConstant('{win}\notepad.exe'), '"' + Gunluk + '"', '', SW_SHOWNORMAL, ewNoWait, Hata) then
@@ -739,6 +1308,8 @@ begin
 end;
 
 procedure InitializeWizard();
+var
+  GizlilikOzetiEtiketi, GuncellemeNotu, GizlilikBaglantisi: TNewStaticText;
 begin
   // "SesVer hazırlanıyor" ilerleme sayfası + durdur düğmesi + not.
   OrtamSayfasi := CreateOutputProgressPage(CustomMessage('OrtamSayfaBaslik'),
@@ -769,12 +1340,56 @@ begin
   GunlukDugmesi.Height := WizardForm.CancelButton.Height;
   GunlukDugmesi.Visible := False;
   GunlukDugmesi.OnClick := @GunlukDugmesiClick;
+
+  // Gizlilik ve güncelleme denetimi sayfası (ek görevlerden sonra). SignPath koşulu: kullanıcı
+  // verisi aktarılmasa da ağ erişimi kurulumda anlatılır ve kapatma seçeneği sunulur.
+  GuncellemeSayfasi := CreateCustomPage(wpSelectTasks, CustomMessage('GizlilikSayfaBaslik'),
+    CustomMessage('GizlilikSayfaAciklama'));
+
+  GizlilikOzetiEtiketi := TNewStaticText.Create(GuncellemeSayfasi);
+  GizlilikOzetiEtiketi.Parent := GuncellemeSayfasi.Surface;
+  GizlilikOzetiEtiketi.AutoSize := False;
+  GizlilikOzetiEtiketi.WordWrap := True;
+  GizlilikOzetiEtiketi.Width := GuncellemeSayfasi.SurfaceWidth;
+  GizlilikOzetiEtiketi.Caption := CustomMessage('GizlilikOzeti');
+  WizardForm.AdjustLabelHeight(GizlilikOzetiEtiketi);
+
+  GuncellemeKutusu := TNewCheckBox.Create(GuncellemeSayfasi);
+  GuncellemeKutusu.Parent := GuncellemeSayfasi.Surface;
+  GuncellemeKutusu.Top := GizlilikOzetiEtiketi.Top + GizlilikOzetiEtiketi.Height + ScaleY(14);
+  GuncellemeKutusu.Width := GuncellemeSayfasi.SurfaceWidth;
+  GuncellemeKutusu.Height := ScaleY(17);
+  GuncellemeKutusu.Caption := CustomMessage('GuncellemeSecenegi');
+  // Varsayılan açık; sayfa açılınca mevcut ayar ya da parametreyle güncellenir.
+  GuncellemeKutusu.Checked := True;
+
+  GuncellemeNotu := TNewStaticText.Create(GuncellemeSayfasi);
+  GuncellemeNotu.Parent := GuncellemeSayfasi.Surface;
+  GuncellemeNotu.AutoSize := False;
+  GuncellemeNotu.WordWrap := True;
+  GuncellemeNotu.Left := ScaleX(18);
+  GuncellemeNotu.Top := GuncellemeKutusu.Top + GuncellemeKutusu.Height + ScaleY(4);
+  GuncellemeNotu.Width := GuncellemeSayfasi.SurfaceWidth - ScaleX(18);
+  GuncellemeNotu.Caption := CustomMessage('GuncellemeAciklama');
+  WizardForm.AdjustLabelHeight(GuncellemeNotu);
+
+  GizlilikBaglantisi := TNewStaticText.Create(GuncellemeSayfasi);
+  GizlilikBaglantisi.Parent := GuncellemeSayfasi.Surface;
+  GizlilikBaglantisi.Top := GuncellemeNotu.Top + GuncellemeNotu.Height + ScaleY(14);
+  GizlilikBaglantisi.Caption := CustomMessage('GizlilikBaglantisi');
+  GizlilikBaglantisi.Cursor := crHand;
+  GizlilikBaglantisi.OnClick := @GizlilikBaglantisiClick;
+  // Yazı tipi Parent'tan sonra değiştirilir (varsayılanlar önce devralınsın).
+  GizlilikBaglantisi.Font.Style := GizlilikBaglantisi.Font.Style + [fsUnderline];
+  GizlilikBaglantisi.Font.Color := clBlue;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
   if CurStep <> ssPostInstall then
     Exit;
+  // Açılışta güncelleme denetimi seçimi ilk kurulumdan (ve onun atlanmasından) bağımsızdır.
+  GuncellemeTercihiniUygula();
   if WizardSilent() and not KomutSatirindaVar(OrtamKurParametresi) then
   begin
     Log('Sessiz kurulum: ilk kurulum atlandı (' + OrtamKurParametresi +
@@ -792,11 +1407,13 @@ begin
       begin
         Log('İlk kurulum kullanıcı tarafından durduruldu.');
         ShortcutsBackToLauncher();
+        PaylasilabilirGunlukYaz();
       end;
   else
     begin
       Log('İlk kurulum tamamlanamadı: ' + OrtamHataAdimi);
       ShortcutsBackToLauncher();
+      PaylasilabilirGunlukYaz();
     end;
   end;
 end;
@@ -806,13 +1423,26 @@ var
   Metin, Gunluk: String;
   Fark: Integer;
 begin
+  if CurPageID = GuncellemeSayfasi.ID then
+  begin
+    GuncellemeKutusunuHazirla();
+    Exit;
+  end;
   if (CurPageID <> wpFinished) or ((OrtamSonuc <> osHata) and (OrtamSonuc <> osIptal)) then
     Exit;
-  Gunluk := ExpandConstant('{app}\') + OrtamGunlukDosyasi;
+  Gunluk := GosterilecekGunluk();
+  // Maskeli kopya yazılamadıysa metin dosya göstermez/istemez ve "Günlüğü aç" gizli kalır.
   if OrtamSonuc = osHata then
-    Metin := FmtMessage(CustomMessage('OrtamHataMetni'), [OrtamHataAdimi, Gunluk])
+  begin
+    if Gunluk <> '' then
+      Metin := FmtMessage(CustomMessage('OrtamHataMetni'), [OrtamHataAdimi, Gunluk])
+    else
+      Metin := FmtMessage(CustomMessage('OrtamHataMetniGunluksuz'), [OrtamHataAdimi]);
+  end
+  else if Gunluk <> '' then
+    Metin := FmtMessage(CustomMessage('OrtamIptalMetni'), [Gunluk])
   else
-    Metin := FmtMessage(CustomMessage('OrtamIptalMetni'), [Gunluk]);
+    Metin := CustomMessage('OrtamIptalMetniGunluksuz');
   WizardForm.FinishedHeadingLabel.Caption := CustomMessage('OrtamBitirBaslikEksik');
   Fark := WizardForm.AdjustLabelHeight(WizardForm.FinishedHeadingLabel);
   WizardForm.FinishedLabel.Top := WizardForm.FinishedLabel.Top + Fark;
@@ -820,7 +1450,7 @@ begin
   WizardForm.AdjustLabelHeight(WizardForm.FinishedLabel);
   GunlukDugmesi.Left := WizardForm.FinishedLabel.Left;
   GunlukDugmesi.Top := WizardForm.FinishedLabel.Top + WizardForm.FinishedLabel.Height + ScaleY(12);
-  GunlukDugmesi.Visible := True;
+  GunlukDugmesi.Visible := Gunluk <> '';
 end;
 
 // Sessiz /ORTAMKUR kurulumunda ilk kurulum tamamlanamadıysa (CI) 0 dışı çıkış kodu.

@@ -12,7 +12,7 @@
 - Dosya içeriği günlüğe yazılmaz.
 
 Red nedenleri: metin_bos, metin_uzun, bilinmeyen_ses, bilinmeyen_duygu, bilinmeyen_kalite, rastgele_uzun.
-Dosya düzeyi hatalar (Onizleme.hata): dosya_bos, dosya_buyuk, metin_sutunu_yok, kip_gecersiz.
+Dosya düzeyi hatalar (Onizleme.hata): dosya_bos, dosya_buyuk, metin_sutunu_yok, kip_gecersiz, csv_okunamadi.
 """
 import codecs
 import csv
@@ -183,6 +183,15 @@ def onizle_csv(veri, ayarlar=None, ses_bul=None, kalan_yer=kq.KUYRUK_EN_FAZLA):
         oz.hata = "dosya_bos"
         return oz
     oz.ayrac = _ayrac(baslik)
+    try:
+        return _sinirla(_csv_satirlari(oz, metin, ayarlar, ses_bul), kalan_yer)
+    except csv.Error:
+        # Ör. csv.field_size_limit'i (128 KB) aşan tek hücre: kısmi önizleme yerine dosya düzeyi hata.
+        return Onizleme(kodlama=oz.kodlama, ayrac=oz.ayrac, hata="csv_okunamadi")
+
+
+def _csv_satirlari(oz, metin, ayarlar, ses_bul):
+    """onizle_csv'nin satır okuma kısmı; okuyucu hatasında csv.Error fırlatır."""
     okuyucu = csv.reader(io.StringIO(metin), delimiter=oz.ayrac)
     sutun = {}
     for satir in okuyucu:
@@ -236,7 +245,7 @@ def onizle_csv(veri, ayarlar=None, ses_bul=None, kalan_yer=kq.KUYRUK_EN_FAZLA):
                                   "uzunluk": len(yazi)})
         else:
             oz.ogeler.append(dict(ayar, metin=yazi, satir=n))
-    return _sinirla(oz, kalan_yer)
+    return oz
 
 
 def sablon_csv(dil="tr"):

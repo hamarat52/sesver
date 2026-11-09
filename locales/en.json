@@ -503,6 +503,7 @@
  "Dosya boş ya da okunacak metin yok.": "The file is empty or has no text to read.",
  "Dosya çok büyük (en fazla 2 MB).": "The file is too large (at most 2 MB).",
  "CSV'de “metin” (ya da “text”) sütunu bulunamadı. İlk satır sütun adları olmalı.": "No “metin” (or “text”) column was found in the CSV. The first row must contain the column names.",
+ "CSV okunamadı: bir hücre çok uzun ya da tırnak işaretleri kapanmamış. Her metin en fazla {n} karakter olabilir.": "The CSV could not be read: a cell is too long or a quotation mark was not closed. Each text can be at most {n} characters.",
  "Klon": "Clone",
  "Klon ({ad})": "Clone ({ad})",
  "efekt: {adlar}": "effect: {adlar}",

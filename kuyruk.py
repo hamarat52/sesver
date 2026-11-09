@@ -48,6 +48,7 @@ TURLER = ("kutuphane", "klon")
 SISTEMIK_KODLAR = frozenset({"download", "disk"})
 KLASOR_EKI = "AI-ile-uretildi"
 GECICI_EK = ".yaziliyor.wav"
+_ID_RE = re.compile(r"[0-9a-f]{12}")  # uuid4().hex[:12]; kuyruk.json'dan gelen kimlik bununla denetlenir
 AD_EN_FAZLA = 60
 UYKU_GEREKCESI = "SesVer: ses uretim kuyrugu"  # ASCII: powerd Türkçe harfli adı boş gösteriyor
 
@@ -277,9 +278,80 @@ class Kuyruk:
                 self.bozuk_kayit = self.yol
             log.warning("kuyruk kaydı okunamadı (%s), boş kuyrukla açılıyor", type(exc).__name__)
             return self._bos_veri()
+        atilan = self._guvensizleri_ayikla(veri)
+        if atilan:
+            # Elle bozulmuş öğeler yok sayılır ama silinmez: kaydın özgün hâli kenara kopyalanır.
+            kenar = self.yol.with_name(f"kuyruk.json.bozuk-{time.strftime('%Y%m%d-%H%M%S')}")
+            try:
+                shutil.copyfile(self.yol, kenar)
+                self.bozuk_kayit = kenar
+            except OSError:
+                self.bozuk_kayit = self.yol
+            log.warning("kuyruk kaydında %d geçersiz kayıt yok sayıldı", atilan)
         if self._surec_kilidi.baskasinda_mi():
             self.salt_okunur = True
         return veri
+
+    @staticmethod
+    def _altinda(kok, goreli, dogrudan=False):
+        """`goreli` (kayıttaki göreli yol) `kok` klasörünün içinde mi? Mutlak yol, "..", sürücü adı
+        ve kök klasörün kendisi reddedilir. dogrudan=True: yalnız kökün doğrudan çocuğu."""
+        if not isinstance(goreli, str) or not goreli:
+            return False
+        try:
+            if Path(goreli).is_absolute() or Path(goreli).drive:
+                return False
+            kok = Path(kok).resolve()
+            yol = (kok / goreli).resolve()
+        except (OSError, ValueError, RuntimeError):
+            return False
+        if yol == kok or not yol.is_relative_to(kok):
+            return False
+        return yol.parent == kok if dogrudan else True
+
+    @staticmethod
+    def _goreli(deger, onek):
+        """Kayıttaki "<onek>x" yolunu öneksiz hâle getirir; önek tutmuyorsa None (geçersiz)."""
+        return deger[len(onek):] if isinstance(deger, str) and deger.startswith(onek) else None
+
+    def _oge_guvenli_mi(self, oge):
+        oid = oge.get("id")
+        if not isinstance(oid, str) or not _ID_RE.fullmatch(oid):
+            return False
+        if oge.get("ref") is not None and not self._altinda(self.dizin / "ref", self._goreli(oge["ref"], "ref/"), True):
+            return False
+        parcalar = oge.get("parcalar")
+        if not isinstance(parcalar, list) or not parcalar:
+            return False
+        for p in parcalar:
+            if not isinstance(p, dict) or not isinstance(p.get("metin"), str):
+                return False
+            if p.get("dosya") is not None and not self._altinda(self.dizin / "parca" / oid,
+                                                                 self._goreli(p["dosya"], f"parca/{oid}/"), True):
+                return False
+        for alan in ("cikti", "efektli"):
+            if oge.get(alan) is not None and not self._altinda(self.cikti_dir / "kuyruk",
+                                                               self._goreli(oge[alan], "kuyruk/")):
+                return False
+        return True
+
+    def _guvensizleri_ayikla(self, veri):
+        """kuyruk.json'daki kimlik ve yollar yol olarak kullanılmadan önce denetlenir (siberguvenlik
+        1.3.0 bulgu B): kimlik 12 haneli onaltılık olmalı, ref/parça/çıktı yolları kuyruk ve çıktı
+        klasörlerinde kalmalı. Uymayan öğe listeden çıkarılır (dosyasına dokunulmaz); geçersiz
+        oturum klasörü unutulur. Yok sayılan kayıt sayısını döndürür."""
+        temiz, gorulen = [], set()
+        for oge in veri["ogeler"]:
+            if isinstance(oge, dict) and self._oge_guvenli_mi(oge) and oge["id"] not in gorulen:
+                gorulen.add(oge["id"])
+                temiz.append(oge)
+        atilan = len(veri["ogeler"]) - len(temiz)
+        veri["ogeler"] = temiz
+        oturum = veri.get("oturum")
+        if oturum is not None and not self._altinda(self.cikti_dir / "kuyruk", self._goreli(oturum, "kuyruk/"), True):
+            veri.update(oturum=None, oturum_bitti=True)
+            atilan += 1
+        return atilan
 
     def _kaydet(self):
         self._surum += 1

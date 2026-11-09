@@ -1,7 +1,7 @@
 import os
 from PIL import Image
 
-ROOT = "/Users/hamaratbey/Desktop/Projeler/sesver/assets/app_icon"
+ROOT = os.path.dirname(os.path.abspath(__file__))  # bu klasör (yerel kullanıcı yolu gömülmez)
 slugs = ["concept1_soundwave", "concept2_microphone", "concept3_speech_wave", "concept4_letter_s"]
 
 # Her konsept icin acik + koyu zemin mockup (yan yana) uret -> okunabilirlik kaniti
