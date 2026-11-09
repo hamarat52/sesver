@@ -192,6 +192,53 @@ class MacosOrtakTests(unittest.TestCase):
                 self.run_launcher("app", "x86_64", "0", None, SAHTE_APPLE_LANGS=langs)
                 self.assertIn(f'buttons {{"{button}"}}', self.dialogs())
 
+    # --- desktop.py'nin bitişi: sinyal = normal kapanış, hata = pencere ----
+    def _finished_install(self):
+        """Kurulumu bitmiş .venv; sahte desktop.py SAHTE_CIKIS'e göre biter."""
+        venv_bin = self.proj / ".venv" / "bin"
+        venv_bin.mkdir(parents=True)
+        _write_exec(venv_bin / "python", "#!/bin/bash\n"
+                    'if [ "$1" = desktop.py ]; then\n'
+                    '  case "$SAHTE_CIKIS" in\n'
+                    "    TERM|INT|HUP) kill -\"$SAHTE_CIKIS\" $$ ;;\n"
+                    '    *) exit "$SAHTE_CIKIS" ;;\n'
+                    "  esac\n"
+                    "fi\n"
+                    "exit 0\n")
+        (self.proj / ".venv" / "sesver_kurulum_tamam.txt").write_text("tamam\n", encoding="utf-8")
+
+    def test_signal_exit_is_normal_close_without_dialog(self):
+        # Oturum kapatma / Etkinlik Monitörü (SIGTERM 143), Ctrl+C (130), SIGHUP (129).
+        self._finished_install()
+        for sig, code in (("TERM", 143), ("INT", 130), ("HUP", 129)):
+            with self.subTest(sig=sig):
+                if self.dialog_log.exists():
+                    self.dialog_log.unlink()
+                proc = self.run_launcher("app", "arm64", "0", "en-US", SAHTE_CIKIS=sig)
+                self.assertEqual(proc.returncode, 0)
+                self.assertNotIn("quit unexpectedly", self.dialogs())
+                self.assertEqual(self.dialogs(), "")
+                self.assertIn(f"SesVer sinyalle kapatıldı (çıkış kodu {code}, SIG{sig}); normal kapanış.",
+                              self.launcher_log())
+
+    def test_real_crash_exit_still_shows_dialog(self):
+        self._finished_install()
+        for code in (1, 137):  # Python hata çıkışı; SIGKILL (zorla kapatma) da bildirilir
+            with self.subTest(code=code):
+                if self.dialog_log.exists():
+                    self.dialog_log.unlink()
+                proc = self.run_launcher("app", "arm64", "0", "en-US", SAHTE_CIKIS=str(code))
+                self.assertEqual(proc.returncode, code)
+                self.assertIn(f"SesVer quit unexpectedly (exit code {code}).", self.dialogs())
+                self.assertIn(f"[HATA] desktop.py {code} koduyla bitti.", self.launcher_log())
+
+    def test_window_closed_normally_shows_no_dialog(self):
+        self._finished_install()
+        proc = self.run_launcher("app", "arm64", "0", "en-US", SAHTE_CIKIS="0")
+        self.assertEqual(proc.returncode, 0)
+        self.assertEqual(self.dialogs(), "")
+        self.assertNotIn("sinyalle", self.launcher_log())
+
 
 @unittest.skipUnless(os.path.exists(BASH), "bash yok")
 class SesverAppScriptTests(unittest.TestCase):
@@ -286,6 +333,62 @@ class LauncherBinaryTests(unittest.TestCase):
                       if x.strip()), "")
         _, text = self.run_exe(None)
         self.assertIn('buttons {"Tamam"}' if first.lower().startswith("tr") else 'buttons {"OK"}', text)
+
+
+@unittest.skipUnless(sys.platform == "darwin" and shutil.which("clang"), "yalnız macOS + clang")
+class LauncherSignalTests(unittest.TestCase):
+    """Başlatıcıya gelen SIGTERM (oturum kapatma, Etkinlik Monitörü > Çık) yalnız bash'i değil
+    onun altındaki uygulama sürecini (python desktop.py) de kapatır; pencere sahipsiz kalmaz."""
+
+    def test_sigterm_to_launcher_reaches_app_process(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        base = Path(tmp.name)
+        contents = base / "SesVer.app" / "Contents"
+        (contents / "MacOS").mkdir(parents=True)
+        (contents / "Resources").mkdir()
+        fake = base / "osascript"
+        _write_exec(fake, FAKE_OSASCRIPT)
+        exe = contents / "MacOS" / "SesVer"
+        subprocess.run(["clang", "-Os", "-Wall", "-Wextra", "-Werror", "-framework", "CoreFoundation",
+                        f'-DSESVER_OSASCRIPT="{fake}"', "-o", str(exe),
+                        str(ROOT / "macos" / "sesver_app_launcher.c")], check=True, capture_output=True)
+        pid_file = base / "uygulama.pid"
+        # Gerçek akış gibi: bash, uygulama sürecini ön planda çalıştırıp bekler.
+        _write_exec(contents / "Resources" / "sesver_app.sh",
+                    "#!/bin/bash\n/bin/bash -c 'echo $$ > \"$UYGULAMA_PID\"; exec /bin/sleep 30'\n")
+        env = {"PATH": "/usr/bin:/bin", "SAHTE_PENCERE_LOG": str(base / "pencereler.txt"),
+               "UYGULAMA_PID": str(pid_file), "SESVER_SISTEM_DILI": "en-US"}
+        proc = subprocess.Popen([str(exe)], env=env)
+        app_pid = None
+        try:
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline and not (pid_file.exists() and pid_file.read_text().strip()):
+                time.sleep(0.05)
+            app_pid = int(pid_file.read_text().strip())
+            time.sleep(0.2)  # exec sleep tamamlansın
+            proc.terminate()  # SIGTERM → başlatıcı
+            self.assertEqual(proc.wait(timeout=10), 128 + 15)
+            alive = True
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                try:
+                    os.kill(app_pid, 0)
+                except ProcessLookupError:
+                    alive = False
+                    break
+                time.sleep(0.05)
+            self.assertFalse(alive, "uygulama süreci başlatıcı kapandıktan sonra açık kaldı")
+            self.assertFalse((base / "pencereler.txt").exists())
+        finally:
+            if proc.poll() is None:
+                proc.kill()
+                proc.wait()
+            if app_pid is not None:
+                try:
+                    os.kill(app_pid, 9)
+                except ProcessLookupError:
+                    pass
 
 
 if __name__ == "__main__":

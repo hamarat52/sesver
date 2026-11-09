@@ -515,6 +515,16 @@ Progress: $PWD/$BASLATICI_LOG")" note 20 &
     # görünür (Dock'a sabitlenen ikonla eşleşir). Python ikilisi değişmez.
     CFProcessPath="$SESVER_APP_EXE" "$RUN_PY" desktop.py
     local kod=$?
+    # Sinyalle sonlanma (128 + sinyal no) hata değil, normal kapanıştır: oturum
+    # kapatma / sistem kapanışı ve Etkinlik Monitörü > Çık SIGTERM (143), Ctrl+C
+    # SIGINT (130), kapanan oturum SIGHUP (129) gönderir. Pencere gösterilmez.
+    # Gerçek çökmeler (ör. Python hata çıkışı 1, SIGKILL 137, SIGSEGV 139) yine bildirilir.
+    case "$kod" in
+      129|130|143)
+        echo "SesVer sinyalle kapatıldı (çıkış kodu $kod, SIG$(kill -l "$((kod - 128))" 2>/dev/null)); normal kapanış."
+        exit 0
+        ;;
+    esac
     if [ "$kod" -ne 0 ]; then
       echo "[HATA] desktop.py $kod koduyla bitti."
       echo "Sorun sürerse sesver_log.txt dosyasını hermes.agent.hamarat@gmail.com adresine gönderin."

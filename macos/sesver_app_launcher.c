@@ -24,8 +24,10 @@
  *      Okunamazsa açıklama penceresi gösterilip çıkılır (sessiz kapanma yok).
  *      Pencere dili: sistem dili (CFLocaleCopyPreferredLanguages ilk öğesi; yalnız
  *      test için SESVER_SISTEM_DILI) "tr" ile başlıyorsa Türkçe, değilse İngilizce.
- *   3) /bin/bash sesver_app.sh alt süreç olarak çalıştırılır, çıkış kodu aynen
- *      döndürülür; SIGTERM/SIGINT/SIGHUP alt sürece iletilir. İlk açılışta TCC
+ *   3) /bin/bash sesver_app.sh alt süreç olarak, kendi süreç grubunda çalıştırılır,
+ *      çıkış kodu aynen döndürülür; SIGTERM/SIGINT/SIGHUP bu gruba (bash + python)
+ *      iletilir. Sinyalle kapanma normal kapanıştır: pencere gösterilmez (bkz.
+ *      macos_ortak.sh, 129/130/143). İlk açılışta TCC
  *      izin penceresi ("SesVer, Masaüstü klasörünüzdeki dosyalara erişmek
  *      istiyor") bash proje kökündeki macos_ortak.sh'ı okurken çıkar; izin
  *      verilmezse sesver_app.sh yönlendirici bir hata penceresi gösterir.
@@ -57,8 +59,11 @@ extern char **environ;
 static volatile pid_t g_child = 0;
 static int g_turkish = 0;
 
+/* Alt süreç kendi süreç grubunun lideridir (bkz. POSIX_SPAWN_SETPGROUP); sinyal
+ * yalnız bash'e değil gruba (bash + python desktop.py) iletilir. Yalnız bash'e
+ * iletilseydi bash ölür, SesVer penceresi (python) sahipsiz açık kalırdı. */
 static void forward_signal(int sig) {
-    if (g_child > 0) kill(g_child, sig);
+    if (g_child > 0 && kill(-g_child, sig) != 0) kill(g_child, sig);
 }
 
 /* "tr", "tr-TR", "tr_TR" → 1; diğerleri 0. */
@@ -169,8 +174,13 @@ int main(void) {
 
     /* LaunchServices'in verebileceği argümanlar (ör. -psn_...) bilerek iletilmez. */
     char *args[] = {"/bin/bash", script, NULL};
+    posix_spawnattr_t attr;
+    posix_spawnattr_init(&attr);
+    posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP);
+    posix_spawnattr_setpgroup(&attr, 0); /* yeni grup, kimliği = bash'in pid'i */
     pid_t pid;
-    int rc = posix_spawn(&pid, args[0], NULL, NULL, args, environ);
+    int rc = posix_spawn(&pid, args[0], NULL, &attr, args, environ);
+    posix_spawnattr_destroy(&attr);
     if (rc != 0) {
         char msg[512];
         snprintf(msg, sizeof(msg),
