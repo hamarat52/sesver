@@ -37,6 +37,13 @@ from i18n import t, tr_message
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "outputs"
 MODEL_ID = "openbmb/VoxCPM2"
+# Sabit model revizyonları (Hugging Face commit SHA'sı; 2026-11-08'de deponun main'i ile
+# aynı olduğu doğrulandı). Depo sonradan güncellense de kullanıcılar aynı ağırlıkları alır;
+# commit SHA'sı verildiğinde önbellekte o revizyon varsa dosyalar yeniden indirilmez.
+# Değiştirmek bilinçli bir sürüm işidir (yeni SHA + gerçek üretim testi).
+MODEL_REVISION = "32279effe8c19989596f05d353d1447f51d9e915"
+WHISPER_MODEL = "small"  # faster-whisper bunu Systran/faster-whisper-small deposuna çevirir
+WHISPER_REVISION = "536b0662742c02347bc0e980a01041f333bce120"
 _model = None
 _model_lock = Lock()
 log = logging.getLogger("sesver")
@@ -95,10 +102,20 @@ def get_model():
     if _model is None:
         from voxcpm import VoxCPM
         _model = VoxCPM.from_pretrained(
-            hf_model_id=MODEL_ID, load_denoiser=False, optimize=False,
+            hf_model_id=_model_yolu(), load_denoiser=False, optimize=False,
             device="cpu" if _gpu_disabled else None,
         )
     return _model
+
+
+def _model_yolu():
+    """VoxCPM2'nin sabit revizyonunun yerel klasörü (gerekirse bir kez indirilir).
+
+    voxcpm 2.0.3 ``from_pretrained`` revizyon almaz; klasör yolu verilince indirmeyi
+    atlayıp doğrudan onu yükler. ``HF_HUB_OFFLINE=1`` iken yalnız önbellek kullanılır.
+    """
+    from huggingface_hub import snapshot_download
+    return snapshot_download(repo_id=MODEL_ID, revision=MODEL_REVISION)
 
 
 def _reload_model_cpu():
@@ -131,7 +148,8 @@ def _get_whisper():
     global _whisper_model
     if _whisper_model is None:
         from faster_whisper import WhisperModel
-        _whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+        _whisper_model = WhisperModel(WHISPER_MODEL, device="cpu", compute_type="int8",
+                                      revision=WHISPER_REVISION)
     return _whisper_model
 
 
@@ -3027,7 +3045,8 @@ def _kuyruk_ortam():
     if not model_var:
         try:
             from huggingface_hub import constants as hf_constants
-            model_var = (Path(hf_constants.HF_HUB_CACHE) / f"models--{MODEL_ID.replace('/', '--')}").is_dir()
+            model_var = (Path(hf_constants.HF_HUB_CACHE) / f"models--{MODEL_ID.replace('/', '--')}"
+                         / "snapshots" / MODEL_REVISION).is_dir()
         except Exception:  # noqa: BLE001 — bilinmiyorsa uyarı gösterilmez
             model_var = True
     try:

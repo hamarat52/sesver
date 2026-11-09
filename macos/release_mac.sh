@@ -191,11 +191,15 @@ PL="$IS/payload"
   done
   mkdir -p "$PL/locales"
   cp -p locales/*.json "$PL/locales/"
+  # Kurulum kilitleri (pip --require-hashes): başlatıcı bunlarsız paket kurmaz.
+  ls kilit/*.txt >/dev/null 2>&1 || { echo "[HATA] kilit/*.txt HEAD'de yok." >&2; exit 1; }
+  mkdir -p "$PL/kilit"
+  cp -p kilit/*.txt "$PL/kilit/"
   [ -d voices/hazir ] || { echo "[HATA] voices/hazir HEAD'de yok." >&2; exit 1; }
   mkdir -p "$PL/voices"
   ditto voices/hazir "$PL/voices/hazir"
 )
-for f in desktop.py app.py macos_ortak.sh requirements.txt; do
+for f in desktop.py app.py macos_ortak.sh requirements.txt kilit/pip.txt kilit/voxcpm.txt kilit/torch-pypi.txt kilit/macos-arm64-py311.txt; do
   [ -f "$PL/$f" ] || hata "Payload eksik: $f"
 done
 printf '%s (%s)\n' "$SURUM" "$GIT_SHA" >"$PL/.sesver_payload_version"

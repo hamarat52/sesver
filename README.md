@@ -30,36 +30,36 @@ Normal bir Windows programı gibi **İleri** ve **Kur** düğmeleriyle kurulur; 
 
 ## 🍎 Mac Kurulum
 
-İlk çalıştırmada gerekli her şey (Python dahil) otomatik indirilir, ayrıca bir şey kurmanıza gerek yok. En az **20 GB boş alan** ve **internet** gerekir.
+SesVer'in Mac sürümü Apple tarafından onaylanmış (notarize edilmiş) bir uygulamadır; normal bir Mac uygulaması gibi kurulur. **Apple Silicon (M1 ve sonrası) ve macOS 14 (Sonoma) ya da daha yenisi gerekir.** Intel işlemcili Mac'lerde kurulum başlamaz. İlk açılışta gerekli her şey (Python dahil) otomatik indirilir; en az **20 GB boş alan** ve **internet** gerekir.
 
-**İlk açılış her zaman `MACOS_BASLAT.command` ile yapılır** (klasördeki `SesVer.app` ile değil). SesVer şu an Apple tarafından imzalanmış/onaylanmış (notarize) değildir; macOS ilk açılışta bir kez onay ister. İnternetten indirilen bir klasörde `SesVer.app`'e doğrudan çift tıklarsanız macOS uygulamayı geçici bir konumdan çalıştırır ve SesVer proje dosyalarını bulamaz. `MACOS_BASLAT.command` bu sorunu yaşamaz ve ilk açılışta klasörün "internetten indirildi" işaretini kaldırır. Bundan sonra `SesVer.app` normal şekilde açılır.
-
-1. **İndirin:** Bu sayfanın üstündeki yeşil **Code** düğmesi → **Download ZIP**. (GitHub hesabı gerekmez.)
-2. **Çıkarın:** İndirilen ZIP dosyasına çift tıklayın. `sesver-main` klasörü oluşur. İsterseniz bu klasörü kalıcı bir yere (ör. Belgeler) taşıyın. Taşıyacaksanız **şimdi** taşıyın, kurulumdan sonra değil.
-3. **Başlatın:** Klasördeki **`MACOS_BASLAT.command`** dosyasına çift tıklayın.
-4. **macOS uyarısını geçin (yalnız ilk sefer):** **"“MACOS_BASLAT.command” açılmadı"** / **"Apple doğrulayamadı…"** penceresi çıkar. **Bitti**'ye basın (Çöp Sepeti'ne Taşı'ya basmayın). Sonra:
-   - **Apple (elma) menüsü → Sistem Ayarları → Gizlilik ve Güvenlik**. Aşağı kaydırıp **Güvenlik** bölümüne gelin.
-   - **MACOS_BASLAT.command**'ın engellendiğini söyleyen satırın yanındaki **Yine de Aç**'a basın. Bu düğme uyarıdan sonraki yaklaşık 1 saat içinde görünür. Görmüyorsanız 3. adımı tekrarlayın.
-   - Mac parolanızı girin (veya Touch ID kullanın). Tekrar soran pencerede **Yine de Aç**'a basın.
-   - Not: macOS 15 (Sequoia) ve sonrasında "sağ tık → Aç" artık bu uyarıyı geçmez. Yalnız yukarıdaki yol çalışır.
-5. **Bekleyin:** Bir Terminal penceresi açılır ve gerekenleri kendisi kurar. Bu pencereyi **kapatmayın**. Kurulum bitince **SesVer penceresi kendiliğinden açılır**. Pencere açılmazsa Terminal'de yazan adresi (genelde **http://127.0.0.1:7860**) Safari'de açın.
+1. **İndirin:** [**SesVer-macOS.dmg**](https://github.com/hamarat52/sesver/releases/latest/download/SesVer-macOS.dmg) (yaklaşık 5,3 MB, her zaman en son sürüm; tüm sürümler: [Releases](https://github.com/hamarat52/sesver/releases/latest)). GitHub hesabı gerekmez.
+2. **İsterseniz doğrulayın:** Terminal'i açıp `shasum -a 256 ~/Downloads/SesVer-macOS.dmg` yazın. Çıkan değer, sürüm sayfasındaki (Releases) SHA256 değeriyle aynı olmalı. Farklıysa dosyayı açmayın, yeniden indirin.
+3. **Kurun:** İndirilen `SesVer-macOS.dmg` dosyasına çift tıklayın. Açılan pencerede **SesVer** simgesini **Applications** (Uygulamalar) klasörüne sürükleyin. Sonra pencereyi kapatıp masaüstündeki SesVer diskini çıkarın.
+4. **Açın:** **Uygulamalar** klasöründeki **SesVer**'e çift tıklayın. İnternetten indirildiği için macOS bir kez "açmak istediğinizden emin misiniz?" diye sorar, **Aç** deyin.
+5. **Bekleyin:** İlk açılışta SesVer Python'u ve paketleri indirir ("SesVer ilk kez kuruluyor" penceresi çıkar). Bu yalnız bir kere olur. Kurulum bitince **SesVer penceresi kendiliğinden açılır**. Pencere açılmazsa Safari'de **http://127.0.0.1:7860** adresini açın.
 
 **Ne kadar sürer, ne kadar yer kaplar?** (Ölçüm 28 Ekim 2026, Apple Silicon Mac, hızlı ev bağlantısı)
 
 | Aşama | İndirme | Diskte | Ölçülen süre |
 |---|---|---|---|
-| Kurulum: Python + paketler (3. adımdan sonra, otomatik) | ~0,4 GB | ~1,7 GB | 82 sn kurulum + 36 sn arayüzün açılması |
+| Kurulum: Python + paketler (ilk açılışta, otomatik) | ~0,4 GB | ~1,7 GB | 82 sn kurulum + 36 sn arayüzün açılması |
 | Ses modeli (ilk **Üret**'te, bir kere) | ~5,0 GB | ~4,6 GB | 102 sn |
 | Yazıya dökme modeli (yalnız **Otomatik yazıya dök** ilk kullanılınca) | ~0,5 GB | ~0,5 GB | ölçülmedi |
 
 Toplam indirme yaklaşık **5,4 GB**. Bu yüzden süreyi en çok internet hızınız belirler. Kabaca hesap: 100 Mbit/sn'de ~8 dk, 50 Mbit/sn'de ~15 dk, 25 Mbit/sn'de ~30 dk (bu süreler hesaplanmıştır, ölçülmemiştir). Mac'te ölçülen disk kullanımı ~7 GB'tır. **20 GB** boş alan önerisi; ürettiğiniz sesler, güncellemeler ve kurulum sırasındaki geçici dosyalar için güvenlik payıdır.
 
+İlk açılışta inen her şey sabit sürümle ve bilinen bir SHA-256 özetiyle iner (Python ve tüm paketler; ayrıntı: [Başlatıcılar ne yapar?](#başlatıcılar-ne-yapar)). Bir dosyanın özeti tutmazsa kurulum durur ve SesVer bunu bir pencerede söyler.
+
 ### Sonra nasıl açarım? (Mac)
 
-- İlk açılış bittikten sonra klasördeki **`SesVer.app`**'e çift tıklayın. Terminal açılmaz ve kurulum tekrarlanmaz. İsterseniz Dock'a sabitleyin (açıkken Dock'taki simgeye sağ tık → **Seçenekler → Dock'ta Tut**). `SesVer.app`'i klasörün dışına **taşımayın**, çünkü proje dosyalarıyla aynı klasörde durmalıdır.
-- Klasör Masaüstü, Belgeler veya İndirilenler'deyse macOS ilk seferde **"SesVer, … klasörünüzdeki dosyalara erişmek istiyor"** diye sorar. **İzin Ver** deyin.
-- `MACOS_BASLAT.command` her zaman çalışmaya devam eder. Uygulama açılmazsa bunu kullanın, çünkü hata mesajlarını Terminal'de gösterir.
-- Kapatmak için SesVer penceresini kapatın. Terminal ile açtıysanız Terminal'de **Ctrl+C** da olur.
+- **Uygulamalar** klasöründeki ya da Launchpad'deki **SesVer**'e tıklayın. Kurulum tekrarlanmaz. İsterseniz Dock'a sabitleyin (açıkken Dock'taki simgeye sağ tık → **Seçenekler → Dock'ta Tut**).
+- Kendi sesleriniz, ürettiğiniz sesler ve kurulum dosyaları `~/Library/Application Support/SesVer` klasöründe durur. Kurulum günlüğü: aynı klasördeki `sesver_baslatici_log.txt`.
+- Yeni sürüm çıkınca yeni DMG'yi indirip aynı şekilde **Uygulamalar**'a sürükleyin (eskisinin yerine). Sesleriniz korunur; yalnız değişen paketler iner.
+- Kapatmak için SesVer penceresini kapatın.
+
+### Kaynaktan çalıştırma (ileri kullanıcı)
+
+GitHub'daki **Code → Download ZIP** ile indirilen klasör de çalışır: klasördeki **`MACOS_BASLAT.command`** dosyasına çift tıklayın (bu yol notarize edilmemiştir; macOS ilk seferde **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç** onayı ister). İlk açılıştan sonra aynı klasördeki `SesVer.app` de kullanılabilir. Klasörü kurulumdan sonra taşımayın. Komut satırıyla kurulum için: [Elle kurulum](#elle-kurulum).
 
 ## 🤖 Yapay Zeka Destekli Kurulum
 
@@ -78,8 +78,8 @@ Bu sayfayı görüyorsanız kurulum başarılı:
 ![SesVer çalışırken: Ses Kütüphanesi sekmesi açık ana ekran](docs/screenshots/kurulum-basarili.png)
 
 - İlk **Üret**'te ses modeli (yaklaşık 5 GB) bir kere indirilir; ilk seferde uzun sürebilir, sonrakiler daha hızlıdır.
-- Sonraki kullanımlarda **Windows**'ta Başlat menüsündeki ya da masaüstündeki **SesVer** simgesine, **Mac**'te klasördeki **`SesVer.app`**'e çift tıklayın. Pencere kendiliğinden açılır ve kurulum tekrarlanmaz.
-- Kapatmak için SesVer penceresini kapatmanız yeterli (**Mac**'te Terminal ile açtıysanız Terminal'de **Ctrl+C** da olur).
+- Sonraki kullanımlarda **Windows**'ta Başlat menüsündeki ya da masaüstündeki **SesVer** simgesine, **Mac**'te **Uygulamalar** klasöründeki **SesVer**'e tıklayın. Pencere kendiliğinden açılır ve kurulum tekrarlanmaz.
+- Kapatmak için SesVer penceresini kapatmanız yeterli (kaynaktan Terminal ile açtıysanız Terminal'de **Ctrl+C** da olur).
 - Sorun mu çıktı? [Sorun giderme](#sorun-giderme) bölümüne bakın veya [yapay zeka destekli kurulumu](#-yapay-zeka-destekli-kurulum) kullanın.
 
 ## Özellikler
@@ -126,13 +126,14 @@ Bu sürüm numarası kökteki `VERSION` dosyasındadır.
 - **`Python hazirlanamadi` / `Python bulunamadı`:** Normalde Python otomatik iner; yalnız indirme başarısız olursa (ör. güvenlik duvarı/şirket ağı) başlatıcı eski yönteme döner ve sizden Python 3.10-3.12 kurmanızı ister. Böyle bir mesaj görürseniz [python.org/downloads](https://www.python.org/downloads/) adresinden kurup (Windows'ta "Add python.exe to PATH" işaretli olsun) başlatıcıyı tekrar çalıştırın.
 - **PowerShell'de `is not recognized` / `CommandNotFoundException`:** Dosya adının başına `.\` ekleyin: `.\WINDOWS_BASLAT.bat`
 - **`py` komutu bulunamıyor:** Komutlarda `py -3.11` yerine `python` yazın. (Başlatıcı bunu kendisi dener.)
-- **Kurulum yarıda kesildi:** Windows'ta SesVer simgesine (ZIP'te ve Mac'te başlatıcıya) tekrar çift tıklayın; kaldığı yerden devam eder.
-- **Mac: "Apple doğrulayamadı" / "açılmadı" uyarısı:** [Mac Kurulum](#-mac-kurulum) 4. adım: **Bitti** → **Sistem Ayarları → Gizlilik ve Güvenlik → Yine de Aç** → parola. "Sağ tık → Aç" macOS 15 ve sonrasında işe yaramaz.
-- **Mac: "SesVer.app, SesVer proje klasörünün içinde durmalı" ya da "macOS SesVer'i geçici bir konumdan açtı" uyarısı:** İlk açılışı `SesVer.app` ile yaptınız. Aynı klasördeki **`MACOS_BASLAT.command`**'ı açın (4. adımdaki onayla). Bu işlem klasörün indirme işaretini kaldırır; sonra `SesVer.app` düzgün açılır.
+- **Kurulum yarıda kesildi:** Windows'ta SesVer simgesine, Mac'te Uygulamalar'daki SesVer'e (ZIP'te başlatıcıya) tekrar çift tıklayın; kaldığı yerden devam eder.
+- **Mac: "SesVer macOS 14 (Sonoma) ya da daha yenisini gerektirir" / "Apple Silicon gerektirir":** SesVer'in kullandığı PyTorch sürümü daha eski macOS'ta ve Intel Mac'te çalışmaz. macOS'u güncelleyin (Apple menüsü → Sistem Ayarları → Genel → Yazılım Güncelleme).
+- **Kurulum "SHA-256 özeti tutmuyor" diye durdu:** İndirilen bir dosya beklenen dosyayla aynı değil (yarım/bozuk indirme ya da değiştirilmiş dosya). Güvenlik için hiçbir şey çalıştırılmadı. Bir süre sonra SesVer'i tekrar açın; kurulum yeniden denenir. Sürerse hermes.agent.hamarat@gmail.com adresine durduğu adımı yazın.
+- **Kaynaktan (ZIP) çalıştırırken Mac: "SesVer.app, SesVer proje klasörünün içinde durmalı" uyarısı:** İlk açılışı `SesVer.app` ile yaptınız. Aynı klasördeki **`MACOS_BASLAT.command`**'ı açın ([Kaynaktan çalıştırma](#kaynaktan-çalıştırma-ileri-kullanıcı)); sonra `SesVer.app` düzgün açılır.
 - **İlk üretim uzun sürüyor:** Model (yaklaşık 5 GB) ilk seferde indirilir. İlerlemeyi SesVer penceresindeki durum mesajından izleyin; Windows'ta kurulum penceresi bu sırada kapanmış olabilir, bu normaldir. M1'de üretim de zaman alır.
 - **Bellek hatası / sistem yavaşladı:** Uygulamayı durdurun, diğer ağır uygulamaları kapatın ve daha kısa metinle yeniden başlatın. 8 GB RAM'li cihazlarda kullanım önerilmez.
 - **Referans okunmuyor:** 1–30 saniyelik geçerli bir WAV dosyası deneyin.
-- **7860 portu kullanımda:** SesVer zaten açık. Daha önce açtığınız SesVer'i kapatın (**Windows**'ta SesVer penceresini kapatmanız yeterli; **Mac**'te Terminal penceresinde **Ctrl+C** basın), sonra tekrar başlatın.
+- **7860 portu kullanımda:** SesVer zaten açık. Daha önce açtığınız SesVer'i kapatın (**Windows**'ta SesVer penceresini kapatmanız yeterli; **Mac**'te de SesVer penceresini kapatın, kaynaktan Terminal ile açtıysanız Terminal'de **Ctrl+C** basın), sonra tekrar başlatın.
 - **GitHub'da depo görünmüyor / ZIP inmiyor:** Depo herkese açıktır, giriş gerekmez. Adresin doğru yazıldığından (https://github.com/hamarat52/sesver) ve internet bağlantınızdan emin olun; birkaç dakika sonra tekrar deneyin.
 - **Destek için günlük göndermek:** SesVer açılıyorsa **Hata raporu gönder** düğmesini kullanın; rapor gönderilmeden önce size gösterilir. SesVer açılmıyorsa `sesver_log.txt`, Windows'ta ilk kurulum yarıda kaldıysa `kurulum_log_paylas.txt` dosyasını gönderin. Bu dosyalarda ev klasörü yollarınız (`C:\Users\<adınız>`, `/Users/<adınız>`) gizlidir. `kurulum_log.txt` dosyasının kendisini göndermeyin; içinde gizlenmemiş yollar vardır.
 
@@ -162,12 +163,12 @@ SesVer runs on your computer. Your text, your voice recordings and the audio you
 | When | Server | What is sent | How to avoid |
 |---|---|---|---|
 | Every start (background, at most 3 s) | `api.github.com` (GitHub) | One GET request without a body for the latest SesVer release. Headers: `User-Agent: SesVer/<version>`, `Accept`. | Windows installer page "Açılışta güncellemeleri denetle" (silent install: `/GUNCELLEMEDENETIMI=0`), Settings → the same option off, or `SESVER_GUNCELLEME_KONTROLU=0` |
-| First-time setup (Windows installer page, `WINDOWS_BASLAT.bat`, `MACOS_BASLAT.command`) | `raw.githubusercontent.com`, `github.com` (python-build-standalone) | Downloads of a portable Python and its SHA256SUMS file | Install Python 3.10-3.12 yourself (fallback path) |
-| First-time setup, and after an update that changes `requirements.txt` | `pypi.org`, `files.pythonhosted.org` (PyPI) | Package downloads by pip | No; SesVer cannot run without these packages |
-| First-time setup on Windows with an NVIDIA card; once more at start if the installed PyTorch cannot use the card | `download.pytorch.org` | PyTorch (CUDA build) download by pip | No NVIDIA card: not contacted |
-| First **Generate** (Üret): about 5 GB once; afterwards a short "is the cached model current?" check on the first generation of each session | `huggingface.co` (model `openbmb/VoxCPM2`) | Model file requests | `HF_HUB_OFFLINE=1` after the model is downloaded |
-| First use of **Otomatik yazıya dök** (transcription) | `huggingface.co` (faster-whisper `small` model) | Model file requests | Do not use automatic transcription |
-| Only when you click **Hızlı Mod'u indir** | `pypi.org` / `files.pythonhosted.org`, `huggingface.co` (model `canberkkkkkk/ema-lightning`, fixed revision) | Two pinned packages and about 34 MB of weights, checked with SHA-256 | Do not install Fast Mode |
+| First-time setup (Windows installer page, `WINDOWS_BASLAT.bat`, SesVer.app on Mac, `MACOS_BASLAT.command`) | `github.com` (python-build-standalone) | Download of one fixed portable Python build (3.11.18, release 20261026), checked against a SHA-256 value stored in SesVer | Install Python 3.10-3.12 yourself (fallback path) |
+| First-time setup, and after an update that changes a lock file in `kilit/` | `pypi.org`, `files.pythonhosted.org` (PyPI) | Package downloads by pip; every package is pinned to an exact version and checked against the SHA-256 values in `kilit/` (`--require-hashes`) | No; SesVer cannot run without these packages |
+| First-time setup on Windows with an NVIDIA card; once more at start if the installed PyTorch cannot use the card | `download.pytorch.org` | PyTorch (CUDA build) download by pip, pinned and checked against `kilit/torch-<cuda>.txt` | No NVIDIA card: not contacted |
+| First **Generate** (Üret): about 5 GB once, from a fixed model revision; afterwards the cached files are used | `huggingface.co` (model `openbmb/VoxCPM2`, revision `32279eff`) | Model file requests | `HF_HUB_OFFLINE=1` after the model is downloaded |
+| First use of **Otomatik yazıya dök** (transcription) | `huggingface.co` (faster-whisper `small` model, revision `536b0662`) | Model file requests | Do not use automatic transcription |
+| Only when you click **Hızlı Mod'u indir** | `pypi.org` / `files.pythonhosted.org`, `huggingface.co` (model `canberkkkkkk/ema-lightning`, fixed revision) | Two pinned packages (checked with SHA-256) and about 34 MB of weights, checked with SHA-256 | Do not install Fast Mode |
 | Only when you click **Hızlandırmayı etkinleştir** (Ayarlar → Ekran kartı hızlandırma) or its CPU rollback | `download.pytorch.org`, `pypi.org` | Package index listing and PyTorch download | Do not use it |
 | Only when you click **Hata raporu gönder** and then **E-posta uygulamasında aç** | none by SesVer | A draft opens in your own e-mail app, addressed to hermes.agent.hamarat@gmail.com. You see the full report first and you send it yourself. It contains only technical data; home folder paths, e-mail addresses and access keys are masked. | Do not send it |
 
@@ -177,7 +178,7 @@ The Windows installer shows a short version of this policy on its "Gizlilik ve g
 
 Links you click (for example the release page in the "new version" notice) open in your web browser. The servers above see your IP address and the requested file names; their own privacy policies apply: [GitHub](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement), [PyPI](https://policies.python.org/pypi.org/Privacy-Notice/), [PyTorch / Linux Foundation](https://www.linuxfoundation.org/legal/privacy-policy), [Hugging Face](https://huggingface.co/privacy).
 
-**Türkçe özet:** Metniniz, ses kayıtlarınız ve ürettiğiniz sesler hiçbir yere gönderilmez; hesap, telemetri ve analitik yoktur. SesVer yalnız şu durumlarda internete çıkar: açılışta GitHub'a sürüm denetimi (kurulumdaki seçenekle ya da Ayarlar'dan kapatılır), ilk kurulumda ve paket güncellemesinde Python ile paketlerin indirilmesi (GitHub, PyPI; NVIDIA kartlı Windows'ta PyTorch için download.pytorch.org), ilk **Üret**'te ses modelinin Hugging Face'ten indirilmesi (sonraki oturumlarda kısa bir güncellik denetimi), **Otomatik yazıya dök** ilk kullanılınca yazıya dökme modeli, yalnız siz tıklarsanız Hızlı Mod ve GPU hızlandırma indirmeleri. Hata raporu otomatik gönderilmez: siz tıklarsanız e-posta uygulamanızda bir taslak açılır, gönderen sizsiniz.
+**Türkçe özet:** Metniniz, ses kayıtlarınız ve ürettiğiniz sesler hiçbir yere gönderilmez; hesap, telemetri ve analitik yoktur. SesVer yalnız şu durumlarda internete çıkar: açılışta GitHub'a sürüm denetimi (kurulumdaki seçenekle ya da Ayarlar'dan kapatılır), ilk kurulumda ve paket güncellemesinde Python ile paketlerin indirilmesi (GitHub, PyPI; NVIDIA kartlı Windows'ta PyTorch için download.pytorch.org), ilk **Üret**'te ses modelinin Hugging Face'ten sabit bir revizyonla indirilmesi (sonra önbellekten kullanılır), **Otomatik yazıya dök** ilk kullanılınca yazıya dökme modeli, yalnız siz tıklarsanız Hızlı Mod ve GPU hızlandırma indirmeleri. Hata raporu otomatik gönderilmez: siz tıklarsanız e-posta uygulamanızda bir taslak açılır, gönderen sizsiniz.
 
 ## Lisans, atıf ve sorumlu kullanım
 
@@ -203,7 +204,7 @@ Yazılım **"olduğu gibi", hiçbir garanti vermeden** sunulur. Lisans sahibi/ka
 
 ### Gereksinimler
 
-Başlatıcıları kullanıyorsanız Python kurmanız gerekmez (aşağıya bakın). **Elle kurulumda Python 3.10–3.12 kullanın; 3.11 önerilir** ([python.org/downloads](https://www.python.org/downloads/)). Python 3.13+ bu kurulum için önerilmez. En az **20 GB boş disk alanı** ayırın.
+Başlatıcıları kullanıyorsanız Python kurmanız gerekmez (aşağıya bakın). **Elle kurulumda Python 3.10–3.12 kullanın; 3.11 önerilir** ([python.org/downloads](https://www.python.org/downloads/)). Paket kilitleri yalnız bu sürümler için vardır; Python 3.13+ desteklenmez. Mac'te Apple Silicon ve macOS 14 ya da daha yenisi gerekir. En az **20 GB boş disk alanı** ayırın.
 
 ```bash
 git clone https://github.com/hamarat52/sesver.git
@@ -214,42 +215,44 @@ Git kullanmıyorsanız GitHub'da **Code → Download ZIP** ile indirin, arşivi 
 
 ### Başlatıcılar ne yapar?
 
-`MACOS_BASLAT.command` / `WINDOWS_BASLAT.bat` ilk çalıştırmada uygulamaya özel taşınabilir bir Python'u (python-build-standalone, CPython 3.11) SHA-256 doğrulamasıyla indirip klasördeki `python-embed/` içine açar, paketleri doğrudan oraya kurar ve `app.py`'yi başlatır; sistemdeki Python'a dokunulmaz. Eski yöntemle tamamlanmış bir `.venv` kurulumu varsa o kullanılmaya devam eder. İndirme başarısız olursa eski yönteme döner: uygun sistem Python'unu bulur (Windows: `py -3.11` → `py` → `python`; macOS: `python3.11` → `python3.12` → `python3.10` → `python3`), `.venv` sanal ortamını oluşturur ve aşağıdaki elle kurulum adımlarını çalıştırır. Kurulum tamamlanınca `python-embed/` (ya da `.venv/`) içine `sesver_kurulum_tamam.txt` yazılır; bu dosya yoksa bir sonraki çalıştırmada kurulum kaldığı yerden devam eder. Hata olursa başarısız adımın adı gösterilir.
+`MACOS_BASLAT.command` / `WINDOWS_BASLAT.bat` (ve Mac'te SesVer.app) ilk çalıştırmada uygulamaya özel taşınabilir bir Python'u (python-build-standalone, CPython 3.11.18, sürüm 20261026) indirip SesVer'in içinde yazılı sabit SHA-256 özetiyle doğrular, klasördeki `python-embed/` içine açar, paketleri doğrudan oraya kurar ve `app.py`'yi başlatır; sistemdeki Python'a dokunulmaz. Paketler `kilit/` klasöründeki kilit dosyalarından `pip install --require-hashes` ile kurulur: her paket sabit sürümdedir ve özeti tutmayan dosya kurulmaz. Sıra: `kilit/pip.txt` (pip, setuptools) → `kilit/torch-<katman>.txt` (macOS ve NVIDIA'sız Windows: `torch-pypi.txt`; NVIDIA kartlı Windows: `hizlandirma.py`'nin seçtiği `torch-cu126/cu128/cu130.txt`) → `kilit/voxcpm.txt` → `kilit/<platform>-py3XX.txt` (geri kalan her şey). Kilitler `requirements.txt`'den `python tools/kilit_uret.py` (uv) ile üretilir. Eski yöntemle tamamlanmış bir `.venv` kurulumu varsa o kullanılmaya devam eder. Python indirilemezse eski yönteme döner: uygun sistem Python'unu bulur (Windows: `py -3.11` → `py` → `python`; macOS: `python3.11` → `python3.12` → `python3.10` → `python3`) ve `.venv` oluşturur; kilit yalnız Python 3.10-3.12 için olduğundan başka bir sürümde açık bir mesajla durur. İndirilen Python'un özeti tutmazsa sistem Python'una geçilmez, kurulum durur. Kurulum tamamlanınca `python-embed/` (ya da `.venv/`) içine `sesver_kurulum_tamam.txt` yazılır (kilit dosyalarının özeti + voxcpm sürümü); bu dosya yoksa bir sonraki çalıştırmada kurulum kaldığı yerden devam eder, kilitler değişmişse yalnız değişen paketler kurulur. Hata olursa başarısız adımın adı gösterilir.
 
 Port varsayılan olarak **7860**'tır; `GRADIO_SERVER_PORT` ortam değişkeniyle değiştirilebilir (örn. `GRADIO_SERVER_PORT=7861 ./MACOS_BASLAT.command`). Başlatıcılar `desktop.py`'yi çalıştırır; arayüz kendi penceresinde (pywebview) açılır. Pencere açılamazsa varsayılan tarayıcıda açılır.
 
 ### Elle kurulum
 
-#### macOS / Linux
+#### macOS (Apple Silicon)
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
-pip install --no-deps voxcpm==2.0.3
-pip install -r requirements.txt
+python -m pip install --require-hashes --no-deps -r kilit/pip.txt
+python -m pip install --require-hashes --no-deps -r kilit/torch-pypi.txt
+python -m pip install --require-hashes --no-deps -r kilit/voxcpm.txt
+python -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r kilit/macos-arm64-py311.txt
 python app.py
 ```
 
-`--no-deps`: `voxcpm` paketi varsayılan kurulumda `funasr`, `matplotlib`, `modelscope`, `datasets`, `spaces`, `argbind` gibi bu arayüzün **hiç kullanmadığı** (kodda hiçbir yerde import edilmeyen, yalnız `voxcpm`'in kendi eğitim/demo betiklerine ait) ağır paketleri de kurar — bunları atlamak kurulumu ~400 MB küçültür. `requirements.txt` yalnız gerçekten çalışması için gereken paketleri listeler.
+Python 3.10 ya da 3.12 kullanıyorsanız son kurulum satırında `py311` yerine `py310` / `py312` yazın. `--no-deps`: `voxcpm` paketi varsayılan kurulumda `funasr`, `matplotlib`, `modelscope`, `datasets`, `spaces`, `argbind` gibi bu arayüzün **hiç kullanmadığı** (kodda hiçbir yerde import edilmeyen, yalnız `voxcpm`'in kendi eğitim/demo betiklerine ait) ağır paketleri de kurar; bunları atlamak kurulumu ~400 MB küçültür. `--no-build-isolation`: kaynak paketi olarak gelen tek paket (`proxy-tools`) hash'li kurulan setuptools ile derlenir. Kilit dosyaları `requirements.txt`'den üretilir (`python tools/kilit_uret.py`); `requirements.txt`'yi doğrudan kurmak sürümleri sabitlemez.
 
 #### Windows (PowerShell)
 
 ```powershell
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install --no-deps voxcpm==2.0.3
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r kilit\pip.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r kilit\torch-pypi.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --no-deps -r kilit\voxcpm.txt
+.\.venv\Scripts\python.exe -m pip install --require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation -r kilit\windows-x64-py311.txt
 .\.venv\Scripts\python.exe app.py
 ```
 
-`py` komutu çalışmazsa (bazı Python / Microsoft Store kurulumlarında `py` başlatıcısı yoktur) ilk satırda `python -m venv .venv` kullanın.
+`py` komutu çalışmazsa (bazı Python / Microsoft Store kurulumlarında `py` başlatıcısı yoktur) ilk satırda `python -m venv .venv` kullanın. NVIDIA ekran kartı için ikinci satırda `kilit\torch-pypi.txt` yerine kartınıza uygun `kilit\torch-cu126.txt`, `kilit\torch-cu128.txt` (RTX 50xx, sürücü 570-579) ya da `kilit\torch-cu130.txt` (sürücü 580+) dosyasını kullanın.
 
 Tarayıcıda **http://127.0.0.1:7860** adresini açın. Terminal açık kalmalı; durdurmak için **Ctrl+C** kullanın. Yeniden başlatırken kurulum komutlarını tekrarlamanız gerekmez, ortamı etkinleştirip `python app.py` çalıştırın.
 
 Arayüz hemen açılır. Model, ilk **Üret** tıklamasında Hugging Face'den indirilip belleğe yüklenir; ilk sefer internet gerekir ve süre bağlantınıza bağlıdır. Sonraki kullanımlarda ağırlıklar önbellekten kullanılır. Model hazırken internet olmadan çalıştırmak için macOS/Linux'ta `HF_HUB_OFFLINE=1 python app.py`; PowerShell'de önce `$env:HF_HUB_OFFLINE="1"` ayarlayın.
 
-**NVIDIA GPU:** PyTorch'un CUDA destekli kurulumunu [resmî kurulum seçicisinden](https://pytorch.org/get-started/locally/) işletim sisteminize göre yapın. CUDA'sız PyTorch kuruluysa NVIDIA GPU otomatik kullanılamaz. Model uygun cihazı CUDA → Apple MPS → CPU sırasıyla seçer. CUDA şart değildir.
+**NVIDIA GPU:** Elle kurulumda yukarıdaki `kilit\torch-cuXXX.txt` dosyalarından birini kullanın. CUDA'sız PyTorch kuruluysa NVIDIA GPU otomatik kullanılamaz. Model uygun cihazı CUDA → Apple MPS → CPU sırasıyla seçer. CUDA şart değildir.
 
 ### Özelliklerin teknik ayrıntıları
 

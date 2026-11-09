@@ -68,9 +68,18 @@ set "PYTHONPATH="
 set "PYTHONNOUSERSITE=1"
 
 set "EMBED_PY=.\python-embed\python.exe"
-REM voxcpm requirements.txt'te degil (--no-deps ile ayri kurulur); pini burada.
+REM voxcpm kilit\voxcpm.txt icinde (--no-deps ile ayri kurulur); surum isarete de yazilir.
 REM macos_ortak.sh'teki VOXCPM_SURUM ile ayni tutun.
 set "VOXCPM_SURUM=2.0.3"
+REM Tedarik zinciri: tum paketler kilit\ klasorundeki dosyalardan sabit surum + SHA-256
+REM ile kurulur (pip --require-hashes; uretici: tools\kilit_uret.py). Ozet tutmazsa
+REM kurulum durur, isaret yazilmaz. --only-binary: kaynak derleme yok; tek istisna
+REM proxy-tools (PyPI'de yalniz kaynak paketi var), o da hash'li kurulan setuptools ile
+REM --no-build-isolation derlenir (izole derleme ortami pip'te hash denetimsiz inerdi).
+set "KILIT_PIP=--require-hashes --only-binary=:all: --no-binary=proxy-tools --no-build-isolation --disable-pip-version-check --no-warn-script-location"
+set "SV_HASH_HATASI=0"
+set "TEMEL_KILIT="
+set "TORCH_KILIT=kilit\torch-pypi.txt"
 set "PYEXE="
 set "MARK="
 
@@ -84,6 +93,11 @@ if exist ".venv\Scripts\python.exe" if exist ".venv\sesver_kurulum_tamam.txt" go
 call :durum 1 "Python indiriliyor"
 call :embed_kur
 if not errorlevel 1 goto :embed_kullan
+REM Ozet tutmadiysa sistem Python'una sessizce gecilmez: acik mesajla durulur.
+if not "%SV_HASH_HATASI%"=="1" goto :embed_yedek
+set "ADIM=Python indirme - SHA-256 uyusmazligi"
+goto :hata
+:embed_yedek
 echo.
 echo [UYARI] Gomulu Python hazirlanamadi; bilgisayarda kurulu Python araniyor...
 goto :sistem_python
@@ -129,7 +143,14 @@ exit /b 1
 :py_bulundu
 echo Kullanilan Python komutu: %PY%
 %PY% --version
-%PY% -c "import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,12) else 1)" || echo [UYARI] Onerilen surum Python 3.10-3.12; kurulum basarisiz olabilir.
+REM Kilit yalniz Python 3.10-3.12 icin var: baska surumde hash'siz kuruluma dusulmez.
+%PY% -c "import sys; sys.exit(0 if (3,10) <= sys.version_info[:2] <= (3,12) else 1)"
+if not errorlevel 1 goto :py_surum_tamam
+echo [HATA] Bu Python surumu desteklenmiyor; SesVer Python 3.10, 3.11 ya da 3.12 ile kurulur.
+echo Internet baglantinizi kontrol edip tekrar deneyin ya da Python 3.11 kurun: https://www.python.org/downloads/
+set "ADIM=Python surumu desteklenmiyor - 3.10-3.12 gerekir"
+goto :hata
+:py_surum_tamam
 set "PYEXE=.\.venv\Scripts\python.exe"
 set "MARK=.venv\sesver_kurulum_tamam.txt"
 set "ADIM=sanal ortam olusturma: %PY% -m venv .venv"
@@ -158,44 +179,65 @@ del "%MARK%.yeni" >nul 2>nul
 goto :baslat
 
 :esitle
-REM SesVer guncellenmis: ortam silinmez, yalniz eksik/degisen paketler kurulur.
-REM Basarisizsa isaret ESKI haliyle kalir (sonraki acilista yeniden denenir)
-REM ve :hata ile ilk kurulumdaki hata yolu gosterilir.
+REM SesVer guncellenmis: ortam silinmez, kilitli paketler kurulur; surumu zaten
+REM tutan pakete dokunulmaz. Basarisizsa isaret ESKI haliyle kalir (sonraki
+REM acilista yeniden denenir) ve :hata ile ilk kurulumdaki hata yolu gosterilir.
 echo SesVer guncellenmis: paketler esitleniyor - yalniz eksik/degisen paketler kurulur...
+call :kilit_sec
+if errorlevel 1 goto :esitle_kilit_yok
 REM CUDA korumasi: NVIDIA kartta CUDA'li torch GERCEKTEN calisiyorsa (hizlandirma.py
-REM --cuda-dogrula: kucuk bir gercek islemle sinar) kurulu torch/torchaudio surumleri
-REM kisit dosyasina (-c) yazilir; pip onlari PyPI'nin CPU derlemesiyle degistiremez.
-REM torch.cuda.is_available() TEK BASINA yeterli degildir: Blackwell + cu126 gibi
-REM durumlarda surucu/baglam calisir gorunur ama bu mimari icin derlenmis cekirdek
-REM yoktur ("no kernel image is available") - is_available True doner, ilk uretimde
-REM patlar. Boyle bozuk bir kurulumu "koru" diye kisitlamak hatayi kalicilastirirdi.
-REM Yeni requirements daha yeni torch isterse esitleme hata verir (sessizce CPU'ya
-REM dusmek yerine). --upgrade kullanilmaz: gereksinimi zaten karsilayan paketlere
-REM dokunulmaz.
+REM --cuda-dogrula: kucuk bir gercek islemle sinar) torch katmani ayni CUDA etiketinin
+REM kilidinden kurulur (kilit\torch-cuXXX.txt; ayni surumse hicbir sey inmez) ve kurulu
+REM torch/torchaudio surumleri kisit dosyasina (-c) yazilir: temel kilit kurulurken pip
+REM onlari PyPI'nin CPU derlemesiyle degistiremez. torch.cuda.is_available() TEK BASINA
+REM yeterli degildir: Blackwell + cu126 gibi durumlarda is_available True doner, ilk
+REM uretimde patlar. Boyle bozuk bir kurulumu "koru" diye kisitlamak hatayi kalicilastirirdi.
+REM Etiketin kilidi yoksa (eski bir surumden kalma cu124 vb.) calisan torch'a dokunulmaz.
 call :durum 3 "Ekran karti kontrol ediliyor"
 set "SV_KISIT="
+set "SV_CUDA_KORU=0"
+set "TORCH_KILIT=kilit\torch-pypi.txt"
 del "%MARK%.kisit" >nul 2>nul
 where nvidia-smi >nul 2>nul
-if errorlevel 1 goto :esitle_voxcpm
+if errorlevel 1 goto :esitle_pip
 "%PYEXE%" hizlandirma.py --cuda-dogrula >nul 2>nul
-if errorlevel 1 goto :esitle_voxcpm
+if errorlevel 1 goto :esitle_pip
+set "SV_CUDA_KORU=1"
+set "SV_TORCH_ETIKET="
+REM Etiket gecici dosyaya yazdirilip okunur. "for /f" kullanilmaz: for /f komutu
+REM "cmd /c" ile calistirir ve komut tirnakla baslayip ikiden fazla tirnak icerince
+REM cmd ilk ve SON tirnagi soyar ("%PYEXE%" -c "..." bozulur, cikti bos kalir).
+del /f /q "sesver_torch_etiket.tmp" >nul 2>nul
+"%PYEXE%" -c "import torch;v=torch.__version__;print(v.split('+')[1] if '+' in v else '')" >"sesver_torch_etiket.tmp" 2>nul
+if exist "sesver_torch_etiket.tmp" set /p SV_TORCH_ETIKET=<"sesver_torch_etiket.tmp"
+del /f /q "sesver_torch_etiket.tmp" >nul 2>nul
+set "TORCH_KILIT="
+if not "%SV_TORCH_ETIKET%"=="" if exist "kilit\torch-%SV_TORCH_ETIKET%.txt" set "TORCH_KILIT=kilit\torch-%SV_TORCH_ETIKET%.txt"
+echo CUDA destekli PyTorch korunuyor (gercek cekirdek testi basarili, etiket: %SV_TORCH_ETIKET%).
+:esitle_pip
+call :durum 5 "pip ve voxcpm esitleniyor"
+set "ADIM=pip esitleme (kilit\pip.txt)"
+set "SV_EK=--no-deps"
+call :kilitli_kur "kilit\pip.txt"
+if errorlevel 1 goto :esitle_hata
+if "%TORCH_KILIT%"=="" goto :esitle_kisit
+set "ADIM=PyTorch esitleme (%TORCH_KILIT%)"
+call :kilitli_kur "%TORCH_KILIT%"
+if errorlevel 1 goto :esitle_hata
+:esitle_kisit
+if not "%SV_CUDA_KORU%"=="1" goto :esitle_voxcpm
 "%PYEXE%" -c "import sys,torch,torchaudio;open(sys.argv[1],'w').write('torch=='+torch.__version__+chr(10)+'torchaudio=='+torchaudio.__version__+chr(10))" "%MARK%.kisit" >nul 2>nul
 if errorlevel 1 goto :esitle_voxcpm
 set SV_KISIT=-c "%MARK%.kisit"
-echo CUDA destekli PyTorch korunuyor (gercek cekirdek testi basarili).
 :esitle_voxcpm
-REM voxcpm yalniz pini degistiyse ya da eski "tamam" isaretinde (pin bilinmiyor) kurulur.
-set "SV_ESKI_VOX="
-for /f "tokens=2 delims= " %%v in ("%SV_ISARET%") do set "SV_ESKI_VOX=%%v"
-if "%SV_ESKI_VOX%"=="voxcpm=%VOXCPM_SURUM%" goto :esitle_req
-call :durum 5 "voxcpm esitleniyor"
-set "ADIM=voxcpm esitleme"
-"%PYEXE%" -m pip install --no-deps voxcpm==%VOXCPM_SURUM% --no-warn-script-location
+set "ADIM=voxcpm esitleme (kilit\voxcpm.txt)"
+set "SV_EK=--no-deps"
+call :kilitli_kur "kilit\voxcpm.txt"
 if errorlevel 1 goto :esitle_hata
-:esitle_req
-call :durum 6 "Paketler esitleniyor (requirements.txt)"
-set "ADIM=requirements.txt esitleme"
-"%PYEXE%" -m pip install -r requirements.txt %SV_KISIT% --no-warn-script-location
+call :durum 6 "Paketler esitleniyor (kilit)"
+set "ADIM=paket esitleme (%TEMEL_KILIT%)"
+set SV_EK=%SV_KISIT%
+call :kilitli_kur "%TEMEL_KILIT%"
 if errorlevel 1 goto :esitle_hata
 del "%MARK%.kisit" >nul 2>nul
 move /y "%MARK%.yeni" "%MARK%" >nul
@@ -206,55 +248,78 @@ goto :baslat
 del "%MARK%.kisit" >nul 2>nul
 del "%MARK%.yeni" >nul 2>nul
 goto :hata
+:esitle_kilit_yok
+REM Bu Python surumu icin kilit yok: calisan eski kurulum bozulmasin diye hicbir sey
+REM kurulmaz, isaret degismez, SesVer mevcut paketlerle acilir.
+del "%MARK%.yeni" >nul 2>nul
+echo [UYARI] Bu Python surumu icin paket kilidi yok; paket esitlemesi atlandi.
+echo [UYARI] SesVer mevcut paketlerle aciliyor. Guncel paketler icin SesVer'i yeniden kurun.
+goto :baslat
 
 :ilk_kurulum
 echo Ilk kurulum yapiliyor - bu sadece bir kere calisir...
 call :durum 2 "pip hazirlaniyor"
+set "ADIM=paket kilidi secimi"
+call :kilit_sec
+if errorlevel 1 goto :hata
 set "ADIM=pip kontrolu"
 "%PYEXE%" -m pip --version >nul 2>nul
 if not errorlevel 1 goto :pip_var
 "%PYEXE%" -m ensurepip --upgrade
 if errorlevel 1 goto :hata
 :pip_var
-set "ADIM=pip guncelleme"
-"%PYEXE%" -m pip install --upgrade pip --quiet --no-warn-script-location
+set "ADIM=pip kurulumu (kilit\pip.txt)"
+set "SV_EK=--no-deps"
+call :kilitli_kur "kilit\pip.txt"
 if errorlevel 1 goto :hata
-REM NVIDIA ekran karti varsa CUDA destekli PyTorch kurulur; yoksa normal
-REM "pip install torch" (PyPI varsayilani) sessizce SADECE CPU derlemesini
-REM kurar ve uretim CPU'da calisir (GPU bos durur). nvidia-smi.exe sadece
-REM NVIDIA suruculeri kuruluysa PATH'te olur, bu yuzden guvenilir bir tespit.
+REM NVIDIA ekran karti varsa CUDA destekli PyTorch kilidi (kilit\torch-<etiket>.txt)
+REM kurulur; yoksa PyPI derlemesi (kilit\torch-pypi.txt, Windows'ta yalniz CPU).
+REM nvidia-smi.exe sadece NVIDIA suruculeri kuruluysa PATH'te olur.
 call :durum 3 "Ekran karti algilaniyor"
 set "ADIM=GPU tespiti"
+set "SV_EK=--no-deps"
 where nvidia-smi >nul 2>nul
 if errorlevel 1 goto :gpu_yok_islemci
 echo NVIDIA ekran karti bulundu, dogru PyTorch surumu seciliyor...
-set "ADIM=CUDA destekli PyTorch kurulumu"
 set "CUDA_ETIKET="
 for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^>nul`) do set "CUDA_ETIKET=%%T"
 if "%CUDA_ETIKET%"=="" goto :gpu_etiket_yok
+if not exist "kilit\torch-%CUDA_ETIKET%.txt" goto :gpu_kilit_yok
 call :durum 4 "PyTorch kuruluyor (%CUDA_ETIKET%)"
 echo CUDA destekli PyTorch kuruluyor: %CUDA_ETIKET%
-"%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
-if errorlevel 1 echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
-goto :gpu_bitti
+set "ADIM=CUDA destekli PyTorch kurulumu (kilit\torch-%CUDA_ETIKET%.txt)"
+call :kilitli_kur "kilit\torch-%CUDA_ETIKET%.txt"
+if not errorlevel 1 goto :gpu_bitti
+REM Ozet tutmadiysa durulur; ag hatasi gibi diger durumlarda eskisi gibi CPU'ya gecilir.
+if "%SV_HASH_HATASI%"=="1" goto :hata
+echo CUDA PyTorch kurulumu basarisiz oldu, CPU surumune devam edilecek.
+goto :torch_islemci
+:gpu_kilit_yok
+echo [UYARI] %CUDA_ETIKET% icin PyTorch kilidi yok, CPU surumune devam edilecek.
+goto :torch_islemci
 :gpu_etiket_yok
-call :durum 4 "PyTorch (CPU) paketlerle kurulacak"
 echo Ekran karti icin uygun CUDA surumu secilemedi, CPU surumune devam edilecek.
-goto :gpu_bitti
+goto :torch_islemci
 :gpu_yok_islemci
-call :durum 4 "PyTorch (CPU) paketlerle kurulacak"
 echo NVIDIA ekran karti bulunamadi, CPU modunda devam edilecek.
+:torch_islemci
+call :durum 4 "PyTorch (CPU) kuruluyor"
+set "ADIM=PyTorch kurulumu (kilit\torch-pypi.txt)"
+set "SV_EK=--no-deps"
+call :kilitli_kur "kilit\torch-pypi.txt"
+if errorlevel 1 goto :hata
 :gpu_bitti
 REM --no-deps: voxcpm'in gereksiz agir bagimliliklarini (funasr, matplotlib,
-REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor)
-REM atlayip yalniz requirements.txt'teki gercekten gerekli paketleri kurar.
+REM modelscope, datasets, spaces, argbind - hicbiri kodda kullanilmiyor) kurmaz.
 call :durum 5 "voxcpm kuruluyor"
-set "ADIM=voxcpm kurulumu"
-"%PYEXE%" -m pip install --no-deps voxcpm==%VOXCPM_SURUM% --no-warn-script-location
+set "ADIM=voxcpm kurulumu (kilit\voxcpm.txt)"
+set "SV_EK=--no-deps"
+call :kilitli_kur "kilit\voxcpm.txt"
 if errorlevel 1 goto :hata
-call :durum 6 "Paketler kuruluyor (requirements.txt)"
-set "ADIM=requirements.txt kurulumu"
-"%PYEXE%" -m pip install -r requirements.txt --no-warn-script-location
+call :durum 6 "Paketler kuruluyor (kilit)"
+set "ADIM=paket kurulumu (%TEMEL_KILIT%)"
+set "SV_EK="
+call :kilitli_kur "%TEMEL_KILIT%"
 if errorlevel 1 goto :hata
 call :isaret_hesapla
 if errorlevel 1 goto :isaret_eski_bicim
@@ -290,8 +355,11 @@ echo NVIDIA ekran karti var ama PyTorch ekran kartini kullanamiyor, duzeltiliyor
 set "CUDA_ETIKET="
 for /f "usebackq delims=" %%T in (`"%PYEXE%" hizlandirma.py --onerilen-etiket 2^>nul`) do set "CUDA_ETIKET=%%T"
 if "%CUDA_ETIKET%"=="" goto :gpu_fix_isaretle
+if not exist "kilit\torch-%CUDA_ETIKET%.txt" goto :gpu_fix_isaretle
 call :durum 6 "PyTorch ekran karti icin yeniden kuruluyor (%CUDA_ETIKET%)"
-"%PYEXE%" -m pip install torch torchaudio --index-url https://download.pytorch.org/whl/%CUDA_ETIKET% --no-warn-script-location
+set "SV_EK=--no-deps"
+call :kilitli_kur "kilit\torch-%CUDA_ETIKET%.txt"
+if errorlevel 1 echo [UYARI] Ekran karti icin PyTorch kurulamadi; SesVer islemciyle (CPU) calisacak.
 :gpu_fix_isaretle
 echo %CUDA_ETIKET%>"%GPU_FIX_MARK%"
 :gpu_fix_bitti
@@ -367,6 +435,11 @@ exit /b 0
 if "%SV_YK%"=="1" goto :yk_hata
 echo.
 echo [HATA] Kurulum adimi basarisiz oldu: %ADIM%
+if not "%SV_HASH_HATASI%"=="1" goto :hata_genel
+echo Indirilen bir dosyanin SHA-256 ozeti kilit dosyasindakiyle uyusmuyor - bozuk indirme
+echo ya da degistirilmis paket. Guvenlik icin kurulum durduruldu; hicbir sey calistirilmadi.
+echo Bir sure sonra WINDOWS_BASLAT.bat dosyasini tekrar calistirin; kurulum yeniden denenir.
+:hata_genel
 echo Yukaridaki hata mesajini okuyun. Internet baglantinizi kontrol edip
 echo WINDOWS_BASLAT.bat dosyasini tekrar calistirin; kurulum kaldigi yerden devam eder.
 REM Kurulum ciktisi yalniz bu pencerededir (dosyaya yazilmaz) ve ev klasoru yolunu
@@ -403,11 +476,13 @@ exit /b 0
 
 :isaret_hesapla
 REM Beklenen kurulum isaretini "%MARK%.yeni" dosyasina yazar, SV_BEKLENEN'e okur.
-REM SHA-256 Python hashlib ile hesaplanir: certutil ciktisinin bicimi Windows
-REM surumune/diline gore degisir (bosluklu hex, yerellestirilmis basliklar).
+REM Isaret: kilit\*.txt dosyalarinin (ad sirasiyla birlestirilmis) SHA-256 ozeti +
+REM voxcpm surumu; herhangi bir kilit degisince esitleme calisir. Ozet Python
+REM hashlib ile hesaplanir: certutil ciktisinin bicimi Windows surumune/diline gore
+REM degisir (bosluklu hex, yerellestirilmis basliklar).
 del "%MARK%.yeni" >nul 2>nul
 set "SV_BEKLENEN="
-"%PYEXE%" -c "import hashlib,sys;print('req_sha256='+hashlib.sha256(open('requirements.txt','rb').read()).hexdigest()+' voxcpm='+sys.argv[1])" "%VOXCPM_SURUM%" >"%MARK%.yeni" 2>nul
+"%PYEXE%" -c "import glob,hashlib,sys;h=hashlib.sha256();[h.update(open(f,'rb').read()) for f in sorted(glob.glob('kilit/*.txt'))];print('kilit_sha256='+h.hexdigest()+' voxcpm='+sys.argv[1])" "%VOXCPM_SURUM%" >"%MARK%.yeni" 2>nul
 if errorlevel 1 goto :isaret_hesapla_hata
 set /p SV_BEKLENEN=<"%MARK%.yeni"
 if "%SV_BEKLENEN%"=="" goto :isaret_hesapla_hata
@@ -416,43 +491,65 @@ exit /b 0
 del "%MARK%.yeni" >nul 2>nul
 exit /b 1
 
+:kilit_sec
+REM Bu Python surumu icin temel kilidi TEMEL_KILIT'e yazar (kilit\windows-x64-py3XX.txt).
+REM Kilit yalniz 3.10-3.12 icin var; yoksa errorlevel 1 (hash'siz kuruluma dusulmez).
+set "TEMEL_KILIT="
+set "SV_PYV="
+REM Surum gecici dosyaya yazdirilip "set /p" ile okunur (:isaret_hesapla ile ayni
+REM desen). "for /f" + "%PYEXE%" -c "..." KULLANILMAZ: for /f komutu cmd /c ile
+REM calistirir; komut tirnakla baslayip ikiden fazla tirnak icerince cmd ilk ve son
+REM tirnagi soyar, komut bozulur ve SV_PYV bos kalir (1.3.1 CI'da boyle dustu).
+del /f /q "sesver_pyv.tmp" >nul 2>nul
+"%PYEXE%" -c "import sys;print(str(sys.version_info[0])+str(sys.version_info[1]))" >"sesver_pyv.tmp" 2>nul
+if exist "sesver_pyv.tmp" set /p SV_PYV=<"sesver_pyv.tmp"
+del /f /q "sesver_pyv.tmp" >nul 2>nul
+if "%SV_PYV%"=="" goto :kilit_sec_okunamadi
+if not exist "kilit\windows-x64-py%SV_PYV%.txt" goto :kilit_sec_yok
+set "TEMEL_KILIT=kilit\windows-x64-py%SV_PYV%.txt"
+exit /b 0
+:kilit_sec_yok
+echo [UYARI] Python %SV_PYV% icin paket kilidi yok (desteklenen: 3.10, 3.11, 3.12).
+exit /b 1
+:kilit_sec_okunamadi
+echo [UYARI] Python surumu okunamadi: "%PYEXE%" -c calismadi.
+exit /b 1
+
+:kilitli_kur
+REM %1 = kilit dosyasi; SV_EK = ek pip argumanlari (--no-deps ya da -c kisit).
+REM pip --require-hashes ile kurar. Ozet tutmazsa SV_HASH_HATASI=1 olur ve ADIM'a
+REM "SHA-256 uyusmazligi" eklenir (sihirbaz da bu adimi gosterir). pip --log ile
+REM ayrintili gunluk gecici dosyaya da yazilir; cikti ekranda/kurulum_log'da kalir.
+del /f /q "pip_kilit_gunluk.txt" >nul 2>nul
+"%PYEXE%" -m pip install %KILIT_PIP% %SV_EK% -r "%~1" --log "pip_kilit_gunluk.txt"
+if not errorlevel 1 goto :kilitli_kur_tamam
+findstr /i /c:"DO NOT MATCH THE HASHES" /c:"Hashes are required" "pip_kilit_gunluk.txt" >nul 2>nul
+if errorlevel 1 goto :kilitli_kur_hata
+set "SV_HASH_HATASI=1"
+set "ADIM=%ADIM% - SHA-256 uyusmazligi"
+:kilitli_kur_hata
+del /f /q "pip_kilit_gunluk.txt" >nul 2>nul
+exit /b 1
+:kilitli_kur_tamam
+del /f /q "pip_kilit_gunluk.txt" >nul 2>nul
+exit /b 0
+
 :embed_kur
 REM Tasinabilir Python'u indirir, SHA256 ile dogrular, python-embed\ olarak
-REM yerlestirir. Basariliysa errorlevel 0, degilse 1 doner.
+REM yerlestirir. Basariliysa errorlevel 0, degilse 1 doner. Ozet tutmazsa
+REM SV_HASH_HATASI=1 olur ve cagiran sistem Python'una gecmeden durur.
 REM Ara dosyalar pbs_ onekiyle bu klasorde tutulur ve sonda silinir.
 echo.
 echo Python hazirlaniyor - bilgisayariniza ayrica Python kurmaniz gerekmez...
-REM Guncel surum bilgisi alinamazsa kullanilacak, dogrulanmis son iyi surum:
-set "PBS_TAG_YEDEK=20261013"
-set "PBS_DOSYA_YEDEK=cpython-3.11.17+20261013-x86_64-pc-windows-msvc-install_only.tar.gz"
-set "PBS_SHA_YEDEK=7616ab1f74aab975bd91eb0a657a74a092a63a46cac38c5f3f9415c79fd781f5"
+REM TEK yol: sabit surum + sabit SHA-256 (yayin sirasinda bilincli guncellenir).
+REM "En yeni surum" sorgusu ve ayni kaynaktan gelen SHA256SUMS yok.
+REM 3.11.18+20261026: ozet dosya indirilip shasum -a 256 ile dogrulandi (2026-11-08).
+set "PBS_TAG=20261026"
+set "PBS_DOSYA=cpython-3.11.18+20261026-x86_64-pc-windows-msvc-install_only.tar.gz"
+set "PBS_SHA=75cb501dc11c7b55c6b447c58e4910bce5b1f609f1017328b4f3a858dfaf5428"
 set "PBS_REPO=https://github.com/astral-sh/python-build-standalone/releases/download"
-set "PBS_TAG="
-set "PBS_DOSYA="
-set "PBS_SHA="
 call :embed_temizle
 if not exist "%SystemRoot%\System32\tar.exe" goto :embed_tar_yok
-REM Guncel surum etiketi: latest-release.json icindeki "tag" alani.
-call :indir "https://raw.githubusercontent.com/astral-sh/python-build-standalone/latest-release/latest-release.json" "pbs_latest.json" sessiz
-if errorlevel 1 goto :embed_yedek_surum
-for /f "usebackq tokens=1,2 delims=:, " %%A in ("pbs_latest.json") do if "%%~A"=="tag" set "PBS_TAG=%%~B"
-if "%PBS_TAG%"=="" goto :embed_yedek_surum
-REM Bu etiketteki 3.11 Windows x64 install_only dosyasinin adi ve SHA256'si.
-call :indir "%PBS_REPO%/%PBS_TAG%/SHA256SUMS" "pbs_sums.txt" sessiz
-if errorlevel 1 goto :embed_yedek_surum
-findstr /l /c:" cpython-3.11." "pbs_sums.txt" >"pbs_sums_311.txt" 2>nul
-findstr /l /c:"-x86_64-pc-windows-msvc-install_only.tar.gz" "pbs_sums_311.txt" >"pbs_satir.txt" 2>nul
-for /f "usebackq tokens=1" %%A in ("pbs_satir.txt") do set "PBS_SHA=%%A"
-for /f "usebackq tokens=2" %%A in ("pbs_satir.txt") do set "PBS_DOSYA=%%A"
-if "%PBS_SHA%"=="" goto :embed_yedek_surum
-if "%PBS_DOSYA%"=="" goto :embed_yedek_surum
-goto :embed_indir
-:embed_yedek_surum
-echo [BILGI] Guncel surum bilgisi alinamadi; bilinen surum kullaniliyor.
-set "PBS_TAG=%PBS_TAG_YEDEK%"
-set "PBS_DOSYA=%PBS_DOSYA_YEDEK%"
-set "PBS_SHA=%PBS_SHA_YEDEK%"
-:embed_indir
 echo Indiriliyor: %PBS_DOSYA%
 call :indir "%PBS_REPO%/%PBS_TAG%/%PBS_DOSYA%" "pbs_python.tar.gz"
 if errorlevel 1 goto :embed_hata_indir
@@ -496,7 +593,9 @@ goto :embed_basarisiz
 echo [UYARI] Python indirilemedi. Internet baglantinizi kontrol edin.
 goto :embed_basarisiz
 :embed_hata_sha
-echo [UYARI] Indirilen Python dosyasi bozuk - SHA256 dogrulamasi tutmadi.
+echo [HATA] Indirilen Python dosyasinin SHA-256 ozeti beklenenle ayni degil - bozuk ya da degistirilmis dosya.
+echo   beklenen: %PBS_SHA%
+set "SV_HASH_HATASI=1"
 goto :embed_basarisiz
 :embed_hata_cikar
 echo [UYARI] Python arsivi cikarilamadi.

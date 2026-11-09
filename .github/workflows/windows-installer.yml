@@ -28,6 +28,7 @@ on:
       - "*.py"
       - "WINDOWS_BASLAT.bat"
       - "requirements.txt"
+      - "kilit/**"
       - "VERSION"
       - "engines/**"
       - "voices/hazir/**"
@@ -161,6 +162,7 @@ jobs:
                         'voice_design_map.json','requirements.txt','WINDOWS_BASLAT.bat','LICENSE',
                         'README.md','AI_KURULUM.md','SesVer.ico','voices\hazir\belgesel\ses.json','voices\hazir\masalci\ref.wav',
                         'locales\en.json','locales\ar.json','locales\ja.json',
+                        'kilit\pip.txt','kilit\voxcpm.txt','kilit\torch-pypi.txt','kilit\torch-cu130.txt','kilit\windows-x64-py311.txt',
                         'engines\__init__.py','engines\base.py','engines\ema.py','engines\srt.py')
           foreach ($b in $beklenen) {
             if (-not (Test-Path (Join-Path $app $b))) { throw "Kurulumda eksik: $b" }

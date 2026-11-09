@@ -4,9 +4,18 @@
 # çeker (kodda hiçbir yerde import edilmiyorlar — yalnız voxcpm'in eğitim/
 # demo betiklerinde kullanılıyorlar). Burada yalnız gerçekten çalışması için
 # gereken paketler listeleniyor; M1/16GB üzerinde uçtan uca test edildi.
-torch>=2.5.0
-torchaudio>=2.5.0
-torchcodec
+# KİLİT GİRDİSİ: başlatıcılar bu dosyayı DOĞRUDAN KURMAZ. Kurulum kilit/ klasöründeki,
+# her paketi sabit sürüm + SHA-256 ile veren dosyalarla yapılır (pip --require-hashes).
+# Bu dosyayı değiştirince kilitleri yeniden üretin: python tools/kilit_uret.py
+# torch/torchaudio kilit/torch-*.txt'de ayrı katmandır (NVIDIA kartta CUDA derlemesi).
+# Test edilmiş üçlü: torch 2.14.1 + torchaudio 2.11.0 + torchcodec 0.17.0 (torchcodec
+# 0.17 torch>=2.11 ile uyumlu; cu128 indeksinde Windows için en yeni torch 2.11.0).
+torch==2.14.1
+torchaudio==2.11.0
+# torchcodec 0.17.0'ın Windows cp310 tekerleği yok; Python 3.10 yedek yolunda 0.16.0
+# (o da torch>=2.11 ile uyumlu, cp310 win_amd64 + macOS arm64 tekerleği var).
+torchcodec==0.17.0; python_version >= "3.11"
+torchcodec==0.16.0; python_version < "3.11"
 transformers>=4.36.2
 einops
 gradio==6.30.0
