@@ -432,7 +432,7 @@ jobs:
           $h2 = (Get-FileHash -Algorithm SHA256 $sabit).Hash.ToLowerInvariant()
           if ($h1 -ne $h2) { throw "Sabit adlı kopyanın SHA256'sı farklı: $h1 / $h2" }
           $notlar = @(
-            "## SesVer $ver: Windows kurulum programı",
+            "## SesVer ${ver}: Windows kurulum programı",
             '',
             "1. **SesVer-Kurulum-Windows.exe** dosyasını indirin (aynı dosya: SesVer-Kurulum-$ver.exe).",
             '2. Çift tıklayın. "Windows bilgisayarınızı korudu" çıkarsa **Ek bilgi → Yine de çalıştır** (kurulum programı kod imzasızdır).',
