@@ -4,6 +4,10 @@ HamaratLabs tarafından geliştirilmiştir.
 
 **Yerel Türkçe ses üretimi + ses klonlama; açık kaynak (MIT) ve tamamen ücretsiz.** Metninizi yazın, **Üret**'e basın, sonucu dinleyip WAV olarak indirin. Hesap, API anahtarı veya ücretli servis gerekmez.
 
+<a href="https://github.com/hamarat52/sesver/releases/download/v1.4.0/SesVer-Tanitim-1.4.0.mp4"><img src="docs/screenshots/tanitim-video-kapak.jpg" alt="SesVer tanıtım videosu: izlemek için tıklayın (35 sn)" width="480"></a>
+
+▶️ [**Tanıtım videosunu izleyin**](https://github.com/hamarat52/sesver/releases/download/v1.4.0/SesVer-Tanitim-1.4.0.mp4) (35 sn, sesli, Türkçe altyazılı)
+
 **İçindekiler:** [Windows Kurulum](#-windows-kurulum) · [Mac Kurulum](#-mac-kurulum) · [Yapay Zeka Destekli Kurulum](#-yapay-zeka-destekli-kurulum) · [Özellikler](#özellikler) · [Sorun giderme](#sorun-giderme) · [Code signing policy](#code-signing-policy) · [Privacy policy / Gizlilik](#privacy-policy) · [Lisans](#lisans-atıf-ve-sorumlu-kullanım) · [Teknik Detaylar](#teknik-detaylar-ileri-seviye)
 
 ## 🪟 Windows Kurulum
