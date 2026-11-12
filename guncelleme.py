@@ -94,6 +94,28 @@ def _istek_yap(url, zaman_asimi):
         return json.loads(yanit.read(256 * 1024).decode("utf-8"))
 
 
+class _Yanit(Exception):
+    """Yanıt geldi ama kullanılamadı (beklenmeyen biçim, taslak/ön sürüm, tanınmayan etiket)."""
+
+
+def _son_surum(istek, zaman_asimi):
+    """GitHub'daki son kararlı sürüm: (uzak_surum, guvenli_sayfa). Kullanılamazsa _Yanit."""
+    veri = istek(API_URL, zaman_asimi)
+    if not isinstance(veri, dict):
+        raise _Yanit("beklenmeyen yanıt")
+    if veri.get("draft") or veri.get("prerelease"):
+        raise _Yanit("son release taslak/ön sürüm")
+    etiket = veri.get("tag_name")
+    parcalar = surum_parcala(etiket)
+    if parcalar is None:
+        raise _Yanit(f"tanınmayan sürüm etiketi {etiket!r}")
+    sayfa = veri.get("html_url")
+    # Bağlantı yalnız bu reponun release sayfası olabilir; başka her adres yerine sabit adres.
+    if not (isinstance(sayfa, str) and sayfa.startswith(_GUVENLI_SAYFA_ONEKI)):
+        sayfa = RELEASES_URL
+    return ".".join(str(p) for p in parcalar), sayfa
+
+
 def kontrol_et(yerel=None, zaman_asimi=ZAMAN_ASIMI_SN, istek=_istek_yap, kayit=None):
     """Yeni sürüm varsa YeniSurum, yoksa/hata olursa None. Asla istisna fırlatmaz.
 
@@ -127,6 +149,108 @@ def kontrol_et(yerel=None, zaman_asimi=ZAMAN_ASIMI_SN, istek=_istek_yap, kayit=N
         kayit("Güncelleme kontrolü yapılamadı (%s: %s); bildirim gösterilmeyecek.",
                  type(exc).__name__, str(exc)[:120])
         return None
+
+
+# --- Elle denetim: Ayarlar → "Güncellemeleri şimdi denetle" ------------------------------
+# Kullanıcı bastığı için "Açılışta güncellemeleri denetle" kapalıyken (ve ortam değişkeni
+# kapalıyken) de çalışır. Aynı istek: tek GET, gövdesiz, yalnız User-Agent/Accept.
+ELLE_ZAMAN_ASIMI_SN = 10.0
+
+
+@dataclass(frozen=True)
+class Denetim:
+    durum: str          # "guncel" | "yeni" | "hata"
+    yerel: str
+    uzak: str = ""      # GitHub'daki son sürüm (guncel/yeni)
+    sayfa: str = ""     # yalnız _GUVENLI_SAYFA_ONEKI ile başlayan adres (yeni)
+    neden: str = ""     # hata: "internet" | "zaman_asimi" | "sinir" | "yanit"
+
+
+def _hata_nedeni(exc):
+    import socket
+    import urllib.error
+    if isinstance(exc, _Yanit):
+        return "yanit"
+    if isinstance(exc, urllib.error.HTTPError):
+        return "sinir" if exc.code in (403, 429) else "yanit"
+    if isinstance(exc, (TimeoutError, socket.timeout)):
+        return "zaman_asimi"
+    if isinstance(exc, urllib.error.URLError):
+        return "zaman_asimi" if isinstance(exc.reason, (TimeoutError, socket.timeout)) else "internet"
+    if isinstance(exc, OSError):
+        return "internet"
+    return "yanit"
+
+
+class _ElleDenetleyici:
+    """Aynı anda yalnız bir istek: süren bir denetim varken gelen çağrı yeni istek atmaz,
+    sürenin sonucunu bekleyip onu döndürür (art arda basma, iki sekme)."""
+
+    def __init__(self):
+        self._kilit = threading.Lock()
+        self._suren = None  # (Event, [sonuc])
+
+    def __call__(self, yerel=None, zaman_asimi=ELLE_ZAMAN_ASIMI_SN, istek=_istek_yap):
+        with self._kilit:
+            suren = self._suren
+            if suren is None:
+                suren = self._suren = (threading.Event(), [None])
+                sahibi = True
+            else:
+                sahibi = False
+        olay, kutu = suren
+        if not sahibi:
+            olay.wait(zaman_asimi + 1.0)
+            return kutu[0] or Denetim("hata", surum.__version__ if yerel is None else yerel, neden="zaman_asimi")
+        try:
+            kutu[0] = self._denetle(yerel, zaman_asimi, istek)
+            return kutu[0]
+        finally:
+            with self._kilit:
+                self._suren = None
+            olay.set()
+
+    @staticmethod
+    def _denetle(yerel, zaman_asimi, istek):
+        yerel = surum.__version__ if yerel is None else yerel
+        try:
+            uzak, sayfa = _son_surum(istek, zaman_asimi)
+        except Exception as exc:  # noqa: BLE001 — her hata kullanıcıya kısa nedenle gösterilir
+            neden = _hata_nedeni(exc)
+            log.info("Elle güncelleme denetimi yapılamadı (%s: %s).", type(exc).__name__, str(exc)[:120])
+            return Denetim("hata", yerel, neden=neden)
+        if daha_yeni_mi(uzak, yerel):
+            log.info("Elle güncelleme denetimi: yeni sürüm var v%s (yerel %s).", uzak, yerel)
+            return Denetim("yeni", yerel, uzak, sayfa)
+        log.info("Elle güncelleme denetimi: güncel (yerel %s, son %s).", yerel, uzak)
+        return Denetim("guncel", yerel, uzak)
+
+
+elle_denetle = _ElleDenetleyici()
+
+def _neden_metni(neden, lang=None):
+    # Her metin t("...") ile sabit yazılır: tools/i18n_anahtarlar.py yalnız literal çağrıları toplar.
+    if neden == "internet":
+        return t("İnternete bağlanılamadı.", lang)
+    if neden == "zaman_asimi":
+        return t("GitHub zamanında yanıt vermedi.", lang)
+    if neden == "sinir":
+        return t("GitHub istek sınırına ulaşıldı; biraz sonra yeniden deneyin.", lang)
+    return t("GitHub'dan beklenmeyen bir yanıt geldi.", lang)
+
+
+def denetim_html(sonuc, platform=None, lang=None):
+    """Elle denetimin sonucu (``lang`` dilinde). Yeni sürümde açılıştaki bildirimin aynısı."""
+    if sonuc.durum == "yeni":
+        return bildirim_html(YeniSurum(sonuc.uzak, sonuc.sayfa), platform=platform, lang=lang)
+    if sonuc.durum == "guncel":
+        metin = t("SesVer güncel: v{surum} (GitHub'daki son sürüm: v{uzak}).", lang, surum=sonuc.yerel,
+                  uzak=sonuc.uzak)
+        return f'<div class="sv-update sv-update-ok" role="status"><b>{html.escape(metin)}</b></div>'
+    neden = _neden_metni(sonuc.neden, lang)
+    baslik = t("Güncelleme denetlenemedi.", lang)
+    return (f'<div class="sv-update sv-update-err" role="status"><b>{html.escape(baslik)}</b> '
+            f'<span class="sv-update-note">{html.escape(neden)}</span></div>')
 
 
 def bildirim_html(bilgi, platform=None, lang=None):

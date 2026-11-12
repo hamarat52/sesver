@@ -1120,11 +1120,21 @@ def _info():
   <div class="sv-tile"><span class="sv-tile-ic">{_svg(_IC_CPU)}</span>
     <div><b>{t("16 GB+ RAM önerilir")}</b><span>{t("Daha az bellekte yavaşlayabilir veya durabilir.")}</span></div></div>
   <div class="sv-tile"><span class="sv-tile-ic">{_svg(_IC_CLOUD)}</span>
-    <div><b>{t("İlk üretimde ~5 GB indirilir")}</b><span>{t("Bir kez internet gerekir; sonra model bilgisayarınızda kalır.")}</span></div></div>
+    <div>{_info_model()}</div></div>
   <div class="sv-tile"><span class="sv-tile-ic">{_svg(_IC_CLOCK)}</span>
     <div><b>{t("Biraz sabır")}</b><span>{t("Gerçek zamanlı değildir: 10 saniyelik ses, donanıma göre 1-2 dakika sürebilir.")}</span></div></div>
 </div>
 """
+
+
+def _info_model():
+    """Model kutucuğu modelin gerçek durumuna göre (1.4.1): bilgisayardaysa "indirilir" demez.
+    Önbellek okunamazsa (None) genel ve her durumda doğru olan eski metin kalır."""
+    if _model is not None or _model_diskte():
+        return (f'<b>{t("Ses modeli bilgisayarınızda")}</b>'
+                f'<span>{t("Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.")}</span>')
+    return (f'<b>{t("İlk üretimde ~5 GB indirilir")}</b>'
+            f'<span>{t("Bir kez internet gerekir; sonra model bilgisayarınızda kalır.")}</span>')
 
 
 def _footer():
@@ -1159,6 +1169,15 @@ def _result_head():
 def _result_note():
     return ('<p class="sv-note">' + t("Üretim birkaç dakika sürebilir. Bu sırada pencereyi açık tutun; "
                                       "sayfa donmuş gibi görünse de çalışıyordur.") + "</p>")
+
+
+# "Efekt ekle": efekt kartını görünür alana kaydırır (akordeonu sunucu tarafı açar).
+_FX_JUMP_JS = """() => {
+  const el = document.querySelector('.sv-fx');
+  const still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (el) setTimeout(() => el.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' }), 80);
+  return [];
+}"""
 
 # Butonlardaki ikonlar CSS maskesiyle çizilir (metin etiketi değişmeden kalır).
 _CSS = """
@@ -1442,8 +1461,6 @@ html, body, gradio-app { background: var(--sv-cream) !important; }
 .sv-langbar .block { background: transparent !important; border: 0 !important; box-shadow: none !important;
   padding: 0 !important; }
 .sv-langbar .sv-lang { width: 100% !important; }
-.sv-langbar .sv-lang [data-testid="block-info"] { font-size: .72rem !important; font-weight: 600 !important;
-  color: var(--sv-muted) !important; margin-bottom: 4px !important; }
 .sv-langbar .sv-lang .container > .wrap { border-radius: 999px !important; background: rgba(255,255,255,.85) !important;
   border: 1px solid var(--sv-line) !important; box-shadow: var(--sv-shadow-sm) !important; }
 .sv-langbar .sv-lang input { font-size: .85rem !important; cursor: pointer; }
@@ -1727,6 +1744,16 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 .sv-update b { font-weight: 650; color: var(--sv-ink); }
 .sv-update a { color: var(--sv-coral); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
 .sv-update-note { flex-basis: 100%; text-align: center; color: var(--sv-muted); font-size: .8rem; }
+/* Ayarlar → "Güncellemeleri şimdi denetle" sonucu: kartın içinde, sola (RTL'de sağa) hizalı. */
+.sv-update-now { align-self: flex-start; }
+.sv-update-result .sv-update { margin: 2px 0 0; max-width: none; justify-content: flex-start; box-shadow: none;
+  background: var(--sv-soft); }
+.sv-update-result .sv-update-note { text-align: start; }
+.sv-update-result .sv-update-ok b { color: #1F7A4D; }
+.sv-update-result .sv-update-err b { color: #B3361C; }
+/* Sonuç kartında ses hazır olunca çıkan "Efekt ekle" girişi (ikon: Efektler kartınınki). */
+.sv-fx-jump { align-self: flex-start; }
+.sv-ic-fx { --ic: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 7h10M18 7h2M4 17h2M10 17h10'/><circle cx='16' cy='7' r='2'/><circle cx='8' cy='17' r='2'/></svg>"); }
 
 /* --- Sağ üst: Kuyruk ve Ayarlar girişleri (dil seçicinin solunda) ---------------------
    Kuyruk ve Ayarlar birer gizli sekmedir: sekme düğmeleri CSS ile gizlenir, sağ üstteki
@@ -1960,7 +1987,8 @@ def _library_tab(demo):
                 _head(None, t("Metninizi yazın"),
                       t("Kayıtlı seste duygu seçmeyin: ses “Devam” kipinde en yüksek benzerlikle sürer."), step="2")
                 text = gr.Textbox(label=t("Metin"), lines=5, max_length=kq.OGE_METIN_EN_FAZLA, value=t(_SAMPLE_TEXT),
-                                  placeholder=t("Seslendirilecek metni buraya yazın…"))
+                                  placeholder=t("Seslendirilecek metni buraya yazın…"),
+                                  info=t("Hangi dilde yazarsanız o dilde okur."), elem_classes=["sv-lang-hint"])
                 quality = gr.Radio(choices=_choices(QUALITY), value="Dengeli", label=t("Kalite"),
                                    elem_classes=["sv-emotion", "sv-plain"])
                 emotion = gr.Radio(choices=_choices(EMOTIONS), value="Nötr", label=t("Duygu / ton (isteğe bağlı)"),
@@ -1979,15 +2007,20 @@ def _library_tab(demo):
                 status = gr.Markdown(t("Hazır. Bir ses seçip metninizi yazın ve Üret'e basın."),
                                      elem_classes=["sv-status"])
                 report_button = _report_panel(lang)
-                audio = gr.Audio(label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
+                audio = gr.Audio(label=t("Üretilen ses (AI ile üretildi)"), type="filepath", interactive=False,
                                  buttons=["download"], elem_classes=["sv-audio"])
                 download = gr.DownloadButton(t("⬇ WAV indir"), variant="secondary",
                                              elem_classes=["sv-btn", "sv-btn-ghost"])
+                # Efektler sağ sütunun altında, kapalı başlıyordu; kullanıcı fark etmiyordu (1.4.1).
+                # Ses hazır olunca burada bir giriş çıkar: efekt ayarlarını açar ve oraya kaydırır.
+                fx_jump = gr.Button(t("Efekt ekle"), visible=False, size="sm",
+                                    elem_classes=["sv-btn", "sv-btn-soft", "sv-ic-fx", "sv-fx-jump"])
                 _html(_result_note())
             with gr.Column(elem_classes=["sv-card", "sv-fx"]):
                 _head(_IC_FX, t("Efektler"),
-                      t("Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir."))
-                with gr.Accordion(t("Efekt ayarları"), open=False, elem_classes=["sv-acc"]):
+                      t("Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; "
+                        "ham ses değişmez. Ayar değiştikçe önizleme yenilenir."))
+                with gr.Accordion(t("Efekt ayarları"), open=False, elem_classes=["sv-acc"]) as fx_acc:
                     fx_controls = []
                     room = None
                     for key, label in fx.EFFECTS.items():
@@ -2004,7 +2037,7 @@ def _library_tab(demo):
                                           elem_classes=["sv-btn", "sv-mini"])
                 fx_status = gr.Markdown(t("Efekt kapalı; ham ses olduğu gibi kullanılıyor."),
                                         elem_classes=["sv-status"])
-                fx_audio = gr.Audio(label=t("Efektli ses — AI ile üretildi"), type="filepath", interactive=False,
+                fx_audio = gr.Audio(label=t("Efektli ses (AI ile üretildi)"), type="filepath", interactive=False,
                                     buttons=["download"], elem_classes=["sv-audio"])
                 fx_download = gr.DownloadButton(t("⬇ Efektli WAV indir"), variant="secondary",
                                                 elem_classes=["sv-btn", "sv-btn-ghost"])
@@ -2069,6 +2102,10 @@ def _library_tab(demo):
     fx_inputs = [audio, *fx_controls]
     fx_outputs = [fx_audio, fx_download, fx_status]
     generation.then(apply_effects_ui, inputs=fx_inputs, outputs=fx_outputs)
+    generation.then(lambda a: gr.update(visible=bool(a)), inputs=audio, outputs=fx_jump, queue=False,
+                    show_progress="hidden")
+    fx_jump.click(lambda: gr.Accordion(open=True), outputs=fx_acc, queue=False, show_progress="hidden",
+                  js=_FX_JUMP_JS)
     for control in fx_controls:
         event = control.release if isinstance(control, gr.Slider) else control.change
         event(apply_effects_ui, inputs=fx_inputs, outputs=fx_outputs, show_progress="hidden")
@@ -2336,7 +2373,7 @@ def _page_js(lang):
     const lang = {json.dumps(lang)}, glang = {json.dumps(_GRADIO_LOCALES.get(lang, lang))};
     document.documentElement.lang = lang;
     document.body.classList.toggle('sv-rtl', {json.dumps(i18n.is_rtl(lang))});
-    document.title = {json.dumps(t("SesVer — Türkçe yerel ses üretimi"), ensure_ascii=False)};
+    document.title = {json.dumps(t("SesVer · Türkçe yerel ses üretimi"), ensure_ascii=False)};
     const urls = performance.getEntriesByType('resource').map((r) => r.name)
         .concat([...document.querySelectorAll('script[src],link[href]')].map((e) => e.src || e.href));
     const core = urls.find((u) => /\\/assets\\/core-[^/]*\\.js/.test(u));
@@ -2369,9 +2406,11 @@ def _language_bar(lang):
     # DOM sırası: seçici, sonra Kuyruk/Ayarlar girişleri, sonra marka (CSS row-reverse ile seçici sağ
     # üstte, girişler hemen solunda durur). Girişler gizli sekmeleri açar (bkz. _build_page).
     with gr.Row(elem_classes=["sv-langbar"]):
+        # Görünür etiket yok (Yusuf: "arayüz dili yazmasına gerek yok"); etiket metni ekran okuyucu
+        # için erişilebilir ad olarak kalır (show_label=False → Gradio gizli etiket, bkz. _CSS .sv-lang).
         picker = gr.Dropdown(
             choices=[(name, code) for code, name in i18n.LANGUAGES.items()], value=lang,
-            label=f"🌐 {t('Arayüz dili')}", interactive=True, filterable=False, scale=0, min_width=170,
+            label=t("Arayüz dili"), show_label=False, interactive=True, filterable=False, scale=0, min_width=170,
             elem_classes=["sv-lang"],
         )
         with gr.Row(elem_classes=["sv-topnav"]):
@@ -2449,7 +2488,10 @@ def _build_page(demo, lang):
         settings_btn.click(guncelleme.ayar_acik_mi, outputs=update_check, queue=False, show_progress="hidden")
         _queue_wiring(demo, lang, queue, queue_btn, banner, banner_html, banner_go, banner_show, tabs)
 
-        _html(_info())
+        info = _html(_info())
+        # Model bu oturumda inmiş olabilir: sayfa her açılışta kutucuğu yeniden hesaplar (dosya denetimi, ağ yok).
+        demo.load(_in_lang(_info, lang), outputs=info, queue=False, show_progress="hidden",
+                  api_visibility="private")
         _html(_footer())
         demo.load(None, js=_page_js(lang))
         demo.load(_remember_language(lang), queue=False, show_progress="hidden")
@@ -2463,7 +2505,7 @@ def build_app():
     kapsam dışıdır). Bu yüzden dil seçici ilgili sayfaya geçer; tüm sayfalar
     açılışta bir kez kurulur (~0,1 sn/dil).
     """
-    with gr.Blocks(title=t("SesVer — Türkçe yerel ses üretimi", i18n.DEFAULT), analytics_enabled=False) as demo:
+    with gr.Blocks(title=t("SesVer · Türkçe yerel ses üretimi", i18n.DEFAULT), analytics_enabled=False) as demo:
         _build_page(demo, i18n.DEFAULT)
     for code, name in i18n.LANGUAGES.items():
         if code == i18n.DEFAULT:
@@ -2511,6 +2553,7 @@ def _clone_tab():
                 c_text = gr.Textbox(
                     label=t("Metin"), lines=4, max_length=kq.OGE_METIN_EN_FAZLA, value=t(_SAMPLE_TEXT),
                     placeholder=t("Klonlanan sesin okuyacağı metni yazın…"),
+                    info=t("Hangi dilde yazarsanız o dilde okur."), elem_classes=["sv-lang-hint"],
                 )
                 c_emotion = gr.Radio(
                     choices=_choices(EMOTIONS), value="Nötr",
@@ -2538,7 +2581,7 @@ def _clone_tab():
                 )
                 c_report_button = _report_panel(i18n.get_lang())
                 c_audio = gr.Audio(
-                    label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
+                    label=t("Üretilen ses (AI ile üretildi)"), type="filepath", interactive=False,
                     buttons=["download"], elem_classes=["sv-audio"],
                 )
                 c_download = gr.DownloadButton(
@@ -2799,7 +2842,7 @@ def _fast_tab():
                 _head(*_result_head())
                 f_status = gr.Markdown(t("Hazır. Metni yazıp Üret'e basın."), elem_classes=["sv-status"])
                 f_report = _report_panel(lang)
-                f_audio = gr.Audio(label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
+                f_audio = gr.Audio(label=t("Üretilen ses (AI ile üretildi)"), type="filepath", interactive=False,
                                    buttons=["download"], elem_classes=["sv-audio"])
                 f_download = gr.DownloadButton(t("⬇ WAV indir"), variant="secondary",
                                                elem_classes=["sv-btn", "sv-btn-ghost"])
@@ -2879,7 +2922,7 @@ def _accel_plan_md(p):
     if durum == hiz.ACTIVE:
         return t("✅ Ekran kartı hızlandırması etkin: ses üretimi {gpu} üzerinde çalışır.", gpu=gpu)
     if durum == hiz.INSTALL:
-        return t("{gpu} algılandı — {backend} hızlandırması kullanılabilir. Şu an işlemci (CPU) "
+        return t("{gpu} algılandı: {backend} hızlandırması kullanılabilir. Şu an işlemci (CPU) "
                  "kullanılıyor; aşağıdaki düğmeyle etkinleştirebilirsiniz.",
                  gpu=gpu, backend=_backend_label(p["hedef"]))
     if durum == hiz.BROKEN:
@@ -3145,6 +3188,21 @@ def _update_toggle_ui(acik):
         t("Kaydedildi: açılışta güncelleme denetimi yapılmayacak.")
 
 
+def _update_check_now_ui(lang):
+    """Ayarlar → "Güncellemeleri şimdi denetle": o an GitHub'a bakar, sonucu hemen gösterir.
+
+    Kullanıcı bastığı için açılış ayarı kapalıyken de çalışır. İstek sürerken düğme pasif ve
+    "Denetleniyor…" yazar; art arda basma ya da ikinci sekme yeni istek atmaz
+    (guncelleme.elle_denetle tek uçuş)."""
+    def denetle():
+        yield (gr.update(value=t("Denetleniyor…", lang), interactive=False),
+               gr.update(value="", visible=False))
+        sonuc = guncelleme.elle_denetle()
+        yield (gr.update(value=t("Güncellemeleri şimdi denetle", lang), interactive=True),
+               gr.update(value=guncelleme.denetim_html(sonuc, lang=lang), visible=True))
+    return denetle
+
+
 def _settings_tab():
     """Ayarlar sekmesi: ekran kartı algılama ve hızlandırmalı PyTorch kurulumu + sorun bildirme."""
     lang = i18n.get_lang()
@@ -3193,8 +3251,15 @@ def _settings_tab():
                     label=t("Açılışta güncellemeleri denetle"), value=guncelleme.ayar_acik_mi(),
                     elem_classes=["sv-update-toggle"])
                 update_msg = gr.Markdown("", elem_classes=["sv-fine-md"])
+                update_now = gr.Button(t("Güncellemeleri şimdi denetle"), size="sm",
+                                       elem_classes=["sv-btn", "sv-btn-soft", "sv-ic-refresh", "sv-update-now"])
+                update_result = _html("", visible=False, elem_classes=["sv-update-result"])
     update_check.input(_in_lang(_update_toggle_ui, lang), inputs=update_check, outputs=update_msg,
                        queue=False, show_progress="hidden")
+    # trigger_mode="once": istek sürerken yeni tıklama yok sayılır; ayrıca sunucuda tek uçuş.
+    update_now.click(_update_check_now_ui(lang), outputs=[update_now, update_result], trigger_mode="once",
+                     concurrency_limit=1, concurrency_id="sv-guncelleme-elle", show_progress="hidden",
+                     api_visibility="private")
     refresh_out = [status, install, rollback, need]
 
     def enable_gpu():
@@ -3623,7 +3688,7 @@ def _queue_tab(lang, lib):
                 now = _html("")
             with gr.Column(visible=False, elem_classes=["sv-card"]) as player_col:
                 _head(_IC_PLAY, t("Dinle"), t("Kuyrukta biten öğe. AI ile üretildi."))
-                player = gr.Audio(label=t("Üretilen ses — AI ile üretildi"), type="filepath", interactive=False,
+                player = gr.Audio(label=t("Üretilen ses (AI ile üretildi)"), type="filepath", interactive=False,
                                   autoplay=True, buttons=["download"], elem_classes=["sv-audio"])
             with gr.Column(elem_classes=["sv-card"]):
                 _head(_IC_PLUS, t("Kuyruğa ekle"), t("En fazla 50 öğe; tek öğe 10.000 karaktere kadar."))

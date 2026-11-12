@@ -715,7 +715,7 @@ def recipient_text(addr=DESTEK_EPOSTA):
 def send_message(path, opened, fmt_path=None, fmt_addr=None):
     fmt_path, fmt_addr = fmt_path or str, fmt_addr or str
     if opened:
-        return "✅ " + t("E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol} — e-postaya "
+        return "✅ " + t("E-posta taslağı açıldı. Rapor dosyası klasöründe seçili: {yol}. E-postaya "
                         "sürükleyip ekleyin ve kendiniz gönderin.", yol=fmt_path(path))
     return "⚠️ " + t("E-posta uygulaması açılamadı. “Panoya kopyala”ya basın, Gmail'de yeni ileti açıp "
                     "yapıştırın ve {adres} adresine gönderin. Rapor dosyası: {yol}",

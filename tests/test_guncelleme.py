@@ -1,6 +1,8 @@
 """Sürüm okuma ve "yeni sürüm var" kontrolü — ağ tamamen taklit edilir."""
+import html
 import io
 import json
+import re
 import socket
 import tempfile
 import time
@@ -288,6 +290,165 @@ class ArayuzTests(unittest.TestCase):
             self.assertTrue(g.ayar_acik_mi())
         finally:
             Path(g.i18n.settings_path()).unlink(missing_ok=True)
+
+
+class ElleDenetimTests(unittest.TestCase):
+    """1.4.1: Ayarlar → "Güncellemeleri şimdi denetle" (o an, açılış ayarından bağımsız)."""
+
+    def test_guncel(self):
+        s = g.elle_denetle(yerel="1.2.0", istek=_yanit(tag_name="v1.2.0"))
+        self.assertEqual((s.durum, s.uzak), ("guncel", "1.2.0"))
+        h = html.unescape(g.denetim_html(s, lang="tr"))
+        self.assertIn("SesVer güncel: v1.2.0 (GitHub'daki son sürüm: v1.2.0).", h)
+        self.assertNotIn("<a ", h)
+        # Yerel daha yeniyse (geliştirme sürümü) de güncel sayılır, iki sürüm de doğru yazılır.
+        s = g.elle_denetle(yerel="1.4.1", istek=_yanit(tag_name="v1.4.0"))
+        self.assertIn("v1.4.1 (GitHub'daki son sürüm: v1.4.0)", html.unescape(g.denetim_html(s, lang="tr")))
+        self.assertIn("SesVer is up to date: v1.4.1", g.denetim_html(s, lang="en"))
+
+    def test_yeni_surum_windows_ve_mac_yonlendirmesi(self):
+        s = g.elle_denetle(yerel="1.0.0", istek=_yanit(tag_name="v1.4.1",
+                           html_url="https://github.com/hamarat52/sesver/releases/tag/v1.4.1"))
+        self.assertEqual((s.durum, s.uzak, s.sayfa),
+                         ("yeni", "1.4.1", "https://github.com/hamarat52/sesver/releases/tag/v1.4.1"))
+        win = g.denetim_html(s, platform="win32", lang="tr")
+        self.assertIn("Yeni sürüm var: v1.4.1", win)
+        self.assertIn("SesVer-Kurulum-Windows.exe", win)
+        self.assertIn('href="https://github.com/hamarat52/sesver/releases/tag/v1.4.1"', win)
+        mac = g.denetim_html(s, platform="darwin", lang="tr")
+        self.assertIn("release sayfasından", mac)
+        self.assertEqual(win, g.bildirim_html(g.YeniSurum("1.4.1", s.sayfa), platform="win32", lang="tr"))
+
+    def test_guvenli_onek_disi_baglanti_reddedilir(self):
+        for kotu in ("https://evil.example/releases/", "https://github.com/baskasi/sesver/releases/tag/v9.0.0",
+                     "javascript:alert(1)", "http://github.com/hamarat52/sesver/releases/tag/v9.0.0",
+                     "https://github.com/hamarat52/sesver/releases.evil.example/", None, 42):
+            with self.subTest(kotu=kotu):
+                s = g.elle_denetle(yerel="1.0.0", istek=_yanit(tag_name="v9.0.0", html_url=kotu))
+                self.assertEqual(s.sayfa, g.RELEASES_URL)
+                h = g.denetim_html(s, platform="win32", lang="tr")
+                self.assertEqual(re.findall(r'href="([^"]+)"', h), [g.RELEASES_URL])
+        self.assertTrue(g.RELEASES_URL.startswith(g._GUVENLI_SAYFA_ONEKI))
+
+    def test_hata_nedenleri(self):
+        def at(exc):
+            def istek(url, zaman_asimi):
+                raise exc
+            return istek
+        durumlar = {
+            "internet": urllib.error.URLError(OSError("Name or service not known")),
+            "zaman_asimi": socket.timeout("timed out"),
+            "sinir": urllib.error.HTTPError(g.API_URL, 403, "rate limit exceeded", {}, None),
+        }
+        metinler = {"internet": "İnternete bağlanılamadı.", "zaman_asimi": "GitHub zamanında yanıt vermedi.",
+                    "sinir": "GitHub istek sınırına ulaşıldı"}
+        for neden, exc in durumlar.items():
+            with self.subTest(neden=neden):
+                s = g.elle_denetle(yerel="1.0.0", istek=at(exc))
+                self.assertEqual((s.durum, s.neden), ("hata", neden))
+                h = g.denetim_html(s, lang="tr")
+                self.assertIn("Güncelleme denetlenemedi.", h)
+                self.assertIn(metinler[neden], h)
+        self.assertEqual(g.elle_denetle(yerel="1.0.0", istek=at(urllib.error.URLError(socket.timeout()))).neden,
+                         "zaman_asimi")
+        self.assertEqual(g.elle_denetle(yerel="1.0.0",
+                                        istek=at(urllib.error.HTTPError(g.API_URL, 429, "x", {}, None))).neden, "sinir")
+        for bozuk in (_yanit(draft=True), _yanit(tag_name="son"), lambda u, z: ["liste"]):
+            s = g.elle_denetle(yerel="1.0.0", istek=bozuk)
+            self.assertEqual((s.durum, s.neden), ("hata", "yanit"))
+            self.assertIn("beklenmeyen", g.denetim_html(s, lang="tr"))
+
+    def test_acilis_ayari_ve_ortam_degiskeni_kapaliyken_de_calisir(self):
+        cagri = []
+        try:
+            g.ayar_degistir(False)
+            with patch.dict("os.environ", {g.ORTAM_DEGISKENI: "0"}):
+                s = g.elle_denetle(yerel="1.0.0", istek=lambda u, z: cagri.append(u) or
+                                   {"tag_name": "v1.0.0", "draft": False, "prerelease": False})
+        finally:
+            Path(g.i18n.settings_path()).unlink(missing_ok=True)
+        self.assertEqual(cagri, [g.API_URL])
+        self.assertEqual(s.durum, "guncel")
+
+    def test_ayni_get_istegi_ve_daha_uzun_zaman_asimi(self):
+        yakalanan = {}
+
+        class Sahte(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def urlopen(istek, timeout):
+            yakalanan.update(istek=istek, timeout=timeout)
+            return Sahte(json.dumps({"tag_name": "v1.0.0"}).encode())
+
+        with patch.object(g.urllib.request, "urlopen", urlopen):
+            g.elle_denetle(yerel="1.0.0")
+        istek = yakalanan["istek"]
+        self.assertEqual((istek.get_method(), istek.data, istek.full_url), ("GET", None, g.API_URL))
+        self.assertEqual(set(k.lower() for k in istek.headers), {"accept", "user-agent"})
+        self.assertEqual(yakalanan["timeout"], g.ELLE_ZAMAN_ASIMI_SN)
+
+    def test_art_arda_basma_tek_istek(self):
+        import threading
+        cagri, kapi = [], threading.Event()
+
+        def yavas(url, zaman_asimi):
+            cagri.append(url)
+            kapi.wait(2)
+            return {"tag_name": "v2.0.0", "html_url": "https://github.com/hamarat52/sesver/releases/tag/v2.0.0"}
+
+        sonuclar = []
+        th = [threading.Thread(target=lambda: sonuclar.append(g.elle_denetle(yerel="1.0.0", istek=yavas)))
+              for _ in range(5)]
+        for x in th:
+            x.start()
+        time.sleep(0.2)
+        kapi.set()
+        for x in th:
+            x.join(3)
+        self.assertEqual(len(cagri), 1)  # 5 çağrı, tek GET
+        self.assertEqual({(s.durum, s.uzak) for s in sonuclar}, {("yeni", "2.0.0")})
+        self.assertEqual(len(sonuclar), 5)
+        # Bittikten sonra yeni basış yeni istek atar (sonuç önbelleğe alınmaz).
+        g.elle_denetle(yerel="1.0.0", istek=yavas)
+        self.assertEqual(len(cagri), 2)
+
+
+class ElleDenetimArayuzTests(unittest.TestCase):
+    def test_dugme_once_pasif_sonra_sonuc(self):
+        import app
+        with patch.object(app.guncelleme, "elle_denetle",
+                          return_value=g.Denetim("guncel", "1.4.1", "1.4.1")) as denetle:
+            adimlar = list(app._update_check_now_ui("tr")())
+        denetle.assert_called_once_with()
+        (dugme1, sonuc1), (dugme2, sonuc2) = adimlar
+        self.assertEqual((dugme1["value"], dugme1["interactive"]), ("Denetleniyor…", False))
+        self.assertFalse(sonuc1["visible"])
+        self.assertEqual((dugme2["value"], dugme2["interactive"]), ("Güncellemeleri şimdi denetle", True))
+        self.assertTrue(sonuc2["visible"])
+        self.assertIn("SesVer güncel: v1.4.1", sonuc2["value"])
+        with patch.object(app.guncelleme, "elle_denetle", return_value=g.Denetim("hata", "1.4.1", neden="internet")):
+            son = list(app._update_check_now_ui("en")())[-1]
+        self.assertIn("Could not check for updates.", son[1]["value"])
+        self.assertEqual(son[0]["value"], "Check for updates now")
+
+    def test_dugme_her_sayfada_ve_cift_tiklamaya_kapali(self):
+        import app
+        with patch.object(g.urllib.request, "urlopen", side_effect=AssertionError("ağ çağrıldı")):
+            demo = app.build_app()
+        comps = demo.config["components"]
+        dugmeler = {c["id"]: c["props"] for c in comps if "sv-update-now" in (c["props"].get("elem_classes") or [])}
+        self.assertEqual(len(dugmeler), 11)
+        self.assertIn("Güncellemeleri şimdi denetle", [p["value"] for p in dugmeler.values()])
+        olaylar = [f for f in demo.fns.values() if any(t_[0] in dugmeler and t_[1] == "click" for t_ in f.targets)]
+        self.assertEqual(len(olaylar), 11)
+        for f in olaylar:
+            self.assertEqual(f.trigger_mode, "once")  # istek sürerken yeni tıklama yok sayılır
+            self.assertEqual(f.concurrency_id, "sv-guncelleme-elle")
+            self.assertEqual(f.concurrency_limit, 1)
 
 
 if __name__ == "__main__":

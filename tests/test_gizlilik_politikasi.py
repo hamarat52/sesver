@@ -97,6 +97,17 @@ class PrivacyPolicyTests(unittest.TestCase):
         self.assertIn('ORTAM_DEGISKENI = "SESVER_GUNCELLEME_KONTROLU"', guncelleme)
         self.assertIn("SESVER_GUNCELLEME_KONTROLU=0", policy)
         self.assertIn("Açılışta güncellemeleri denetle", policy)
+        # 1.4.1: elle denetim düğmesi aynı GitHub satırında ve Türkçe özette (aynı tek GET isteği).
+        github_satiri = next(r for r in policy.splitlines() if r.startswith("| Every start"))
+        self.assertIn("when you click **Güncellemeleri şimdi denetle**", github_satiri)
+        self.assertIn("also when the start-up check is off", github_satiri)
+        self.assertIn("`api.github.com`", github_satiri)
+        self.assertIn("the button checks only when you click it", github_satiri)
+        self.assertIn("siz **Güncellemeleri şimdi denetle**'ye bastığınızda aynı tek istek",
+                      policy.split("**Türkçe özet:**")[1])
+        self.assertIn("ELLE_ZAMAN_ASIMI_SN = 10.0", guncelleme)
+        self.assertIn("at most 10 s", github_satiri)
+        self.assertIn("istek=_istek_yap", guncelleme.split("class _ElleDenetleyici")[1])  # aynı istek işlevi
         app = (ROOT / "app.py").read_text(encoding="utf-8")
         self.assertIn('MODEL_ID = "openbmb/VoxCPM2"', app)
         self.assertIn("`openbmb/VoxCPM2`", policy)

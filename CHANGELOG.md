@@ -9,6 +9,12 @@
 - Aday kartları sadeleşti: oynatıcı kartın içine sığıyor, düğmeler taşmıyor, kaydırma çubuğu çıkmıyor (dar pencere ve Arapça dahil).
 - Windows: kaldırırken indirilen Python ortamını ve paketleri (yaklaşık 3 GB) saklamayı seçebilirsiniz ("Sakla" varsayılan). Aynı klasöre yeniden kurunca bunlar yeniden inmez. Sessiz kaldırma eskisi gibi siler; `/BILESENLERISAKLA` ile saklar.
 - Windows kurulum testleri, üstüne yeniden kurulumda ve "Sakla" ile kaldırıp yeniden kurulumda paketlerin yeniden inmediğini ölçüyor.
+- Ayarlar → Güncellemeler'de **Güncellemeleri şimdi denetle** düğmesi: basınca o an GitHub'daki son sürüme bakar ve sonucu hemen gösterir (güncel, yeni sürüm var ya da denetlenemedi ve kısa nedeni). "Açılışta güncellemeleri denetle" kapalıyken de çalışır; istek sürerken düğme "Denetleniyor…" yazar ve ikinci kez basılamaz. SesVer güncellemeyi kendisi indirmez.
+- Sağ üstteki dil seçicinin üstündeki "Arayüz dili" yazısı kaldırıldı; seçici seçili dilin adını gösterir.
+- Ses Kütüphanesi ve Ses Klonlama'da metin kutusunun altında tek satır: "Hangi dilde yazarsanız o dilde okur."
+- Efektler daha kolay bulunuyor: ses hazır olunca Sonuç kartında **Efekt ekle** düğmesi çıkar, efekt ayarlarını açar ve oraya götürür. Efektler kartı efektleri adıyla sayar.
+- Sayfanın altındaki model kutucuğu, model bilgisayarınızdaysa artık "~5 GB indirilir" demiyor: "Ses modeli bilgisayarınızda. Yeniden indirilmez."
+- Arayüzdeki bütün metinlerden ve çevirilerden uzun tire kaldırıldı.
 
 ## 1.4.0 (2026-11-09)
 
