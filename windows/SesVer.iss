@@ -63,9 +63,14 @@
 ;   README'deki gizlilik politikasının adresi ve "Açılışta güncellemeleri denetle" kutusu.
 ;   Kutu {app}\ayarlar.json'daki mevcut seçimle açılır; seçim değiştiyse yazılır (Ayarlar
 ;   sekmesindeki aynı ayar). Sessiz kurulumda /GUNCELLEMEDENETIMI=0|1 ile verilir.
-; - Kaldırma: kopyalanan dosyalar + indirilen python-embed\ ve geçici/günlük
-;   dosyaları silinir. KULLANICI VERİSİ SİLİNMEZ: voices\seslerim\ (kişisel
-;   ses klonları) ve outputs\ (üretilen sesler) klasörde kalır.
+; - Kaldırma: kopyalanan dosyalar ve geçici/günlük dosyaları silinir. KULLANICI VERİSİ
+;   SİLİNMEZ: voices\seslerim\ (kişisel ses klonları) ve outputs\ (üretilen sesler)
+;   klasörde kalır. İndirilen bileşenler (python-embed\ ve varsa .venv\, ~3 GB) için
+;   kaldırma sırasında sorulur (CurUninstallStepChanged): "Sakla" (varsayılan) seçilirse
+;   klasörde kalır ve aynı yere yeniden kurulumda WINDOWS_BASLAT.bat'ın kurulum işareti
+;   (python-embed\sesver_kurulum_tamam.txt) aynı olduğu için hiçbir şey yeniden inmez;
+;   "Sil" seçilirse silinir. Sessiz kaldırmada (/SILENT, /VERYSILENT) soru sorulmaz ve
+;   eski davranış korunur: silinir. /BILESENLERISAKLA verilirse sessiz kaldırmada da kalır.
 
 #define AppName "SesVer"
 ; [Code] ExecAndLogOutput ve LoadStringFromLockedFile kullanır: Inno Setup 6.3.0+.
@@ -213,6 +218,19 @@ turkish.GunluguAc=Günlüğü aç
 english.GunluguAc=Open log
 turkish.GunlukAcilamadi=Günlük açılamadı: %1%n%n%2
 english.GunlukAcilamadi=Could not open the log: %1%n%n%2
+; --- Kaldırma: indirilen bileşenleri (python-embed, .venv) saklama sorusu ---
+turkish.KaldirSaklaBaslik=İndirilen bileşenler saklansın mı?
+english.KaldirSaklaBaslik=Keep the downloaded components?
+turkish.KaldirSaklaMetni=SesVer'in indirdiği Python ortamı ve paketler (yaklaşık %1 GB) şu klasörde duruyor:%n%2%n%nSaklarsanız SesVer'i aynı klasöre yeniden kurduğunuzda bunlar yeniden indirilmez. Seslerim ve outputs klasörleri her iki durumda da korunur.
+english.KaldirSaklaMetni=The Python environment and packages SesVer downloaded (about %1 GB) are in this folder:%n%2%n%nIf you keep them, reinstalling SesVer to the same folder will not download them again. Your voices (Seslerim) and the outputs folder are kept either way.
+turkish.KaldirSaklaDugmesi=Sakla
+english.KaldirSaklaDugmesi=Keep
+turkish.KaldirSaklaNotu=Yeniden kurulumda indirme olmaz. Sonra silmek için klasörü elle silebilirsiniz.
+english.KaldirSaklaNotu=No download when you reinstall. To remove them later, delete the folder yourself.
+turkish.KaldirSilDugmesi=Sil
+english.KaldirSilDugmesi=Delete
+turkish.KaldirSilNotu=%1 GB yer açılır; yeniden kurulumda yaklaşık 3 GB yeniden iner.
+english.KaldirSilNotu=Frees %1 GB; about 3 GB is downloaded again when you reinstall.
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:DesktopIconTask}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -267,10 +285,9 @@ Filename: "{app}\WINDOWS_BASLAT.bat"; WorkingDir: "{app}"; Description: "{cm:Lau
 
 [UninstallDelete]
 ; Çalışma zamanında oluşan, kurulumun kopyalamadığı dosyalar. Kullanıcı verisi
-; (voices\seslerim\, outputs\) bilerek listede YOK.
-Type: filesandordirs; Name: "{app}\python-embed"
-; .venv: WINDOWS_BASLAT.bat'ın python-embed indirilemezse kullandığı yedek ortam.
-Type: filesandordirs; Name: "{app}\.venv"
+; (voices\seslerim\, outputs\) bilerek listede YOK. İndirilen bileşenler (python-embed\,
+; .venv\) da burada değil: kullanıcının seçimine göre [Code] IndirilenBilesenleriSil siler
+; (bkz. CurUninstallStepChanged); [UninstallDelete] koşula bağlanamaz.
 Type: filesandordirs; Name: "{app}\pbs_tmp"
 Type: filesandordirs; Name: "{app}\__pycache__"
 ; Hızlı Mod: indirilen EMA ağırlıkları (~34 MB, sekmedeki "indir" ile gelir) ve motor önbelleği.
@@ -337,11 +354,20 @@ const
   AyarYedekEki = '.bozuk';
   AyarYedekSiniri = 20;
 
+  // --- Kaldırma: indirilen bileşenler (python-embed, .venv) ---
+  // Sessiz kaldırmada varsayılan silmedir (CI/otomasyon için eski davranış); bu parametre
+  // verilirse sessiz kaldırmada da saklanır. Etkileşimli kaldırmada kullanıcıya sorulur.
+  BilesenSaklaParametresi = '/BILESENLERISAKLA';
+  // Bayt → GB (onda bir hassasiyet; 1024^3).
+  BirGB = 1073741824;
+
 type
   TOrtamSonuc = (osDenenmedi, osTamam, osHata, osIptal);
 
 var
   OrtamSonuc: TOrtamSonuc;
+  // Kaldırma: indirilen bileşenler klasörde kalsın mı (InitializeUninstall / CurUninstallStepChanged).
+  BilesenleriSakla: Boolean;
   OrtamHataAdimi: String;
   OrtamIptalIstendi: Boolean;
   OrtamSayfasi: TOutputProgressWizardPage;
@@ -1461,4 +1487,117 @@ begin
   Result := 0;
   if WizardSilent() and ((OrtamSonuc = osHata) or (OrtamSonuc = osIptal)) then
     Result := OrtamHataCikisKodu;
+end;
+
+// ---------------------------------------------------------------- kaldırma
+// İndirilen bileşenler: WINDOWS_BASLAT.bat'ın python-embed\ (taşınabilir Python + ~3 GB paket)
+// ve python-embed indirilemezse kullandığı yedek .venv\. Aynı klasöre yeniden kurulumda bat
+// kurulum işaretini (sesver_kurulum_tamam.txt) aynı bulursa hiçbir şey indirmez.
+
+// Klasörün toplam boyutu (bayt). Bağlantı noktalarına (reparse point) girilmez: döngü olmasın,
+// başka diske taşılmış klasör sayılmasın.
+function KlasorBoyutu(const Klasor: String): Int64;
+var
+  K: TFindRec;
+begin
+  Result := 0;
+  if FindFirst(Klasor + '\*', K) then
+  begin
+    try
+      repeat
+        if (K.Name <> '.') and (K.Name <> '..') then
+        begin
+          if K.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0 then
+          begin
+            if K.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0 then
+              Result := Result + KlasorBoyutu(Klasor + '\' + K.Name);
+          end
+          else
+          begin
+            Result := Result + K.SizeLow;
+            if K.SizeHigh > 0 then
+              Result := Result + Int64(K.SizeHigh) * 65536 * 65536;
+          end;
+        end;
+      until not FindNext(K);
+    finally
+      FindClose(K);
+    end;
+  end;
+end;
+
+// "3,1" (Türkçe) / "3.1" (İngilizce): onda bir hassasiyetli GB.
+function GBMetni(Bayt: Int64): String;
+var
+  Onda: Int64;
+  Ayirici: String;
+begin
+  Onda := (Bayt * 10 + BirGB div 2) div BirGB;
+  if ActiveLanguage = 'english' then
+    Ayirici := '.'
+  else
+    Ayirici := ',';
+  Result := IntToStr(Onda div 10) + Ayirici + IntToStr(Onda mod 10);
+end;
+
+function IndirilenBilesenBoyutu(const App: String): Int64;
+begin
+  Result := 0;
+  if DirExists(App + '\python-embed') then
+    Result := Result + KlasorBoyutu(App + '\python-embed');
+  if DirExists(App + '\.venv') then
+    Result := Result + KlasorBoyutu(App + '\.venv');
+end;
+
+// Etkileşimli kaldırmada soru. True = sakla. İletişim kutusu açılamazsa (0) saklanır: veri kaybı yok.
+function BilesenSaklamaSorusu(const App: String): Boolean;
+var
+  Boyut: String;
+  Cevap: Integer;
+begin
+  Boyut := GBMetni(IndirilenBilesenBoyutu(App));
+  Cevap := TaskDialogMsgBox(CustomMessage('KaldirSaklaBaslik'),
+    FmtMessage(CustomMessage('KaldirSaklaMetni'), [Boyut, App]), mbConfirmation, MB_YESNO,
+    [CustomMessage('KaldirSaklaDugmesi') + #13#10 + CustomMessage('KaldirSaklaNotu'),
+     CustomMessage('KaldirSilDugmesi') + #13#10 + FmtMessage(CustomMessage('KaldirSilNotu'), [Boyut])], 0);
+  Result := Cevap <> IDNO;
+end;
+
+procedure IndirilenBilesenleriSil(const App: String);
+begin
+  if DirExists(App + '\python-embed') and not DelTree(App + '\python-embed', True, True, True) then
+    Log('Kaldirma: python-embed silinemedi (kullanimda olabilir)');
+  if DirExists(App + '\.venv') and not DelTree(App + '\.venv', True, True, True) then
+    Log('Kaldirma: .venv silinemedi (kullanimda olabilir)');
+  // Kalan bir şey yoksa kurulum klasörü de kalkar (kullanıcı verisi varsa klasör durur).
+  RemoveDir(App);
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  // Sessiz kaldırma: varsayılan sil (eski davranış); /BILESENLERISAKLA ile sakla.
+  BilesenleriSakla := UninstallSilent() and KomutSatirindaVar(BilesenSaklaParametresi);
+  Result := True;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  App: String;
+begin
+  App := ExpandConstant('{app}');
+  // usUninstall: kullanıcı kaldırmayı onayladı, dosyalar henüz silinmedi. Soru yalnız burada.
+  if (CurUninstallStep = usUninstall) and not UninstallSilent() and
+     (DirExists(App + '\python-embed') or DirExists(App + '\.venv')) then
+    BilesenleriSakla := BilesenSaklamaSorusu(App);
+  // usPostUninstall: SesVer dosyaları silindi; şimdi seçime göre bileşenler.
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if BilesenleriSakla then
+      Log('Kaldirma: indirilen bilesenler saklandi (python-embed, .venv): ' + App)
+    else
+    begin
+      Log('Kaldirma: indirilen bilesenler siliniyor (python-embed, .venv)');
+      IndirilenBilesenleriSil(App);
+    end;
+  end;
 end;

@@ -871,5 +871,123 @@ class GuncellemeSecenegiTests(unittest.TestCase):
                 self.assertNotIn("\u2014", d[ad], ad)  # em dash yok
 
 
+# ---------------------------------------------------------------- 1.4.1: kaldırırken bileşenleri sakla
+
+class BilesenSaklamaTests(unittest.TestCase):
+    """Kaldırma: python-embed\\ / .venv\\ (~3 GB) etkileşimli kaldırmada sorulur, sessizde silinir
+    (/BILESENLERISAKLA ile saklanır). Gerçek kaldırma CI'da (build: Kaldırma testi; full-launch: ölçüm)."""
+
+    def test_bilesenler_uninstalldelete_listesinde_degil(self):
+        silinen = iss_bolumu("UninstallDelete")
+        self.assertNotRegex(silinen, r'(?m)^Type:.*Name: "\{app\}\\(python-embed|\.venv)"')
+        # Diğer geçici dosyalar eskisi gibi silinir.
+        for ad in ("pbs_tmp", "__pycache__", "sesver_log.txt", "kurulum_log.txt"):
+            self.assertIn(ad, silinen)
+
+    def test_karar_sessizde_sil_parametreyle_sakla_etkilesimde_sor(self):
+        kod = iss_bolumu("Code")
+        self.assertIn("BilesenSaklaParametresi = '/BILESENLERISAKLA';", kod)
+        ilk = pascal_govde(kod, "function", "InitializeUninstall")
+        self.assertIn("BilesenleriSakla := UninstallSilent() and KomutSatirindaVar(BilesenSaklaParametresi);", ilk)
+        adim = pascal_govde(kod, "procedure", "CurUninstallStepChanged")
+        # Soru yalnız etkileşimli kaldırmada ve dosyalar silinmeden önce (usUninstall), bileşen varsa.
+        self.assertRegex(adim, r"\(CurUninstallStep = usUninstall\) and not UninstallSilent\(\) and\s+"
+                               r"\(DirExists\(App \+ '\\python-embed'\) or DirExists\(App \+ '\\\.venv'\)\) then\s+"
+                               r"BilesenleriSakla := BilesenSaklamaSorusu\(App\);")
+        # Silme SesVer dosyalarından sonra (usPostUninstall) ve yalnız saklanmadıysa.
+        sonra = adim.split("if CurUninstallStep = usPostUninstall then")[1]
+        self.assertLess(sonra.index("if BilesenleriSakla then"), sonra.index("IndirilenBilesenleriSil(App);"))
+        self.assertIn("Log('Kaldirma: indirilen bilesenler saklandi", sonra)  # CI bu satırı arar (ASCII)
+        self.assertIn("Log('Kaldirma: indirilen bilesenler siliniyor", sonra)
+        sil = pascal_govde(kod, "procedure", "IndirilenBilesenleriSil")
+        self.assertIn("DelTree(App + '\\python-embed', True, True, True)", sil)
+        self.assertIn("DelTree(App + '\\.venv', True, True, True)", sil)
+        self.assertNotRegex(sil, r"seslerim|outputs")  # kullanıcı verisine dokunulmaz
+        self.assertIn("RemoveDir(App)", sil)  # yalnız boşsa kalkar
+
+    def test_soru_metni_dugmeleri_ve_varsayilan(self):
+        kod = iss_bolumu("Code")
+        soru = pascal_govde(kod, "function", "BilesenSaklamaSorusu")
+        self.assertIn("TaskDialogMsgBox(CustomMessage('KaldirSaklaBaslik')", soru)
+        self.assertIn("MB_YESNO", soru)
+        # İlk düğme (Evet, varsayılan) = Sakla; yalnız açıkça "Sil" seçilirse silinir.
+        self.assertLess(soru.index("KaldirSaklaDugmesi"), soru.index("KaldirSilDugmesi"))
+        self.assertIn("Result := Cevap <> IDNO;", soru)
+        self.assertIn("GBMetni(IndirilenBilesenBoyutu(App))", soru)
+        mesajlar = iss_bolumu("CustomMessages")
+        tr = dict(re.findall(r"^turkish\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
+        en = dict(re.findall(r"^english\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
+        for ad in ("KaldirSaklaBaslik", "KaldirSaklaMetni", "KaldirSaklaDugmesi", "KaldirSaklaNotu",
+                   "KaldirSilDugmesi", "KaldirSilNotu"):
+            for d in (tr, en):
+                self.assertIn(ad, d)
+                self.assertNotIn("\u2014", d[ad], ad)
+        self.assertEqual((tr["KaldirSaklaDugmesi"], tr["KaldirSilDugmesi"]), ("Sakla", "Sil"))
+        for d in (tr, en):
+            self.assertIn("%1 GB", d["KaldirSaklaMetni"])  # gerçek boyut
+            self.assertIn("%2", d["KaldirSaklaMetni"])  # klasör yolu
+            self.assertIn("%1 GB", d["KaldirSilNotu"])
+        self.assertIn("yeniden indirilmez", tr["KaldirSaklaMetni"])
+        self.assertIn("Seslerim ve outputs", tr["KaldirSaklaMetni"])
+
+    def test_boyut_hesabi_baglanti_noktasina_girmez_ve_gb_metni(self):
+        kod = iss_bolumu("Code")
+        boyut = pascal_govde(kod, "function", "KlasorBoyutu")
+        self.assertIn("FILE_ATTRIBUTE_REPARSE_POINT = 0", boyut)
+        self.assertIn("FindClose(K)", boyut)
+        gb = pascal_govde(kod, "function", "GBMetni")
+        self.assertIn("(Bayt * 10 + BirGB div 2) div BirGB", gb)
+        self.assertRegex(iss_metni(), r"(?m)^\s*BirGB = 1073741824;")
+
+        # Python karşılığı (onda bir yuvarlama, TR virgül / EN nokta).
+        def gb_metni(bayt, dil="turkish"):
+            onda = (bayt * 10 + 1073741824 // 2) // 1073741824
+            return f"{onda // 10}{'.' if dil == 'english' else ','}{onda % 10}"
+
+        self.assertEqual(gb_metni(3_300_000_000), "3,1")
+        self.assertEqual(gb_metni(3_300_000_000, "english"), "3.1")
+        self.assertEqual(gb_metni(0), "0,0")
+
+    def test_ayni_yere_yeniden_kurulumda_isaret_ayni_kalir(self):
+        """Bat'ın kurulum işareti yalnız kilit\\*.txt içeriği + voxcpm sürümünden hesaplanır (kurulum yolu,
+        tarih ya da makine içermez); kurulum programı kilit\\*.txt'yi olduğu gibi kopyalar. Aynı sürüm aynı
+        yere kurulunca işaret aynıdır → bat ':kurulum'da doğrudan :baslat'a gider (indirme yok)."""
+        import glob
+        import hashlib
+        import os
+        import shutil
+        import tempfile
+        bat = "\r\n".join(bat_satirlari())
+        hesap = [s for s in bat_satirlari() if "kilit_sha256=" in s and "glob.glob('kilit/*.txt')" in s]
+        self.assertEqual(len(hesap), 1, "işaret hesabı tek satır olmalı")
+        self.assertNotRegex(hesap[0], r"%CD%|%~dp0|getcwd|abspath|time|platform")
+        akis = bat.split("\r\n:kurulum\r\n")[1].split("\r\n:esitle\r\n")[0]
+        self.assertIn('if not exist "%MARK%" goto :ilk_kurulum', akis)
+        self.assertIn('if not "%SV_ISARET%"=="%SV_BEKLENEN%" goto :esitle', akis)
+        self.assertTrue(akis.rstrip().endswith("goto :baslat"))
+        self.assertIn('Source: "{#SrcRoot}\\kilit\\*.txt"; DestDir: "{app}\\kilit"', iss_bolumu("Files"))
+
+        def isaret(kok):
+            onceki = os.getcwd()
+            os.chdir(kok)
+            try:
+                h = hashlib.sha256()
+                for f in sorted(glob.glob("kilit/*.txt")):
+                    h.update(open(f, "rb").read())
+                return "kilit_sha256=" + h.hexdigest() + " voxcpm=2.0.3"
+            finally:
+                os.chdir(onceki)
+
+        with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+            for hedef in (a, b):
+                shutil.copytree(ROOT / "kilit", Path(hedef) / "kilit")
+            self.assertEqual(isaret(a), isaret(b))
+            self.assertEqual(isaret(a), isaret(ROOT))
+            # Kilit değişirse (gerçek güncelleme) işaret değişir → :esitle yalnız eksik/değişeni kurar.
+            (Path(b) / "kilit" / "pip.txt").write_text("degisti", encoding="utf-8")
+            self.assertNotEqual(isaret(a), isaret(b))
+        self.assertIn('set "VOXCPM_SURUM=2.0.3"', bat)
+
+
 if __name__ == "__main__":
     unittest.main()
