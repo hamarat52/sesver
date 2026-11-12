@@ -1138,10 +1138,14 @@ end;
 
 // İlk kurulum süreç ağacını sonlandırır (cmd.exe + python/pip/curl alt süreçleri).
 // Konsol programları ExecAndLogOutput ile çalıştırılır: pencere açılmaz.
-// Asıl yol {app}\kurulum_durdur.ps1: önce kök cmd.exe, sonra torunlar ve python-embed'den
-// başlamış süreçler, yeni süreç doğmayana dek. Tek "taskkill /T /F" yetmiyor: kökü en son
-// sonlandırır, kök o arada bat'ın sonraki python'unu başlatabiliyor ve o süreç yetim kalıyordu
-// (CI 43265425949). Betik yoksa ya da çalışmazsa eski yol (taskkill / PowerShell) denenir.
+// Asıl yol {app}\kurulum_durdur.ps1: kökü doğrular (yalnız WINDOWS_BASLAT.bat /yalniz-kurulum
+// cmd.exe'si), önce kökü, sonra torunları ve kurulum başladıktan sonra python-embed'den başlamış
+// süreçleri yeni süreç doğmayana dek durdurur; kök kendiliğinden ölmüşse de yetim python'ları
+// bulur. Tek "taskkill /T /F" yetmiyor: kökü en son sonlandırır, kök o arada bat'ın sonraki
+// python'unu başlatabiliyor ve o süreç yetim kalıyordu (CI 43265425949). Betik çalıştıysa
+// sonucu kesindir (0 bitti, 2 doğrulanan kök yoktu, 1 süreç kaldı ve günlükte listelendi):
+// doğrulanmamış bir PID'e taskkill uygulanmaz. Eski yol (taskkill / PowerShell) yalnız betik
+// yoksa ya da PowerShell başlatılamazsa denenir.
 procedure OrtamSureciniDurdur(Pid: Integer);
 var
   RC: Integer;
@@ -1155,12 +1159,14 @@ begin
         IntToStr(Pid) + ' -Klasor "' + ExpandConstant('{app}') + '"';
       Log('İlk kurulum süreç ağacı sonlandırılıyor: ' + OrtamDurdurBetigi + ' -Kok ' + IntToStr(Pid));
       if ExecAndLogOutput(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Komut, '',
-        SW_HIDE, ewWaitUntilTerminated, RC, @BaslaticiCiktisi) and ((RC = 0) or (RC = 2)) then
+        SW_HIDE, ewWaitUntilTerminated, RC, @BaslaticiCiktisi) then
       begin
         Log('Sonlandırma çıkış kodu: ' + IntToStr(RC));
+        if RC = 1 then
+          Log('Uyarı: bazı kurulum süreçleri 20 sn içinde durdurulamadı (yukarıda KALDI satırları).');
         Exit;
       end;
-      Log('Sonlandırma betiği başarısız (çıkış ' + IntToStr(RC) + '); taskkill ile yeniden deneniyor.');
+      Log('Sonlandırma betiği başlatılamadı (' + SysErrorMessage(RC) + '); eski yol deneniyor.');
     end;
     if Pid > 0 then
     begin

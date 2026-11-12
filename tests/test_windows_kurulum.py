@@ -1091,7 +1091,12 @@ class KurulumDurdurTests(unittest.TestCase):
         self.assertIn("'-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"' + Betik + '\" -Kok ' +", govde)
         self.assertIn("' -Klasor \"' + ExpandConstant('{app}') + '\"'", govde)
         self.assertIn("{sys}\\WindowsPowerShell\\v1.0\\powershell.exe", govde)
-        self.assertIn("((RC = 0) or (RC = 2))", govde)  # 2: kurulum zaten bitmiş (kök yok)
+        # Betik çalıştıysa sonucu kesin: doğrulanmamış bir PID'e taskkill yedeği uygulanmaz (D1/D3).
+        self.assertIn("SW_HIDE, ewWaitUntilTerminated, RC, @BaslaticiCiktisi) then\n      begin\n"
+                      "        Log('Sonlandırma çıkış kodu: ' + IntToStr(RC));", govde)
+        self.assertNotIn("((RC = 0) or (RC = 2))", govde)
+        self.assertIn("if RC = 1 then", govde)
+        self.assertIn("Log('Sonlandırma betiği başlatılamadı (", govde)
         # Betik önce; yoksa ya da başarısızsa eski taskkill / PowerShell yolu.
         self.assertLess(govde.index("OrtamDurdurBetigi"), govde.index("'/T /F /PID '"))
         # İptal düğmesi ve PID'siz yedek bu yordamdan geçer.
@@ -1105,7 +1110,7 @@ class KurulumDurdurTests(unittest.TestCase):
         self.assertLess(kok, dongu)  # kök önce: yeni alt süreç doğamaz
         self.assertNotIn("taskkill", p.split("param(")[1])  # tek seferlik ağaç öldürmeye dayanmaz
         # Ağaç: üst süreç numarası + oluşma zamanı (PID yeniden kullanımına karşı), torunlar dahil.
-        self.assertIn("$agac.ContainsKey($ust) -and $p.CreationDate -ge $agac[$ust]", p)
+        self.assertIn("if ($p.CreationDate -lt $agac[$ust]) { continue }", p)
         self.assertIn("} while ($eklendi)", p)
         # Güvenlik ağı yalnız SesVer'in python-embed'i ve kökten sonra başlamış süreçler:
         # kurulumdan önce açılmış SesVer'e ve başka uygulamalara dokunulmaz.
@@ -1118,6 +1123,71 @@ class KurulumDurdurTests(unittest.TestCase):
         for kod in ("exit 0", "exit 1", "exit 2"):
             self.assertIn(kod, p)
         self.assertNotIn("Stop-Process -Name", p)  # adla toplu öldürme yok
+
+    # --- siberguvenlik D1-D3 (PowerShell bu makinede yok: yapı testleri; gerçek çalıştırma CI build) ---
+    def test_d1_kok_ad_ve_komut_satiriyla_dogrulanir(self):
+        p = self.ps1
+        self.assertIn("function KurulumKokuMu($p) {\n    return ($p -and $p.Name -eq 'cmd.exe' -and "
+                      "$p.CommandLine -like '*WINDOWS_BASLAT.bat*/yalniz-kurulum*')", p)
+        # -Kok verilse de kök yalnız doğrulananlardır; aday (PID'in şimdiki sahibi) kök sayılmaz.
+        self.assertIn("$aday = @($tum | Where-Object { [int]$_.ProcessId -eq $Kok })", p)
+        self.assertIn("$kokler = @($aday | Where-Object { KurulumKokuMu $_ })", p)
+        self.assertIn("ona ve alt sureclerine dokunulmaz", p)
+        self.assertEqual(p.count("$aday"), 4)  # yalnız tanım, süzme, sayım ve ileti: durdurulmaz
+        # Durdurma ve ağaç tohumu yalnız $kokler'den; doğrulanmayan kökün çocukları ağaca girmez.
+        self.assertIn("foreach ($k in $kokler) { $agac[[int]$k.ProcessId] = $k.CreationDate }", p)
+        self.assertIn("foreach ($k in $kokler) {\n    Stop-Process -Id ([int]$k.ProcessId) -Force", p)
+        stoplar = [m.start() for m in re.finditer(r"Stop-Process", p)]
+        self.assertEqual(len(stoplar), 2)  # kök (doğrulanmış) + Kaynak'tan geçen süreç
+        self.assertIn("foreach ($p in $kalan) {\n            Stop-Process", p)
+        # Doğrulanan kök yoksa çıkış 2 (yetim taraması yine yapılır, D3).
+        self.assertIn("if ($kokler.Count -eq 0) {\n    Write-Output (\"kurulum_durdur: kok yoktu", p)
+        self.assertIn("exit 2\n}\nWrite-Output (\"kurulum_durdur: tamam", p)
+
+    def test_d2_canli_ust_surec_kayitli_olusma_zamaniyla_eslesmeli(self):
+        p = self.ps1
+        dongu = p.split("do {\n        $eklendi = $false", 1)[1].split("} while ($eklendi)", 1)[0]
+        self.assertIn("if ($canli.ContainsKey($ust) -and $canli[$ust].CreationDate -ne $agac[$ust]) { continue }", dongu)
+        self.assertIn("if ($p.CreationDate -lt $agac[$ust]) { continue }", dongu)
+        self.assertLess(dongu.index("$canli.ContainsKey($ust)"), dongu.index("$agac[$id] = $p.CreationDate"))
+        self.assertIn("foreach ($p in $tum) { $canli[[int]$p.ProcessId] = $p }", p)  # her turda tazelenir
+        # 'agac' kaynağı da PID + oluşma zamanı ikilisiyle.
+        self.assertIn("if ($agac.ContainsKey($id) -and $agac[$id] -eq $p.CreationDate) { return 'agac' }", p)
+
+    def test_d3_kok_yokken_yetim_taramasi_kurulum_baslangicindan_sonrasi(self):
+        p = self.ps1
+        kokyok = p.split("} else {\n    Write-Output \"kurulum_durdur: dogrulanan kok surec yok", 1)[1].split("\n}\n", 1)[0]
+        # Kurulum başlangıcı = bat'ın ilk iş yazdığı kurulum_pid.txt'nin yazılma zamanı
+        # (oluşma zamanı değil: Windows dosya tüneli silinip yeniden yazılan dosyaya eskisini verebilir).
+        self.assertIn("$pd = Get-Item -LiteralPath $pidDosyasi", kokyok)
+        self.assertIn("if ($pd) { $esik = $pd.LastWriteTime }", kokyok)
+        self.assertNotIn("CreationTime", p)
+        # Başlangıç bilinmiyorsa hiçbir şey durdurulmaz.
+        self.assertIn("python-embed taramasi yapilmaz\"\n        exit 2", kokyok)
+        self.assertLess(p.index("python-embed taramasi yapilmaz"), p.index("Stop-Process"))
+        self.assertIn("$pidDosyasi = Join-Path $Klasor 'kurulum_pid.txt'", p)
+        # Yalnız python-embed'den ve eşikten sonra başlamışlar; eşik yoksa klasör kuralı kapalı.
+        self.assertIn("if ($null -ne $esik -and $p.ExecutablePath -and $p.ExecutablePath.StartsWith($embed, "
+                      "[StringComparison]::OrdinalIgnoreCase) -and $p.CreationDate -ge $esik) { return 'klasor' }", p)
+        # Sihirbaz her kurulumdan önce kurulum_pid.txt'yi siler (eşik eski bir koşudan kalmaz),
+        # bat da ilk iş olarak yeniden yazar.
+        self.assertIn("DeleteFile(PidYolu);", self.kod)
+        bat = BAT_YOLU.read_text(encoding="utf-8")
+        self.assertLess(bat.index('del /f /q "kurulum_pid.txt"'), bat.index(':ilk_kurulum'))
+
+    def test_ci_d1_d3_senaryosu_gercek_windowsta(self):
+        wf = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")
+        blok = wf.split("--- kurulum_durdur.ps1: yanlış kök (D1) + kök yokken yetim (D3) ---", 1)[1].split("} finally {", 1)[0]
+        sira = [blok.index(s) for s in ("$eski = Start-Process -FilePath $embedPy", "$yabanci = Start-Process",
+                                         "Set-Content -LiteralPath $pidD -Value $yabanci.Id",
+                                         "$yetim = Start-Process -FilePath $embedPy",
+                                         "-File $durdur -Kok $yabanci.Id -Klasor $app")]
+        self.assertEqual(sira, sorted(sira))  # eski < kurulum başlangıcı < yetim < durdurma
+        for beklenen in ("if ($dkod -ne 2)", "'D1: kurulum cmd.exe''si olmayan süreç durduruldu'",
+                         "'D1: yabancı sürecin alt süreci durduruldu'",
+                         "'D3: kurulumdan önce açılmış python-embed süreci durduruldu'",
+                         "'D3: kök yokken kurulumdan sonra doğmuş python-embed süreci durdurulmadı'"):
+            self.assertIn(beklenen, blok)
 
     def test_ci_iptal_testi_sihirbazla_ayni_betigi_kullanir(self):
         wf = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")

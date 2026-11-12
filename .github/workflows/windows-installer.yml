@@ -305,6 +305,38 @@ jobs:
             foreach ($m in @('[SesVer baslatici calisiyor]', '[BILGI] Yalniz kurulum kipi', '[DURUM] ')) { if (-not $ykIcerik.Contains($m)) { throw "kurulum_log.txt'de beklenen satır yok: $m" } }
             if ($ykIcerik.Contains('SesVer aciliyor')) { throw 'Yalnız-kurulum kipi SesVer''i başlatmaya çalıştı' }
           }
+          # --- siberguvenlik D1/D3 (gerçek Windows'ta): kurulum_durdur.ps1 doğrulanmamış köke ve
+          # alt süreçlerine dokunmaz (çıkış 2); kök yokken kurulum başladıktan sonra python-embed'den
+          # doğmuş yetimi durdurur; kurulumdan önce açılmış python-embed sürecine dokunmaz.
+          Write-Host '--- kurulum_durdur.ps1: yanlış kök (D1) + kök yokken yetim (D3) ---'
+          $uyku = '-c', 'import time;time.sleep(120)'
+          $eski = $null; $yabanci = $null; $yetim = $null
+          try {
+            $eski = Start-Process -FilePath $embedPy -ArgumentList $uyku -WindowStyle Hidden -PassThru      # kurulumdan önce açık SesVer gibi
+            Start-Sleep -Seconds 2
+            $yabanci = Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList '/d', '/c', 'ping -n 120 127.0.0.1 >nul' -WindowStyle Hidden -PassThru
+            Set-Content -LiteralPath $pidD -Value $yabanci.Id -Encoding ascii   # bat da ilk iş bunu yazar: kurulum başlangıcı
+            Start-Sleep -Seconds 2
+            $yetim = Start-Process -FilePath $embedPy -ArgumentList $uyku -WindowStyle Hidden -PassThru     # kurulumdan sonra doğmuş, kökü yok
+            Start-Sleep -Seconds 2
+            $ping = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$($yabanci.Id)" | Where-Object { $_.Name -match '^ping' })
+            if ($ping.Count -ne 1) { throw "D1 düzeneği kurulamadı: yabancı cmd'nin ping çocuğu yok" }
+            & $winPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $durdur -Kok $yabanci.Id -Klasor $app | Out-Host
+            $dkod = $LASTEXITCODE
+            Start-Sleep -Seconds 1
+            $canli = { param($id) [bool](Get-Process -Id $id -ErrorAction SilentlyContinue) }
+            Write-Host ("D1/D3 sonuç: çıkış {0}; yabancı cmd {1}, ping {2}, kurulumdan önceki python {3}, yetim python {4}" -f $dkod,
+              (& $canli $yabanci.Id), (& $canli $ping[0].ProcessId), (& $canli $eski.Id), (& $canli $yetim.Id))
+            if ($dkod -ne 2) { throw "D1: doğrulanmamış kökte çıkış 2 bekleniyordu ($dkod)" }
+            if (-not (& $canli $yabanci.Id)) { throw 'D1: kurulum cmd.exe''si olmayan süreç durduruldu' }
+            if (-not (& $canli $ping[0].ProcessId)) { throw 'D1: yabancı sürecin alt süreci durduruldu' }
+            if (-not (& $canli $eski.Id)) { throw 'D3: kurulumdan önce açılmış python-embed süreci durduruldu' }
+            if (& $canli $yetim.Id) { throw 'D3: kök yokken kurulumdan sonra doğmuş python-embed süreci durdurulmadı' }
+          } finally {
+            foreach ($s in @($yetim, $eski)) { if ($s) { Stop-Process -Id $s.Id -Force -ErrorAction SilentlyContinue } }
+            if ($yabanci) { & taskkill.exe /T /F /PID $yabanci.Id 2>&1 | Out-Null }
+            Remove-Item $pidD -Force -ErrorAction SilentlyContinue
+          }
           Write-Host '----- kurulum_log.txt (son 15 satır) -----'; Get-Content $ykLog -Tail 15 | Out-Host
           $global:LASTEXITCODE = 0
           Write-Host 'Yalnız-kurulum kipi KANITLANDI: durum satırları biçimde, günlük yazıldı, PID yalnız-kurulum cmd.exe''si, üç ayrı anda "Kurulumu durdur" (kurulum_durdur.ps1) süreç ağacını bitirdi, SesVer klasöründen süreç kalmadı, tamam işareti yazılmadı.'

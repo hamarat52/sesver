@@ -28,6 +28,7 @@ import logging
 import os
 import re
 import shutil
+import stat
 import tempfile
 import threading
 import time
@@ -67,6 +68,45 @@ def _kilidi_coz(f):
 
 def varsayilan_kok():
     return Path(tempfile.gettempdir()) / KOK_ADI
+
+
+def _bag_mi(st):
+    """lstat sonucu sembolik bağ ya da (Windows) junction/yeniden ayrıştırma noktası mı?"""
+    if stat.S_ISLNK(st.st_mode):
+        return True
+    return bool(getattr(st, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
+
+def kok_hazirla(kok):
+    """Kök klasörü güvenle hazırlar: yoksa 0o700 ile açar; varsa gerçek bir klasör (bağ değil) ve
+    sahibi geçerli kullanıcı olmalı, izinler 0o700'e çekilir. Güvensizse (bağ, başkasının, klasör
+    değil) False ve neden döner: kayıtlar oraya yazılmaz (bkz. GeciciAlan.kur yedek yolu).
+
+    Neden: paylaşımlı /tmp'li sistemlerde (Linux geliştirici kipi) başka bir yerel kullanıcı kökü
+    önceden bağ ya da kendi klasörü olarak açıp kayıtları okuyabilirdi (siberguvenlik D4)."""
+    kok = Path(kok)
+    try:
+        os.mkdir(kok, 0o700)
+    except FileExistsError:
+        pass
+    except OSError as exc:
+        return False, f"oluşturulamadı: {exc}"
+    try:
+        st = os.lstat(kok)
+    except OSError as exc:
+        return False, f"okunamadı: {exc}"
+    if _bag_mi(st):
+        return False, "bağ (symlink/junction)"
+    if not stat.S_ISDIR(st.st_mode):
+        return False, "klasör değil"
+    if hasattr(os, "getuid") and st.st_uid != os.getuid():
+        return False, f"sahibi başka kullanıcı (uid {st.st_uid})"
+    if os.name != "nt" and stat.S_IMODE(st.st_mode) & 0o077:
+        try:
+            os.chmod(kok, 0o700)  # eski sürümün 0o755 açtığı kendi klasörümüz
+        except OSError as exc:
+            return False, f"izin düzeltilemedi: {exc}"
+    return True, ""
 
 
 def _icinde(yol, kok):
@@ -109,6 +149,7 @@ class GeciciAlan:
         self.aralik, self.yas = aralik, yas
         self.oturum = None
         self._kilit = None
+        self._yedek_kok = None   # güvensiz kök yerine açılan mkdtemp kökü (kapanışta kaldırılır)
         self._blocks = None
         self._dur = threading.Event()
         self._zamanlayici = None
@@ -120,9 +161,17 @@ class GeciciAlan:
         with self._lock:
             if self.oturum is not None:
                 return self.oturum
-            self.kok.mkdir(parents=True, exist_ok=True)
+            guvenli, neden = kok_hazirla(self.kok)
+            if not guvenli:
+                # Güvenli yedek: bu sürece özel, rastgele adlı, 0o700 yeni bir kök (mkdtemp
+                # önceden oluşturulmuş bir ada/bağa yazmaz). Kayıtlar yine ayrı ve kapanışta silinir;
+                # yalnız bu kökün ölü oturumları sonraki açılışta toplanamaz.
+                yedek = Path(tempfile.mkdtemp(prefix=KOK_ADI + "-"))
+                log.warning("Geçici klasör kökü güvensiz (%s: %s); yerine %s kullanılıyor",
+                            self.kok, neden, yedek)
+                self.kok, self._yedek_kok = yedek, yedek
             oturum = self.kok / f"{os.getpid()}-{uuid.uuid4().hex[:8]}"
-            oturum.mkdir()
+            os.mkdir(oturum, 0o700)
             f = open(oturum / KILIT_ADI, "a+b")
             try:
                 _kilitle(f)
@@ -156,6 +205,11 @@ class GeciciAlan:
             f.close()
         if _icinde(oturum, self.kok) and _OTURUM_ADI.match(oturum.name):
             shutil.rmtree(oturum, ignore_errors=True)
+        if self._yedek_kok is not None:
+            try:
+                os.rmdir(self._yedek_kok)  # yalnız boşsa
+            except OSError:
+                pass
         return not oturum.exists()
 
     def _dongu(self):

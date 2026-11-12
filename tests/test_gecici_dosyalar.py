@@ -40,6 +40,75 @@ class _Blocks:
         self.upload_file_set = set()
 
 
+@unittest.skipIf(os.name == "nt", "POSIX izin/sahiplik denetimi")
+class KokGuvenligiTests(unittest.TestCase):
+    """siberguvenlik D4: kök ve oturum 0o700; kök bağ ya da başkasınınsa kullanılmaz (güvenli yedek)."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    @staticmethod
+    def _mod(yol):
+        return os.lstat(yol).st_mode & 0o777
+
+    def test_yeni_kok_ve_oturum_0o700(self):
+        eski = os.umask(0o022)
+        try:
+            alan = gecici.GeciciAlan(kok=self.tmp / "sesver-gecici")
+            oturum = alan.kur(gradio_env=False, zamanlayici=False)
+        finally:
+            os.umask(eski)
+        self.assertEqual(self._mod(self.tmp / "sesver-gecici"), 0o700)
+        self.assertEqual(self._mod(oturum), 0o700)
+        self.assertEqual(oturum.parent, self.tmp / "sesver-gecici")
+        alan.kapat()
+
+    def test_eski_surumun_0o755_koku_0o700_yapilir(self):
+        kok = self.tmp / "sesver-gecici"
+        kok.mkdir()
+        os.chmod(kok, 0o755)
+        self.assertEqual(gecici.kok_hazirla(kok), (True, ""))
+        self.assertEqual(self._mod(kok), 0o700)
+
+    def test_bag_kok_reddedilir_kayit_hedefe_yazilmaz(self):
+        hedef = self.tmp / "baskasinin"
+        hedef.mkdir()
+        kok = self.tmp / "sesver-gecici"
+        os.symlink(hedef, kok)
+        ok, neden = gecici.kok_hazirla(kok)
+        self.assertFalse(ok)
+        self.assertIn("bağ", neden)
+        alan = gecici.GeciciAlan(kok=kok)
+        with self.assertLogs("sesver", "WARNING") as kayit:
+            oturum = alan.kur(gradio_env=False, zamanlayici=False)
+        self.assertIn("güvensiz", kayit.output[0])
+        self.assertEqual(list(hedef.iterdir()), [])            # bağın hedefine hiçbir şey yazılmadı
+        self.assertFalse(gecici._icinde(oturum, hedef))
+        self.assertTrue(oturum.parent.name.startswith("sesver-gecici-"))  # mkdtemp yedeği
+        self.assertEqual(self._mod(oturum.parent), 0o700)
+        self.assertEqual(self._mod(oturum), 0o700)
+        yedek = oturum.parent
+        alan.kapat()
+        self.assertFalse(yedek.exists())                       # yedek kök kapanışta kaldırılır
+        self.assertTrue(os.path.islink(kok))                   # bağa dokunulmadı
+
+    def test_baskasinin_koku_reddedilir(self):
+        kok = self.tmp / "sesver-gecici"
+        kok.mkdir(mode=0o700)
+        with patch.object(gecici.os, "getuid", return_value=os.lstat(kok).st_uid + 1):
+            ok, neden = gecici.kok_hazirla(kok)
+        self.assertFalse(ok)
+        self.assertIn("sahibi başka kullanıcı", neden)
+
+    def test_dosya_olan_kok_reddedilir(self):
+        kok = self.tmp / "sesver-gecici"
+        kok.write_text("x")
+        self.assertEqual(gecici.kok_hazirla(kok), (False, "klasör değil"))
+
+
 class GeciciAlanTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
