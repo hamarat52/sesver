@@ -6,6 +6,7 @@ os.environ["GRADIO_ANALYTICS_ENABLED"] = "False"
 os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 import functools
+import json
 import logging
 import random
 from html import escape
@@ -91,31 +92,144 @@ def _choices(options):
 _gpu_disabled = False  # True: bu oturumda CUDA hatası yaşandı, bir daha denenmez (sonsuz döngü yok)
 
 
-def get_model():
+_model_yukleme_kilidi = Lock()  # iki istek (ör. durdurulan + yeni) modeli aynı anda iki kez yüklemesin
+# Modelin bir kez indirilen boyutu (model.safetensors 4,58 GB + audiovae.pth 0,38 GB + küçük dosyalar).
+MODEL_BOYUT_GB = 5
+# Önbellekte bu dosyaların hepsi varsa model "diskte" sayılır (yalnız belleğe yüklenir, indirilmez).
+_MODEL_DOSYALARI = ("config.json", "model.safetensors", "audiovae.pth")
+
+
+def get_model(ilerleme=None):
     """Yalnız üretim kilidi içinden çağrılır; arayüz açılırken model yüklenmez.
 
-    ``_gpu_disabled`` True ise (bu oturumda daha önce bir CUDA çalışma zamanı hatası —
-    "no kernel image", CUDA OOM — yaşandı) model doğrudan CPU'da yüklenir: aynı oturumda
+    ``_gpu_disabled`` True ise (bu oturumda daha önce bir CUDA çalışma zamanı hatası:
+    "no kernel image", CUDA OOM) model doğrudan CPU'da yüklenir: aynı oturumda
     ekran kartı bir daha denenmez (bkz. ``_reload_model_cpu``).
+    ``ilerleme(bayt, toplam)``: model indirilirken bayt ilerlemesi (bkz. ``_model_yolu``).
     """
     global _model
-    if _model is None:
-        from voxcpm import VoxCPM
-        _model = VoxCPM.from_pretrained(
-            hf_model_id=_model_yolu(), load_denoiser=False, optimize=False,
-            device="cpu" if _gpu_disabled else None,
-        )
+    with _model_yukleme_kilidi:
+        if _model is None:
+            from voxcpm import VoxCPM
+            _model = VoxCPM.from_pretrained(
+                hf_model_id=_model_yolu(ilerleme), load_denoiser=False, optimize=False,
+                device="cpu" if _gpu_disabled else None,
+            )
     return _model
 
 
-def _model_yolu():
+def _model_yolu(ilerleme=None):
     """VoxCPM2'nin sabit revizyonunun yerel klasörü (gerekirse bir kez indirilir).
 
     voxcpm 2.0.3 ``from_pretrained`` revizyon almaz; klasör yolu verilince indirmeyi
     atlayıp doğrudan onu yükler. ``HF_HUB_OFFLINE=1`` iken yalnız önbellek kullanılır.
+    ``ilerleme`` verilirse indirme baytları ona bildirilir; kütüphanenin ham ilerleme
+    satırı ("0/0 B | 0/0 B") hiçbir yere yazılmaz (bkz. ``_indirme_izleyici``).
     """
     from huggingface_hub import snapshot_download
-    return snapshot_download(repo_id=MODEL_ID, revision=MODEL_REVISION)
+    if ilerleme is None:
+        return snapshot_download(repo_id=MODEL_ID, revision=MODEL_REVISION)
+    return snapshot_download(repo_id=MODEL_ID, revision=MODEL_REVISION, tqdm_class=_indirme_izleyici(ilerleme))
+
+
+def _indirme_izleyici(ilerleme):
+    """snapshot_download'a verilen sessiz tqdm sınıfı: bayt çubuklarının (n, toplam) değerini
+    ``ilerleme``ye iletir, ekrana/terminale hiçbir şey yazmaz. Hata ilerlemeyi bozar ama
+    indirmeyi asla durdurmaz."""
+    from tqdm.auto import tqdm
+
+    class _Sessiz:
+        def write(self, _metin):
+            pass
+
+        def flush(self):
+            pass
+
+    class _Izleyici(tqdm):
+        def __init__(self, *args, **kwargs):
+            kwargs.pop("name", None)  # huggingface_hub'ın kendi tqdm'ine özgü
+            kwargs["disable"] = False
+            kwargs["file"] = _Sessiz()
+            super().__init__(*args, **kwargs)
+
+        def update(self, n=1):
+            sonuc = super().update(n)
+            if self.unit == "B":
+                try:
+                    ilerleme(int(self.n or 0), int(self.total or 0))
+                except Exception:  # noqa: BLE001 — ilerleme gösterimi indirmeyi durdurmaz
+                    pass
+            return sonuc
+
+    return _Izleyici
+
+
+def _model_diskte():
+    """Sabit revizyonun dosyaları Hugging Face önbelleğinde tam mı? Bilinemiyorsa None."""
+    try:
+        from huggingface_hub import try_to_load_from_cache
+        return all(isinstance(try_to_load_from_cache(MODEL_ID, ad, revision=MODEL_REVISION), str)
+                   for ad in _MODEL_DOSYALARI)
+    except Exception:  # noqa: BLE001 — önbellek okunamıyorsa "bilinmiyor"
+        return None
+
+
+def _model_durumu():
+    """Model durumu: "bellekte" (yüklü), "diskte" (önbellekte, yalnız yüklenecek) ya da "yok" (bir kez inecek).
+
+    Önbellek okunamazsa "diskte" sayılır: kullanıcıya yanlışlıkla "indiriliyor" denmez; gerçekten
+    indirme başlarsa ilerleme iletisi bunu ayrıca gösterir (bkz. ``_modeli_hazirla``)."""
+    if _model is not None:
+        return "bellekte"
+    return "yok" if _model_diskte() is False else "diskte"
+
+
+def _indirme_metni(bayt, toplam, lang=None):
+    return t("Ses modeli indiriliyor: {done} / {total} GB (%{pct}). Bu yalnız bir kez olur.", lang,
+             done=f"{bayt / 1e9:.2f}", total=f"{toplam / 1e9:.2f}", pct=int(bayt * 100 / toplam) if toplam else 0)
+
+
+def _modeli_hazirla(progress):
+    """Model kilidi içinden çağrılır (``yield from``): modeli yükler/indirir, indirme sürerken
+    durum satırına anlamlı ilerleme verir ve modeli döndürür.
+
+    Yükleme ayrı bir iş parçacığında yapılır; bu üreteç saniyede bir indirilen baytı yazar.
+    Arayüz dili iş parçacığına geçmediği için metinler bu üreteçte ya da sabit dille kurulur."""
+    if _model is not None:
+        return get_model()
+    lang = i18n.get_lang()
+    son = {"bayt": 0, "toplam": 0}
+
+    def ilerleme(bayt, toplam):
+        if toplam != son["toplam"]:
+            son.update(bayt=bayt, toplam=toplam)
+        else:
+            son["bayt"] = max(son["bayt"], bayt)
+        if son["toplam"]:
+            progress(0.05 + 0.13 * min(1.0, son["bayt"] / son["toplam"]),
+                     desc=_indirme_metni(son["bayt"], son["toplam"], lang))
+
+    kutu, bitti = {}, Event()
+
+    def calis():
+        try:
+            kutu["model"] = get_model(ilerleme=ilerleme)
+        except BaseException as exc:  # noqa: BLE001 — hata üretim akışına taşınır
+            kutu["hata"] = exc
+        finally:
+            bitti.set()
+
+    Thread(target=calis, name="sesver-model-yukleme", daemon=True).start()
+    gosterilen = None
+    while not bitti.wait(1.0):
+        if son["toplam"] and son["bayt"] < son["toplam"]:
+            metin = _indirme_metni(son["bayt"], son["toplam"], lang)
+            if metin != gosterilen:
+                gosterilen = metin
+                yield None, None, metin
+    if "hata" in kutu:
+        raise kutu["hata"]
+    return kutu["model"]
 
 
 def _reload_model_cpu():
@@ -265,12 +379,24 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
     # yazılmaz: yalnız hata yolunda değil, kütüphane uyarısında da (bulgu 2).
     private = [text, prompt_text] + ([instruction] if instruction not in EMOTIONS.values() else [])
     hata_raporu.remember_private(*[v for v in private if v])
-    progress(0.05, desc=t("İlk kullanımda model indiriliyor/yükleniyor…"))
-    yield None, None, t("İşleniyor… İlk kullanımda model indiriliyor/yükleniyor "
-                        "(internet ve birkaç dakika gerekebilir).")
+    # Model kilidinden ÖNCE ikinci ileti: kuyruk/elle üretim notu bu ilk iki iletiye eklenir
+    # (_elle_oncelikli). İçerik modelin gerçek durumuna göre: önbellekte varsa "indiriliyor /
+    # internet gerekir" denmez; yalnız gerçekten ilk kez inecekse boyutuyla söylenir.
+    durum = _model_durumu()
+    if durum == "yok":
+        progress(0.05, desc=t("Ses modeli indiriliyor…"))
+        yield None, None, t("İşleniyor… İlk kullanım: ses modeli bir kez indirilecek (yaklaşık {gb} GB, internet "
+                            "gerekir). Sonraki açılışlarda yalnız yüklenir.", gb=MODEL_BOYUT_GB)
+    elif durum == "diskte":
+        progress(0.05, desc=t("Ses modeli yükleniyor…"))
+        yield None, None, t("İşleniyor… Ses modeli belleğe yükleniyor. Model bilgisayarınızda kayıtlı; "
+                            "indirme yapılmaz, birkaç dakika sürebilir.")
+    else:
+        progress(0.05, desc=t("İşleniyor…"))
+        yield None, None, t("İşleniyor…")
     try:
         with _model_lock:
-            model = get_model()
+            model = yield from _modeli_hazirla(progress)
             # Kaba tahmin: karakter başına ~3-6 sn; uzun metin ve aynı anda
             # çalışan başka ağır uygulamalar süreyi belirgin artırabilir.
             est_min = max(1, round(len(text) * 3 / 60))
@@ -279,7 +405,7 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
             yield None, None, t(
                 "Ses üretiliyor… Metninizin uzunluğuna göre tahmini {min}-{max} dakika "
                 "sürebilir (başka ağır uygulamalar açıksa daha uzun sürer). "
-                "**Pencereyi kapatmayın, bu normal** — bittiğinde burada 'Tamamlandı' yazacak.",
+                "**Pencereyi kapatmayın, bu normal**; bittiğinde burada 'Tamamlandı' yazacak.",
                 min=est_min, max=est_max,
             )
             _mode, generate_kwargs = _build_kwargs(text, reference_audio, instruction, prompt_text, timesteps,
@@ -316,7 +442,7 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
                     log.warning("ekran kartı hatası (%s), bu oturumda CPU'ya tek seferlik geçiliyor: %s",
                                 code, exc)
                     model = _reload_model_cpu()
-                    fallback_msg = t("Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor — "
+                    fallback_msg = t("Ekran kartı bu sürümde kullanılamadı, işlemciyle devam ediliyor; "
                                     "daha yavaş. Ayrıntı: Ayarlar.")
                     progress(0.2, desc=fallback_msg)
                     yield None, None, fallback_msg
@@ -342,11 +468,11 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
     yield output, output, t("Tamamlandı: {sec} saniye. AI ile üretildi.", sec=f"{perf_counter() - started:.1f}")
 
 
-def _normal_generate(text, emotion_label, progress=gr.Progress(track_tqdm=True)):
+def _normal_generate(text, emotion_label, progress=gr.Progress()):
     yield from generate_audio(text, None, EMOTIONS.get(emotion_label), progress=progress)
 
 
-def _clone_generate(text, reference_audio, emotion_label, prompt_text, progress=gr.Progress(track_tqdm=True)):
+def _clone_generate(text, reference_audio, emotion_label, prompt_text, progress=gr.Progress()):
     yield from generate_audio(text, reference_audio, EMOTIONS.get(emotion_label), prompt_text, progress=progress)
 
 
@@ -420,7 +546,7 @@ def _mode_info(voice_id, emotion_label, text=""):
 
 
 def library_generate(text, emotion_label, quality="Dengeli", voice_id=RANDOM_VOICE,
-                     progress=gr.Progress(track_tqdm=True)):
+                     progress=gr.Progress()):
     """Kütüphanedeki seçili sesle üretim.
 
     Rastgele → referanssız (eski Normal Üretim); kayıtlı ses + Nötr → Devam;
@@ -591,42 +717,136 @@ def sample_estimate_md(text):
     return t("Örnek ses ≈ **{sec} sn** (tahmini; okunacak metnin uzunluğundan hesaplanır).", sec=f"{sec:.0f}")
 
 
-def design_candidates(tarif, text, quality, batch, cands, cins, yas, kullanim, perde, ton, doku, hiz, enerji,
-                      progress=gr.Progress(track_tqdm=True)):
-    """4 aday: aynı tarif + aynı cümle, farklı seed. Her aday hazır olunca kartına düşer."""
+SEED_EN_FAZLA = 2 ** 32 - 1  # np.random.seed sınırı: aynı seed = aynı ses garantisi bu aralıkta geçerli
+
+
+def seed_coz(deger):
+    """Kullanıcının yazdığı seed → int (0..2^32-1); geçersizse None.
+
+    Yalnız rakamlar kabul edilir (Arapça-Hint rakamları da): negatif, ondalıklı, boş ya da
+    sınırı aşan değer reddedilir; sessizce yuvarlanmaz ya da mod alınmaz (aynı seed = aynı ses).
+    """
+    if isinstance(deger, bool):
+        return None
+    if isinstance(deger, int):
+        sayi = deger
+    else:
+        metin = str(deger if deger is not None else "").strip()
+        if not metin or not metin.isdecimal():
+            return None
+        sayi = int(metin)
+    return sayi if 0 <= sayi <= SEED_EN_FAZLA else None
+
+
+def _seed_hatasi(n):
+    return gr.Error(t("Aday {n}: seed sıfır ya da pozitif bir tam sayı olmalı (en fazla {en_fazla}).",
+                      n=n, en_fazla=SEED_EN_FAZLA))
+
+
+def _aday_girdisi(tarif, text):
     tarif = (tarif or "").strip().strip("()").strip()
     text = (text or "").strip()
     if not tarif:
         raise gr.Error(t("Önce seçim yapın ya da Gelişmiş alanına bir tarif yazın."))
     if not text:
         raise gr.Error(t("Örnek cümle boş olamaz."))
-    seeds = vdes.candidate_seeds(batch)
-    cands = dict(cands or {})
-    meta = {"tarif": tarif, "text": text,
-            "secimler": design_selections(cins, yas, kullanim, perde, ton, doku, hiz, enerji)}
+    return tarif, text
+
+
+def _aday_etiketi(n, seed, sec):
+    return t("Aday {n} · seed {seed} · {sec} saniye", n=n, seed=seed, sec=f"{sec:.1f}")
+
+
+def _aday_sesi(tarif, text, quality, seed, progress, sar):
+    """Bir adayı üretir; generate_audio'nun ara iletilerini ``sar(ileti)`` ile verir.
+    Döndürdüğü: (ses yolu ya da None, geçen saniye, son ileti)."""
+    started = perf_counter()
+    last = None
+    for last in generate_audio(text, None, tarif, progress=progress, seed=seed,
+                               timesteps=QUALITY.get(quality, 10), voice_id=f"aday-{seed}", log_mode="tasarim"):
+        yield sar(last[2])
+    return (last[0] if last else None), perf_counter() - started, (last[2] if last else None)
+
+
+def design_candidates(tarif, text, quality, seed1, seed2, seed3, seed4, cands, cins, yas, kullanim, perde, ton,
+                      doku, hiz, enerji, progress=gr.Progress()):
+    """4 aday: aynı tarif + aynı cümle, kutulardaki seed'ler. Her aday hazır olunca kartına düşer.
+
+    ``cands``: kart sırası ("0".."3") → {"seed", "yol", "sure", "tarif", "text", "secimler"}; seçme ve
+    kaydetme adayın GERÇEKTEN üretildiği seed'i buradan alır (kutudaki sonradan değişmiş olabilir).
+    """
+    tarif, text = _aday_girdisi(tarif, text)
+    seeds = []
+    for i, deger in enumerate((seed1, seed2, seed3, seed4)):
+        seed = seed_coz(deger)
+        if seed is None:
+            raise _seed_hatasi(i + 1)
+        seeds.append(seed)
+    secimler = design_selections(cins, yas, kullanim, perde, ton, doku, hiz, enerji)
+    cands = {}
     audios: list = [None] * 4
-    labels = [t("Aday {n} · seed {seed} — sırada", n=i + 1, seed=s) for i, s in enumerate(seeds)]
+    labels = [t("Aday {n} · seed {seed} · sırada", n=i + 1, seed=s) for i, s in enumerate(seeds)]
 
     def pack(status):
-        return (*audios, *labels, status, cands, meta, gr.update(visible=False), None)
+        return (*audios, *labels, status, cands, gr.update(visible=False), None)
 
     yield pack(t("4 aday sırayla üretilecek (seed {seeds}). İlk aday hazır olunca dinleyebilirsiniz.",
                  seeds=", ".join(map(str, seeds))))
+    started = perf_counter()
     for i, seed in enumerate(seeds):
-        labels[i] = t("Aday {n} · seed {seed} — üretiliyor…", n=i + 1, seed=seed)
-        last = None
-        for last in generate_audio(text, None, tarif, progress=progress, seed=seed,
-                                   timesteps=QUALITY.get(quality, 10), voice_id=f"aday-{seed}", log_mode="tasarim"):
-            yield pack(t("Aday {n}/4 · {msg}", n=i + 1, msg=last[2]))
-        if not last or not last[0]:
-            labels[i] = t("Aday {n} · seed {seed} — başarısız", n=i + 1, seed=seed)
-            yield pack(last[2] if last else t("Üretim başarısız."))
+        labels[i] = t("Aday {n} · seed {seed} · üretiliyor…", n=i + 1, seed=seed)
+        yol, sure, son = yield from _aday_sesi(tarif, text, quality, seed, progress,
+                                               lambda msg, n=i + 1: pack(t("Aday {n}/4 · {msg}", n=n, msg=msg)))
+        if not yol:
+            labels[i] = t("Aday {n} · seed {seed} · başarısız", n=i + 1, seed=seed)
+            yield pack(son or t("Üretim başarısız."))
             return
-        audios[i] = last[0]
-        cands[str(seed)] = last[0]
-        labels[i] = t("Aday {n} · seed {seed}", n=i + 1, seed=seed)
-        yield pack(t("Aday {n}/4 hazır.", n=i + 1) + " "
-                   + (t("Sıradaki üretiliyor…") if i < 3 else t("Birini seçip kaydedin.")))
+        audios[i] = yol
+        cands[str(i)] = {"seed": seed, "yol": yol, "sure": round(sure, 1), "tarif": tarif, "text": text,
+                         "secimler": secimler}
+        labels[i] = _aday_etiketi(i + 1, seed, sure)
+        if i < 3:
+            yield pack(t("Aday {n}/4 hazır: {sec} saniye.", n=i + 1, sec=f"{sure:.1f}") + " " + t("Sıradaki üretiliyor…"))
+        else:
+            yield pack(t("Tamamlandı: 4 aday, toplam {sec} saniye. Birini seçip kaydedin.",
+                         sec=f"{perf_counter() - started:.1f}"))
+
+
+def regenerate_candidate(index, tarif, text, quality, seed_deger, cands, picked, cins, yas, kullanim, perde, ton,
+                         doku, hiz, enerji, progress=gr.Progress()):
+    """Tek adayı (kart ``index``) kutudaki seed'le yeniden üretir; diğer adaylara dokunulmaz.
+
+    Çıktılar: o kartın sesi, etiketi, durum, cands, kaydet grubu, seçili aday. Seçili aday yeniden
+    üretilirse seçim kalkar (kaydedilecek ses değişti); başka bir kart seçiliyse seçim korunur.
+    """
+    n = index + 1
+    tarif, text = _aday_girdisi(tarif, text)
+    seed = seed_coz(seed_deger)
+    if seed is None:
+        raise _seed_hatasi(n)
+    secimler = design_selections(cins, yas, kullanim, perde, ton, doku, hiz, enerji)
+    cands = dict(cands or {})
+    eski = cands.get(str(index))
+    keep = gr.update()
+    label = t("Aday {n} · seed {seed} · üretiliyor…", n=n, seed=seed)
+    yield keep, label, t("Aday {n} yeniden üretiliyor (seed {seed}). Diğer adaylar değişmez.", n=n, seed=seed), \
+        cands, keep, keep
+    yol, sure, son = yield from _aday_sesi(
+        tarif, text, quality, seed, progress,
+        lambda msg: (keep, label, t("Aday {n}/4 · {msg}", n=n, msg=msg), cands, keep, keep))
+    if not yol:
+        # Eski ses kartta kalır; etiketi de ona döner (ses ile etiket hep aynı seed'i gösterir).
+        geri = _aday_etiketi(n, eski["seed"], eski["sure"]) if eski else \
+            t("Aday {n} · seed {seed} · başarısız", n=n, seed=seed)
+        yield keep, geri, son or t("Üretim başarısız."), cands, keep, keep
+        return
+    cands[str(index)] = {"seed": seed, "yol": yol, "sure": round(sure, 1), "tarif": tarif, "text": text,
+                         "secimler": secimler}
+    secim_kalkar = picked is not None and int(picked) == index
+    yield (yol, _aday_etiketi(n, seed, sure),
+           t("Tamamlandı: Aday {n}, seed {seed}, {sec} saniye. Diğer adaylar değişmedi.", n=n, seed=seed,
+             sec=f"{sure:.1f}"),
+           cands, gr.update(visible=False) if secim_kalkar else keep, None if secim_kalkar else keep)
 
 
 def candidate_warnings(path, meta=None):
@@ -643,28 +863,36 @@ def candidate_warnings(path, meta=None):
     return out
 
 
-def pick_candidate_ui(index, batch, cands, meta=None):
-    seed = vdes.candidate_seeds(batch)[index]
-    if str(seed) not in (cands or {}):
+def _secilen_aday(picked, cands):
+    if picked is None:
+        return None
+    return (cands or {}).get(str(int(picked)))
+
+
+def pick_candidate_ui(index, cands):
+    """Kart ``index``'i seçer. Döner: (seçili kart sırası, kaydet grubu, ileti)."""
+    aday = _secilen_aday(index, cands)
+    if not aday or not aday.get("yol"):
         raise gr.Error(t("Bu aday henüz üretilmedi."))
-    msg = t("Seçilen: **Aday {n}** (seed {seed}). Ad verip kaydedin.", n=index + 1, seed=seed)
-    warns = candidate_warnings(cands[str(seed)], meta)
+    msg = t("Seçilen: **Aday {n}** (seed {seed}). Ad verip kaydedin.", n=index + 1, seed=aday["seed"])
+    warns = candidate_warnings(aday["yol"], aday)
     if warns:
         msg += "\n\n" + "  \n".join(f"⚠️ {escape(t(w))}" for w in warns)
-    return seed, gr.update(visible=True), msg
+    return index, gr.update(visible=True), msg
 
 
-def save_designed_ui(name, aciklama, kategori, picked, cands, meta):
+def save_designed_ui(name, aciklama, kategori, picked, cands):
+    """Seçili adayı kaydeder: referans o adayın sesi; seed/tarif/cümle o adayın gerçekten üretildiği değerler."""
     if picked is None:
         raise gr.Error(t("Önce bir aday seçin."))
-    path = (cands or {}).get(str(picked))
-    if not path or not Path(path).is_file() or not meta:
+    aday = _secilen_aday(picked, cands)
+    if not aday or not aday.get("yol") or not Path(aday["yol"]).is_file():
         raise gr.Error(t("Seçilen aday bulunamadı; adayları yeniden üretin."))
     try:
         voice = vlib.save_voice(
-            ad=name, ref_wav=path, ref_text=meta["text"], kaynak=DESIGN_KAYNAK, aciklama=aciklama,
-            kategori=(kategori or "").strip() or "Genel", tarif=meta["tarif"], seed=int(picked),
-            secimler=meta.get("secimler"),
+            ad=name, ref_wav=aday["yol"], ref_text=aday["text"], kaynak=DESIGN_KAYNAK, aciklama=aciklama,
+            kategori=(kategori or "").strip() or "Genel", tarif=aday["tarif"], seed=int(aday["seed"]),
+            secimler=aday.get("secimler"),
         )
     except (vlib.VoiceError, PermissionError) as exc:
         raise _voice_error(exc)
@@ -1301,21 +1529,23 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
   border: 1px solid rgba(242,92,59,.3); }
 .sv-report-actions { flex-wrap: wrap !important; gap: 6px !important; align-items: center !important; }
 .sv-report-consent p { margin: 0 !important; font-size: .86rem !important; line-height: 1.5 !important; }
-/* Adaylar kartı: Gradio ilerleme göstergesi kartın içinde, üstte kendi satırında (taşma/kesme yok). */
-.block.sv-cand-status > .wrap { position: relative !important; transform: none !important; inset: auto !important;
+/* Durum kutuları (Sonuç, Adaylar, Klon, Hızlı Mod): Gradio ilerleme göstergesi kutunun içinde, üstte kendi
+   satırında; ileti soluklaşmaz ve göstergenin altında kalmaz (1.4.1: "yükleniyor / indirme yapılmaz" okunabilsin). */
+.block.sv-status > .pending { opacity: 1 !important; }
+.block.sv-status > .wrap { position: relative !important; transform: none !important; inset: auto !important;
   width: auto !important; height: auto !important; min-height: 0 !important; padding: 0 0 6px !important;
   margin: 0 !important; background: transparent !important; border-radius: 0 !important;
   flex-direction: row !important; justify-content: flex-start !important; align-items: center !important; gap: 8px; }
-.block.sv-cand-status > .wrap.hide { display: none !important; }
+.block.sv-status > .wrap.hide { display: none !important; }
 /* elem_classes hem bloğa hem iç .prose'a gider; nokta yalnız içteki kutuda kalsın (ilerleme satırına binmesin). */
-.block.sv-cand-status::before { display: none !important; }
-.block.sv-cand-status > .wrap .progress-text, .block.sv-cand-status > .wrap .meta-text-center {
+.block.sv-status::before { display: none !important; }
+.block.sv-status > .wrap .progress-text, .block.sv-status > .wrap .meta-text-center {
   position: static !important; transform: none !important; padding: 0 !important; text-align: left !important;
   justify-content: flex-start !important; font-size: .78rem !important; color: var(--sv-ink-2) !important; }
-.block.sv-cand-status > .wrap svg { width: 16px !important; height: 16px !important; margin: 0 !important; }
-.block.sv-cand-status > .wrap > div:has(> svg) { margin: 0 !important; line-height: 0; order: -1; }
+.block.sv-status > .wrap svg { width: 16px !important; height: 16px !important; margin: 0 !important; }
+.block.sv-status > .wrap > div:has(> svg) { margin: 0 !important; line-height: 0; order: -1; }
 /* Üretim sürerken (generating) yalnızca nabız çerçevesi: kartın içine tam oturur, kenarı kesmez. */
-.block.sv-cand-status > .wrap.generating { position: absolute !important; inset: 0 !important; padding: 0 !important;
+.block.sv-status > .wrap.generating { position: absolute !important; inset: 0 !important; padding: 0 !important;
   border-radius: inherit !important; }
 
 .sv-card .block.sv-audio, .sv-panel .block.sv-audio {
@@ -1410,12 +1640,52 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 .sv-acc { border: 1px solid var(--sv-line) !important; border-radius: 16px !important; background: var(--sv-soft) !important;
   padding: 10px 14px !important; }
 .sv-acc > button, .sv-acc .label-wrap { font-size: .86rem !important; font-weight: 600 !important; color: var(--sv-ink-2) !important; }
-.sv-cgrid { flex-wrap: wrap !important; gap: 10px !important; }
-.sv-cand { flex: 1 1 calc(50% - 10px) !important; min-width: 170px !important; gap: 8px !important; padding: 10px !important;
-  border-radius: 16px !important; background: var(--sv-soft) !important; border: 1px solid var(--sv-line) !important; }
-.sv-cand-label p { margin: 0 !important; font-size: .8rem !important; font-weight: 600; color: var(--sv-ink-2) !important; }
-.sv-card .block.sv-cand-audio { min-height: 90px; padding: 6px !important; background: #fff !important; }
-.sv-cand .sv-btn.sv-mini { width: 100% !important; flex: 1 1 auto !important; }
+/* Adaylar: tek sütun liste. Her kart: başlık (aday · seed · süre), sade oynatıcı (oynat/duraklat +
+   dalga + süre; ses, hız, atla düğmeleri yok) ve altta seed kutusu + Yeniden üret + Bunu seç.
+   ~400-550 px panelde ve dar pencerede taşma/kaydırma çubuğu olmasın diye her şey min-width: 0. */
+.sv-cgrid { flex-direction: column !important; flex-wrap: nowrap !important; gap: 8px !important; }
+.sv-cand { flex: 0 0 auto !important; width: 100% !important; min-width: 0 !important; gap: 6px !important;
+  padding: 10px 12px !important; border-radius: 16px !important; background: var(--sv-soft) !important;
+  border: 1px solid var(--sv-line) !important; }
+.sv-cand > * { min-width: 0 !important; }
+.sv-cand-label p { margin: 0 !important; font-size: .8rem !important; font-weight: 600; color: var(--sv-ink-2) !important;
+  overflow-wrap: anywhere; }
+.sv-card .block.sv-cand-audio { min-height: 0 !important; padding: 4px 10px !important; background: #fff !important;
+  border-style: solid !important; overflow: hidden; }
+.sv-cand-audio .empty { min-height: 40px !important; }
+.sv-cand-audio .component-wrapper { display: grid !important; grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center; column-gap: 10px; padding: 0 !important; min-height: 44px; direction: ltr; }
+.sv-cand-audio .controls, .sv-cand-audio .play-pause-wrapper { display: contents !important; }
+.sv-cand-audio .control-wrapper, .sv-cand-audio .settings-wrapper, .sv-cand-audio .rewind,
+.sv-cand-audio .skip, .sv-cand-audio .subtitle-display { display: none !important; }
+.sv-cand-audio .play-pause-button { grid-column: 1; grid-row: 1; width: 32px !important; height: 32px !important;
+  margin: 0 !important; }
+.sv-cand-audio .waveform-container { grid-column: 2; grid-row: 1; min-width: 0 !important; width: 100% !important;
+  height: 40px !important; margin: 0 !important; }
+.sv-cand-audio #waveform, .sv-cand-audio #waveform > div { min-width: 0 !important; width: 100% !important; }
+.sv-cand-audio .timestamps { grid-column: 3; grid-row: 1; display: flex !important; gap: 4px; margin: 0 !important;
+  padding: 0 !important; font-size: .74rem !important; color: var(--sv-muted) !important; white-space: nowrap; }
+.sv-cand-audio .timestamps time { font-variant-numeric: tabular-nums; }
+.sv-cand-audio #duration::before { content: "/ "; }
+.sv-card .row.sv-cand-row { flex-wrap: wrap !important; gap: 6px !important; align-items: center !important; }
+.sv-cand-row > * { min-width: 0 !important; }
+.sv-seed { flex: 0 1 auto !important; width: auto !important; }
+.sv-seed label { display: flex !important; align-items: center !important; gap: 6px !important; margin: 0 !important; }
+/* container=False Gradio'da etiketi yalnız ekran okuyucuya bırakır (sr-only); "Seed" görünür kalsın. */
+.sv-seed [data-testid="block-info"], .sv-seed [data-testid="block-info"].sr-only, .sv-seed [data-testid="block-info"].hide {
+  display: inline !important; position: static !important; width: auto !important; height: auto !important;
+  clip: auto !important; clip-path: none !important; overflow: visible !important; margin: 0 !important;
+  font-size: .74rem !important; font-weight: 600 !important; color: var(--sv-muted) !important; white-space: nowrap; }
+.sv-seed .input-container { flex: 0 1 auto !important; min-width: 0; }
+.sv-seed input { width: 13ch !important; min-width: 9ch !important; flex: 0 1 auto !important; height: 34px !important; padding: 4px 8px !important; border-radius: 10px !important;
+  background: #fff !important; border: 1px solid var(--sv-line-2) !important; box-shadow: none !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; font-size: .82rem !important;
+  direction: ltr; }
+.sv-seed input:focus { border-color: var(--sv-coral) !important; box-shadow: inset 0 0 0 1px var(--sv-coral) !important; }
+.sv-seed.block { background: transparent !important; border: 0 !important; padding: 0 !important; }
+.sv-cand-row .sv-btn.sv-mini { flex: 0 1 auto !important; white-space: nowrap; }
+.sv-cand-row .sv-cand-pick { margin-inline-start: auto; }
+.sv-seed-note { margin: -4px 0 0 !important; }
 .sv-save { gap: 12px !important; padding: 16px !important; border-radius: 18px !important; background: #fff !important;
   border: 1px solid var(--sv-ink) !important; }
 .sv-fx-row { flex-wrap: nowrap !important; align-items: center !important; gap: 10px !important; }
@@ -1438,7 +1708,6 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
   .sv-info { grid-template-columns: 1fr; }
   #sv-tabs [role="tab"] { padding: 9px 13px 9px 11px !important; font-size: .86rem !important; gap: 6px; }
   #sv-tabs [role="tab"]::before { width: 15px; height: 15px; }
-  .sv-cand { flex: 1 1 100% !important; }
   .sv-fx-row { flex-wrap: wrap !important; }
   .sv-vcard { flex: 1 1 100% !important; }
 }
@@ -1623,13 +1892,18 @@ _THEME = gr.themes.Base(
 )
 
 # Tasarım açık renk için kurgulandı; sistem karanlık modda olsa da açık kalsın.
-# Ayrıca VoxCPM/huggingface_hub'un dahili tqdm çıktısı bazen Gradio'nun genel
-# ilerleme katmanına "Downloading bytes… / 0/N steps" gibi ham, teknik metin
-# olarak sızabiliyor; bunu kendi temiz Türkçe durum metnimizle çakışmadan,
-# hangi sınıfı kullanırsa kullansın sürekli tarayıp gizliyoruz.
+# Üretim olayları gr.Progress(track_tqdm=True) KULLANMAZ: Gradio kütüphanelerin tqdm çubuklarını
+# (huggingface_hub'ın "Downloading bytes"/"Reconstructing" baytları, VoxCPM'in adımları) durum
+# satırına ham "0/0 B | 0/0 B | 6.4s" olarak basıyordu (1.4.0, model önbellekteyken bile). İlerleme
+# yalnız kendi temiz metnimizle verilir (bkz. _modeli_hazirla). Aşağıdaki süpürge ikinci savunmadır:
+# yine de sızan ham, teknik ilerleme metnini hangi sınıfı kullanırsa kullansın tarayıp gizler.
+# Desen tek kaynaktır (_HAM_ILERLEME); tests/test_app.py örneklerle (ve kendi iletilerimizin
+# eşleşmediğini) sınar.
+_HAM_ILERLEME = (r"Downloading bytes|Reconstructing|Fetching \d+ files|/\s*\d+\s*steps"
+                 r"|\d[\d.]*[kMGT]?/\d[\d.]*[kMGT]?\s*(?:B|it)\b")
 _JS = """() => {
     document.querySelectorAll('.dark').forEach((el) => el.classList.remove('dark'));
-    const raw = /Downloading bytes|Reconstructing|\\/\\s*\\d+\\s*steps/;
+    const raw = new RegExp(%s);
     function sweep() {
         document.querySelectorAll('body *').forEach((el) => {
             const t = el.textContent || '';
@@ -1641,7 +1915,7 @@ _JS = """() => {
     }
     new MutationObserver(sweep).observe(document.body, { childList: true, subtree: true, characterData: true });
     setInterval(sweep, 150);
-}"""
+}""" % json.dumps(_HAM_ILERLEME)
 
 
 def _frame_bar(chips):
@@ -1870,19 +2144,30 @@ def _design_subtab(lib, tabs):
         with gr.Column(scale=5, min_width=300, elem_classes=["sv-side"]):
             with gr.Column(elem_classes=["sv-card"]):
                 _head(_IC_PLAY, t("Adaylar"), t("Aynı tarif ve cümle, farklı seed. Dinleyin, birini seçin."))
+                _html('<p class="sv-fine sv-seed-note">' + escape(t(
+                    "Aynı tarif, aynı cümle ve aynı seed aynı sesi verir. Bir adayın seed'ini değiştirip "
+                    "“Yeniden üret”e basın; diğer adaylar değişmez.")) + "</p>")
                 d_status = gr.Markdown(t("Henüz aday yok. Seçimleri yapıp “Sesleri Dene”ye basın."),
                                        elem_classes=["sv-status", "sv-cand-status"])
                 d_report_button = _report_panel(i18n.get_lang())
-                cand_audio, cand_label, cand_pick = [], [], []
-                with gr.Row(elem_classes=["sv-cgrid"]):
-                    for i in range(4):
-                        with gr.Column(min_width=180, elem_classes=["sv-cand"]):
-                            cand_label.append(gr.Markdown(t("Aday {n} · seed {seed}", n=i + 1, seed=11 * (i + 1)),
-                                                          elem_classes=["sv-cand-label"]))
+                cand_audio, cand_label, cand_pick, cand_seed, cand_regen = [], [], [], [], []
+                # Aday kartları: tek sütun liste (dar panelde taşmaz). Oynatıcıda yalnız oynat/duraklat,
+                # dalga ve süre kalır (CSS: .sv-cand-audio); altta seed kutusu + Yeniden üret + Bunu seç.
+                with gr.Column(elem_classes=["sv-cgrid"]):
+                    for i, varsayilan in enumerate(vdes.candidate_seeds(0)):
+                        with gr.Column(min_width=0, elem_classes=["sv-cand"]):
+                            cand_label.append(gr.Markdown(t("Aday {n}", n=i + 1), elem_classes=["sv-cand-label"]))
                             cand_audio.append(gr.Audio(label=t("Aday {n}", n=i + 1), show_label=False,
-                                                       type="filepath", interactive=False, buttons=["download"],
+                                                       type="filepath", interactive=False, buttons=[],
                                                        elem_classes=["sv-audio", "sv-cand-audio"]))
-                            cand_pick.append(gr.Button(t("Bunu seç"), size="sm", elem_classes=["sv-btn", "sv-mini"]))
+                            with gr.Row(elem_classes=["sv-cand-row"]):
+                                cand_seed.append(gr.Textbox(value=str(varsayilan), label=t("Seed"), max_lines=1,
+                                                            max_length=10, container=False, scale=0, min_width=0,
+                                                            elem_classes=["sv-seed"]))
+                                cand_regen.append(gr.Button(t("Yeniden üret"), size="sm", scale=0, min_width=0,
+                                                            elem_classes=["sv-btn", "sv-mini", "sv-cand-regen"]))
+                                cand_pick.append(gr.Button(t("Bunu seç"), size="sm", scale=0, min_width=0,
+                                                           elem_classes=["sv-btn", "sv-mini", "sv-cand-pick"]))
                 with gr.Row(elem_classes=["sv-cand-actions"]):
                     stop = gr.Button(t("Durdur"), size="sm", scale=0,
                                      elem_classes=["sv-btn", "sv-mini", "sv-mini-danger"])
@@ -1898,7 +2183,6 @@ def _design_subtab(lib, tabs):
 
     batch = gr.State(0)
     cands = gr.State({})
-    meta = gr.State(None)
     picked = gr.State(None)
     selections = [cins, yas, kullanim, perde, ton, doku, hiz, enerji]
     rebuild_args = dict(fn=_in_lang(rebuild_description_ui, i18n.get_lang()), inputs=[*selections, manual, tarif],
@@ -1937,22 +2221,45 @@ def _design_subtab(lib, tabs):
         trigger(lambda k, s: vdes.sample_text(k, s, _DMAP), inputs=[category, seconds], outputs=sample, queue=False)
     sample.change(sample_estimate_md, inputs=sample, outputs=estimate, queue=False)
 
-    run_args = dict(fn=design_candidates, inputs=[tarif, sample, quality, batch, cands, *selections],
-                    outputs=[*cand_audio, *cand_label, d_status, cands, meta, save_group, picked],
-                    concurrency_limit=1, show_progress="full", show_progress_on=[d_status])
-    first_run = _watch_failures(try_button.click(lambda: 0, outputs=batch, queue=False).then,
-                                d_report_button, **run_args)
-    more_run = _watch_failures(more.click(lambda b: int(b or 0) + 1, inputs=batch, outputs=batch, queue=False).then,
+    # Tüm aday üretimleri (4 aday, 4 aday daha, tek aday yeniden üret) aynı sırayı paylaşır: biri
+    # sürerken diğeri beklemeye girer, model aynı anda iki iş görmez.
+    ortak = dict(concurrency_limit=1, concurrency_id="sv-adaylar", show_progress="full", show_progress_on=[d_status])
+    run_args = dict(fn=design_candidates, inputs=[tarif, sample, quality, *cand_seed, cands, *selections],
+                    outputs=[*cand_audio, *cand_label, d_status, cands, save_group, picked], **ortak)
+    # "Sesleri Dene": kutulardaki seed'lerle (ilk açılışta 11/22/33/44; kullanıcı değiştirdiyse onlar).
+    first_run = _watch_failures(try_button.click, d_report_button, **run_args)
+
+    def next_seeds(b):
+        b = int(b or 0) + 1
+        return (b, *map(str, vdes.candidate_seeds(b)))
+
+    # "4 aday daha": kutulara sıradaki varsayılan seed'ler yazılır (55/66/77/88 …), sonra 4 aday üretilir.
+    more_run = _watch_failures(more.click(next_seeds, inputs=batch, outputs=[batch, *cand_seed], queue=False).then,
                                d_report_button, **run_args)
+
+    def regen_fn(i):
+        # Açık parametreler (*args değil): Gradio gr.Progress'i parametre sırasına göre yerleştirir.
+        def regen(tarif_, text_, quality_, seed_, cands_, picked_, cins_, yas_, kullanim_, perde_, ton_, doku_,
+                  hiz_, enerji_, progress=gr.Progress()):
+            yield from regenerate_candidate(i, tarif_, text_, quality_, seed_, cands_, picked_, cins_, yas_,
+                                            kullanim_, perde_, ton_, doku_, hiz_, enerji_, progress=progress)
+        return regen
+
+    regen_runs = []
+    for i, rbutton in enumerate(cand_regen):
+        regen_runs.append(_watch_failures(
+            rbutton.click, d_report_button, fn=regen_fn(i),
+            inputs=[tarif, sample, quality, cand_seed[i], cands, picked, *selections],
+            outputs=[cand_audio[i], cand_label[i], d_status, cands, save_group, picked], **ortak))
     stopped_msg = t("Durduruldu. Çalışmakta olan aday bitene kadar model meşgul kalabilir.")
-    change_msg = t("Seçimleri soldan değiştirip yeniden “Sesleri Dene”ye basın.")
-    stop.click(lambda: stopped_msg, outputs=d_status, cancels=[first_run, more_run], queue=False)
+    change_msg = t("Seçimleri soldan değiştirip yeniden “Sesleri Dene”ye basın; kutulardaki seed'ler kullanılır.")
+    stop.click(lambda: stopped_msg, outputs=d_status, cancels=[first_run, more_run, *regen_runs], queue=False)
     change.click(lambda: (gr.update(visible=False), None, change_msg),
                  outputs=[save_group, picked, d_status], queue=False)
     for i, pbutton in enumerate(cand_pick):
-        pbutton.click(lambda b, c, m, i=i: pick_candidate_ui(i, b, c, m), inputs=[batch, cands, meta],
+        pbutton.click(lambda c, i=i: pick_candidate_ui(i, c), inputs=[cands],
                       outputs=[picked, save_group, picked_md], queue=False)
-    save.click(save_designed_ui, inputs=[name, aciklama, kategori, picked, cands, meta],
+    save.click(save_designed_ui, inputs=[name, aciklama, kategori, picked, cands],
                outputs=[lib.voices, lib.selected, tabs, save_md]).then(
         select_voice_ui, inputs=[lib.selected, lib.emotion, lib.text], outputs=lib.select_outputs)
     return rebuild_args
@@ -3033,14 +3340,8 @@ def _kuyruk_ortam():
     now = time.monotonic()
     if now - _kuyruk_ortam_onbellek["zaman"] > 60:
         _kuyruk_ortam_onbellek.update(zaman=now, pilde=uyku_engeli.pilde_mi())
-    model_var = _model is not None
-    if not model_var:
-        try:
-            from huggingface_hub import constants as hf_constants
-            model_var = (Path(hf_constants.HF_HUB_CACHE) / f"models--{MODEL_ID.replace('/', '--')}"
-                         / "snapshots" / MODEL_REVISION).is_dir()
-        except Exception:  # noqa: BLE001 — bilinmiyorsa uyarı gösterilmez
-            model_var = True
+    # Model bellekte ya da önbellekte mi (generate_audio'daki ilk üretim iletisiyle aynı karar).
+    model_var = _model_durumu() != "yok"
     try:
         hedef = OUTPUT_DIR if OUTPUT_DIR.exists() else OUTPUT_DIR.parent
         bos_gb = shutil.disk_usage(hedef).free / 1024 ** 3

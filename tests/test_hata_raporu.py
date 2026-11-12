@@ -271,7 +271,7 @@ class PrivacyTests(unittest.TestCase):
         import desktop
         secret = "Bambaşka gizli paragraf 9182. Sonraki oturumda da görünmemeli"
 
-        def warn_then_fail():
+        def warn_then_fail(*_args, **_kwargs):  # get_model(ilerleme=...) imzası (1.4.1)
             print(f"UserWarning: tokenizer could not handle {secret!r}", file=sys.stderr, flush=True)
             print(f"last chunk: {secret.split('. ')[1]}", file=sys.stderr, flush=True)
             raise MemoryError("yapay")
