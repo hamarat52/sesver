@@ -310,7 +310,7 @@ Tam liste ve kapatma yolları: [Privacy policy](#privacy-policy).
 - Gradio analitiği ve Hugging Face telemetrisi kapalıdır. Sunucu yalnız `127.0.0.1` dinler, herkese açık paylaşım bağlantısı oluşturmaz.
 - İlk model/paket indirmeleri için dış sunuculara bağlanılır. İlk kurulumdan sonra yukarıdaki çevrimdışı seçeneği kullanabilirsiniz.
 - Açılıştaki güncelleme denetimi yalnız `api.github.com/repos/hamarat52/sesver/releases/latest` adresine gövdesiz bir GET isteğidir (başlıklar: `User-Agent: SesVer/<sürüm>`, `Accept`). Ayarlar'dan ya da `SESVER_GUNCELLEME_KONTROLU=0` ile kapatılabilir.
-- Üretilen dosyalar `outputs/` içinde kalır. Mikrofon kayıtları, yüklenen dosyalar ve bunların hazırlık kopyaları SesVer'in kendi geçici klasöründedir (sistem geçici klasöründe `sesver-gecici`); ses olarak kaydedilince, 2 saat kullanılmayınca ve SesVer kapanınca otomatik silinir. Hugging Face model önbelleği genellikle `~/.cache/huggingface/hub` altındadır.
+- Üretilen dosyalar `outputs/` içinde kalır. Mikrofon kayıtları, yüklenen dosyalar ve bunların hazırlık kopyaları SesVer'in kendi geçici klasöründedir (sistem geçici klasöründe `sesver-gecici`); ses olarak kaydedilince, 2 saat kullanılmayınca ve SesVer kapanınca otomatik silinir. 1.4.2'den önceki sürümler bu kopyaları `outputs/` içine `yukleme-*.wav` adıyla bırakıyordu; SesVer bunlara dokunmaz, isterseniz kendiniz silebilirsiniz. Hugging Face model önbelleği genellikle `~/.cache/huggingface/hub` altındadır.
 - Kişisel sesler ve model ağırlıkları Git'e dahil edilmez. Depo hiçbir hazır kişisel ses içermez.
 
 ### Testler ve katkı

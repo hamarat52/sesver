@@ -471,15 +471,52 @@ class WindowsCiSmokeTests(unittest.TestCase):
         adim = next(s for s in job["steps"] if s.get("name", "").startswith("Mikrofon kaydı duman testi"))
         self.assertNotIn("continue-on-error", adim)
         self.assertNotIn("continue-on-error", job)
-        bayrak = adim["env"]["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"]
+        bayrak = adim["env"]["SV_CI_WEBVIEW2_BAYRAKLARI"]
         for b in ("--remote-debugging-port=9222", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"):
             self.assertIn(b, bayrak)
         run = adim["run"]
         self.assertIn("-ArgumentList '-E', '-s', 'desktop.py'", run)  # tarayıcı değil, kısayolla aynı gerçek pencere
         self.assertIn(r"python-embed\pythonw.exe", run)
-        self.assertIn(r"tools\mikrofon_duman.py --cdp http://127.0.0.1:9222", run)
+        self.assertIn(r"tools\mikrofon_duman.py --cdp http://127.0.0.1:9222 --uygulama http://127.0.0.1:7860", run)
+        self.assertIn("--bekle 300 --cdp-bekle 90", run)  # açılmazsa 5 dk, açıldıysa port için 90 sn
         self.assertNotIn("--alan", run)  # varsayılan "hepsi": Ses Oluştur ve Ses Klonlama birlikte
         self.assertIn("if ($kod -ne 0) { throw", run)
+        self.assertIn("[Console]::OutputEncoding = [System.Text.Encoding]::UTF8", run)
+
+    def test_webview2_flags_go_through_hklm_policy_because_the_runner_is_elevated(self):
+        # 1.4.2'nin ikinci CI koşusu: WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS ortam değişkeniyle 9222
+        # hiç açılmadı. GitHub'ın Windows makineleri yönetici (UAC kapalı) çalışır; WebView2 150+
+        # yükseltilmiş süreçte WEBVIEW2_* değişkenlerini yok sayar, HKLM ilkesini okur
+        # (MicrosoftEdge/WebView2Feedback#5640). Biçim: ...\WebView2\AdditionalBrowserArguments
+        # anahtarı, değer adı ana sürecin dosya adı (CreateCoreWebView2EnvironmentWithOptions).
+        adim = next(s for s in self.wf["jobs"]["mikrofon-duman"]["steps"]
+                    if s.get("name", "").startswith("Mikrofon kaydı duman testi"))
+        run = adim["run"]
+        self.assertIn(r"'HKLM:\SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'", run)
+        self.assertIn("New-ItemProperty -Path $pol -Name 'pythonw.exe' -PropertyType String "
+                      "-Value $env:SV_CI_WEBVIEW2_BAYRAKLARI", run)
+        self.assertNotIn("-Name '*'", run)  # yalnız SesVer'in süreci, bütün WebView2 uygulamaları değil
+        # İlke SesVer başlatılmadan önce yazılır; tanı (bütünlük düzeyi, WebView2 sürümü, ana sürecin
+        # komut satırı, 9222) kanıt dosyasına girer.
+        self.assertLess(run.index("New-ItemProperty"), run.index("Start-Process -FilePath $pyw"))
+        for tani in ("whoami /groups", "EdgeUpdate\\Clients\\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+                     "Name='msedgewebview2.exe'", "Get-NetTCPConnection -LocalPort 9222",
+                     "sesver-mikrofon-tani.txt"):
+            self.assertIn(tani, run)
+        # Ortam değişkeni yolu kalmadı (yükseltilmiş süreçte etkisiz, yanıltıcı olur).
+        self.assertNotIn("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", json.dumps(adim.get("env", {})))
+
+    def test_exit_codes_are_explained_and_powershell_strings_parse(self):
+        adim = next(s for s in self.wf["jobs"]["mikrofon-duman"]["steps"]
+                    if s.get("name", "").startswith("Mikrofon kaydı duman testi"))
+        run = adim["run"]
+        for kod in ("1 {", "2 {", "4 {", "5 {"):
+            self.assertIn(kod, run)
+        # "...$kod: ..." PowerShell'de sürücü önekli değişken sanılır ve betik ayrıştırılamaz
+        # (810d368'deki surum notu hatası); çift tırnak içinde $ad: yalnız ${ad}: biçiminde.
+        for satir in run.splitlines():
+            for parca in re.findall(r'"[^"]*"', satir):
+                self.assertNotRegex(parca, r"\$(?!env:|global:|script:)[A-Za-z_]\w*:", satir)
 
     def test_environment_is_installed_by_the_real_launcher(self):
         # 1.4.2'nin ilk CI koşusu, iş bat'taki kurulumu elle kopyaladığı ve torch-pypi'yi --no-deps'siz
@@ -618,6 +655,151 @@ class WindowsCiSmokeTests(unittest.TestCase):
         self.assertEqual(b.recv(2), bytes([0x8A, 0x80]))  # pong, boş, maskeli
         a.close()
         b.close()
+
+
+def _duman_modulu(ad="mikrofon_duman_t"):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(ad, ROOT / "tools" / "mikrofon_duman.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+# Son kullanıcıda WebView2'ye uzaktan hata ayıklama portu ya da sahte medya açtırabilecek her şey.
+CI_BAYRAKLARI = ("remote-debugging", "REMOTE_DEBUGGING_PORT", "use-fake-device-for-media-stream",
+                 "use-fake-ui-for-media-stream", "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                 "AdditionalBrowserArguments", "SV_CI_WEBVIEW2_BAYRAKLARI", "open_devtools", "debug=True")
+
+
+class NoDebugPortOutsideCiTests(unittest.TestCase):
+    """Siberguvenlik: CDP portu ve sahte medya yalnız CI duman adımında; kurulan SesVer'de asla."""
+
+    def _dagitilan_dosyalar(self):
+        # windows/SesVer.iss ve macos/release_mac.sh'in kopyaladığı kod: kökteki *.py, engines/*.py,
+        # başlatıcılar ve Mac paketinin kendi dosyaları (tools/ ve tests/ dağıtılmaz).
+        yollar = sorted(ROOT.glob("*.py")) + sorted((ROOT / "engines").glob("*.py"))
+        yollar += [ROOT / "WINDOWS_BASLAT.bat", ROOT / "windows" / "SesVer.iss",
+                   ROOT / "macos" / "release_mac.sh", ROOT / "macos" / "build_app_launcher.sh",
+                   ROOT / "macos" / "sesver_app_launcher.c",
+                   ROOT / "SesVer.app" / "Contents" / "Resources" / "sesver_app.sh"]
+        return [p for p in yollar if p.is_file()]
+
+    def test_shipped_code_never_sets_debug_port_or_fake_media(self):
+        dosyalar = self._dagitilan_dosyalar()
+        self.assertIn(ROOT / "desktop.py", dosyalar)
+        self.assertIn(ROOT / "app.py", dosyalar)
+        for p in dosyalar:
+            metin = p.read_text(encoding="utf-8", errors="replace")
+            for b in CI_BAYRAKLARI:
+                self.assertNotIn(b, metin, f"{p.relative_to(ROOT)}: {b}")
+        # Dağıtım listeleri tools/ klasörünü (duman aracı) içermez.
+        iss = (ROOT / "windows" / "SesVer.iss").read_text(encoding="utf-8")
+        self.assertFalse([s for s in iss.splitlines() if s.startswith("Source:") and "tools" in s])
+        mac = (ROOT / "macos" / "release_mac.sh").read_text(encoding="utf-8")
+        self.assertNotRegex(mac, r"cp [^\n]*tools/")
+
+    def test_window_starts_without_debug_even_if_ci_variable_is_set(self):
+        import desktop
+        import webview
+        ortam = {"SV_CI_WEBVIEW2_BAYRAKLARI": "--remote-debugging-port=9222 --use-fake-device-for-media-stream"}
+        eski = dict(webview.settings.items())  # pywebview'in sözlüğü yeni anahtar kabul etmez: elle geri yükle
+        try:
+            with patch.dict("os.environ", ortam), \
+                    patch.object(desktop, "_check_webview_backend"), \
+                    patch.object(webview, "create_window") as cw, patch.object(webview, "start") as st:
+                desktop._run_window(object())
+                self.assertIsNone(webview.settings["REMOTE_DEBUGGING_PORT"])
+                self.assertFalse(webview.settings["OPEN_DEVTOOLS_IN_DEBUG"] and st.call_args.kwargs.get("debug"))
+                self.assertNotIn("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", __import__("os").environ)
+        finally:
+            for k, v in eski.items():
+                webview.settings[k] = v
+        cw.assert_called_once()
+        st.assert_called_once()
+        self.assertFalse(st.call_args.kwargs.get("debug", False))
+        self.assertNotIn("debug", cw.call_args.kwargs)
+
+    def test_flags_only_in_the_ci_smoke_step(self):
+        import yaml
+        wf = yaml.safe_load((ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8"))
+        self.assertFalse(any(b in json.dumps(wf.get("env", {})) for b in CI_BAYRAKLARI))
+        bulunan = []
+        for jad, job in wf["jobs"].items():
+            self.assertFalse(any(b in json.dumps(job.get("env", {})) for b in CI_BAYRAKLARI), jad)
+            for s in job.get("steps", []):
+                metin = json.dumps(s, ensure_ascii=False)
+                if any(b in metin for b in ("remote-debugging", "use-fake-", "Edge\\\\WebView2")):
+                    bulunan.append((jad, s.get("name", "")))
+        self.assertEqual(bulunan, [("mikrofon-duman", "Mikrofon kaydı duman testi (WebView2 sahte cihaz, tools/mikrofon_duman.py)")])
+
+
+class SmokeToolWaitAndOutputTests(unittest.TestCase):
+    """tools/mikrofon_duman.py: duvar saatiyle bekleme, açık çıkış kodları, cp1252 konsolda çökmeme."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = _duman_modulu()
+
+    def _bekle(self, cdp_yanit, uygulama_acilis=None, uygulama="http://127.0.0.1:7860", **kw):
+        saat = [0.0]
+
+        def simdi():
+            saat[0] += 1.0  # her tur ~1 sn (Windows'ta kapalı porta bağlantı ~2 sn de sürebilir)
+            return saat[0]
+
+        with patch.object(self.mod, "_cdp_sekmesi", side_effect=lambda cdp: cdp_yanit(saat[0])), \
+                patch.object(self.mod, "_yanit_veriyor",
+                             side_effect=lambda u: uygulama_acilis is not None and saat[0] >= uygulama_acilis), \
+                patch("builtins.print"):
+            sonuc = self.mod.sekme_bekle("http://127.0.0.1:9222", uygulama, uyku=0, saat=simdi, **kw)
+        return sonuc, saat[0]
+
+    def test_app_never_opens_ends_at_five_minutes_with_code_2(self):
+        (sekme, kod, ileti), t = self._bekle(lambda t: (False, None))
+        self.assertEqual((sekme, kod), (None, 2))
+        self.assertIn("300 sn içinde açılmadı", ileti)
+        self.assertLess(t, 305)  # tur sayısı değil saat: 15 dk değil 5 dk
+
+    def test_app_open_but_no_debug_port_ends_early_with_code_4(self):
+        (sekme, kod, ileti), t = self._bekle(lambda t: (False, None), uygulama_acilis=40)
+        self.assertEqual((sekme, kod), (None, 4))
+        self.assertIn("açılmadı", ileti)
+        self.assertIn("HKLM", ileti)
+        self.assertLess(t, 40 + 90 + 5)
+
+    def test_port_open_without_sesver_tab_is_code_4(self):
+        (sekme, kod, ileti), _ = self._bekle(lambda t: (True, None), uygulama_acilis=10)
+        self.assertEqual(kod, 4)
+        self.assertIn("yanıt veriyor ama", ileti)
+
+    def test_tab_found(self):
+        hedef = {"url": "http://127.0.0.1:7860/tr", "webSocketDebuggerUrl": "ws://127.0.0.1:9222/devtools/page/1"}
+        (sekme, kod, ileti), _ = self._bekle(lambda t: (t >= 60, hedef if t >= 60 else None), uygulama_acilis=30)
+        self.assertEqual((sekme, kod, ileti), (hedef, 0, None))
+
+    def test_without_app_url_old_behaviour_code_2(self):
+        (sekme, kod, ileti), t = self._bekle(lambda t: (False, None), uygulama=None, bekle=20)
+        self.assertEqual(kod, 2)
+        self.assertIn("bulunamadı", ileti)
+        self.assertLess(t, 25)
+
+    def _calistir(self, *args):
+        ortam = dict(__import__("os").environ, PYTHONIOENCODING="cp1252")  # Windows CI konsolu gibi
+        return subprocess.run([sys.executable, str(ROOT / "tools" / "mikrofon_duman.py"), *args],
+                              capture_output=True, env=ortam, timeout=60)
+
+    def test_turkish_error_on_cp1252_console_keeps_exit_code(self):
+        # 284e33b koşusu: "bulunamadı" cp1252'de UnicodeEncodeError → çıkış 1 ("kayıt geçmedi" sanıldı).
+        r = self._calistir("--cdp", "http://127.0.0.1:9", "--bekle", "1")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertNotIn(b"UnicodeEncodeError", r.stderr)
+        self.assertEqual(json.loads(r.stdout.decode("utf-8").strip().splitlines()[-1])["kod"], 2)
+        self.assertIn("bulunamadı", r.stdout.decode("utf-8"))
+
+    def test_unexpected_error_is_5_not_1(self):
+        r = self._calistir("--cdp", "http://example.com:9222", "--bekle", "1")
+        self.assertEqual(r.returncode, 5)
+        self.assertIn("yalnız yerel adres", r.stdout.decode("utf-8"))
 
 
 if __name__ == "__main__":

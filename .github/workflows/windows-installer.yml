@@ -908,11 +908,18 @@ jobs:
           retention-days: 14
 
   # 1.4.2: mikrofonla kayıt, gerçek SesVer penceresinde (desktop.py: pywebview + Edge WebView2).
-  # Gerçek mikrofon yok: WebView2 sahte ses cihazı ve otomatik izinle başlatılır
-  # (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS); tools/mikrofon_duman.py CDP ile iki alanı dener:
+  # Gerçek mikrofon yok: WebView2 sahte ses cihazı, otomatik izin ve CDP portuyla başlatılır;
+  # tools/mikrofon_duman.py CDP ile iki alanı dener:
   # Ses Oluştur → Dosya yükle (Kaydet → ~9,5 sn → Durdur; kayıt dosya yüklemeyle aynı hazırlıktan
   # geçmeli: WAV satırı, ileti yok) ve Ses Klonlama → Referans ses (mikrofon simgesi → Kaydet → Durdur;
   # kayıt yerel sunucuya yüklenmeli ve indirilen WAV 1–30 sn olmalı).
+  # WebView2 bayrakları SesVer'in kodunda YOKTUR (son kullanıcıda port/sahte cihaz açılamaz); yalnız
+  # duman adımı, bu tek kullanımlık makinede HKLM ilkesi olarak yazar. Ortam değişkeni
+  # (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS) burada işe yaramaz: GitHub'ın Windows makineleri yönetici
+  # olarak (UAC kapalı) çalışır ve WebView2 150+ yükseltilmiş süreçte WEBVIEW2_* değişkenlerini ve
+  # HKCU'yu yok sayar; yalnız HKLM ilkesini ve uygulamanın API ile verdiğini okur (1.4.2'nin ikinci
+  # CI koşusu bu yüzden 9222'yi hiç görmedi). Kaynaklar: docs.github.com "Administrative privileges",
+  # MicrosoftEdge/WebView2Feedback#5640 (Microsoft yanıtı), CreateCoreWebView2EnvironmentWithOptions.
   # Ortam, kullanıcının bilgisayarındakiyle AYNI yoldan kurulur: WINDOWS_BASLAT.bat /yalniz-kurulum
   # (sihirbazın /ORTAMKUR'da çağırdığı kip): SHA-256 doğrulamalı python-embed 3.11, ardından
   # kilit\pip.txt, torch, voxcpm (üçü --no-deps) ve temel kilit; sıra ve bayraklar yalnız bat'ta
@@ -961,11 +968,27 @@ jobs:
       - name: Mikrofon kaydı duman testi (WebView2 sahte cihaz, tools/mikrofon_duman.py)
         shell: pwsh
         env:
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --remote-debugging-port=9222 --use-fake-device-for-media-stream --use-fake-ui-for-media-stream
+          # Yalnız bu adımda, HKLM ilkesine yazılır (aşağıda); SesVer bu değişkeni okumaz.
+          SV_CI_WEBVIEW2_BAYRAKLARI: --remote-debugging-port=9222 --use-fake-device-for-media-stream --use-fake-ui-for-media-stream
           SESVER_GUNCELLEME_KONTROLU: "0"
           GRADIO_SERVER_PORT: "7860"
         run: |
           $ErrorActionPreference = 'Stop'
+          # Python çıktısı UTF-8 (betik kendisi ayarlar; -E yüzünden PYTHONIOENCODING okunmaz); pwsh de
+          # UTF-8 çözsün ki Türkçe iletiler bozulmasın.
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $tani = Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-tani.txt'
+          # Tanı: süreç bütünlük düzeyi (High = yükseltilmiş) ve WebView2 Runtime sürümü.
+          $il = (whoami /groups | Select-String 'Mandatory Label' | ForEach-Object { ($_ -split '\s{2,}')[0] }) -join ', '
+          $wv = (Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}' -ErrorAction SilentlyContinue).pv
+          "Bütünlük düzeyi: $il" | Tee-Object -FilePath $tani | Out-Host
+          "WebView2 Runtime: $wv" | Tee-Object -FilePath $tani -Append | Out-Host
+          # WebView2 bayrakları: yükseltilmiş süreçte yalnız HKLM ilkesi okunur. Değer adı ana sürecin
+          # dosya adıdır (pythonw.exe); yalnız bu tek kullanımlık CI makinesine yazılır.
+          $pol = 'HKLM:\SOFTWARE\Policies\Microsoft\Edge\WebView2\AdditionalBrowserArguments'
+          if (-not (Test-Path $pol)) { New-Item -Path $pol -Force | Out-Null }
+          New-ItemProperty -Path $pol -Name 'pythonw.exe' -PropertyType String -Value $env:SV_CI_WEBVIEW2_BAYRAKLARI -Force | Out-Null
+          "HKLM ilkesi: pythonw.exe = $((Get-ItemProperty $pol).'pythonw.exe')" | Tee-Object -FilePath $tani -Append | Out-Host
           # Önceki adımın kurduğu python-embed; SesVer kısayoluyla aynı açılış (pythonw.exe -E -s desktop.py).
           $py = Join-Path $PWD 'python-embed\python.exe'
           $pyw = Join-Path $PWD 'python-embed\pythonw.exe'
@@ -974,7 +997,8 @@ jobs:
                   -RedirectStandardOutput $out -RedirectStandardError "$out.err"
           $kod = 99
           try {
-            & $py -E -s tools\mikrofon_duman.py --cdp http://127.0.0.1:9222 --bekle 300 |
+            # SesVer 300 sn içinde açılmazsa 2; açıldıktan sonra port 90 sn içinde gelmezse 4 (15 dk beklemez).
+            & $py -E -s tools\mikrofon_duman.py --cdp http://127.0.0.1:9222 --uygulama http://127.0.0.1:7860 --bekle 300 --cdp-bekle 90 |
               Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-sonuc.json')
             $kod = $LASTEXITCODE
             try {
@@ -985,12 +1009,29 @@ jobs:
               $bmp.Save((Join-Path $env:RUNNER_TEMP 'sesver-mikrofon.png')); $g.Dispose(); $bmp.Dispose()
             } catch { Write-Host "::warning::Ekran görüntüsü alınamadı: $_" }
           } finally {
+            # Tanı: WebView2 ana süreci bayrakları gerçekten aldı mı, 9222 dinleniyor mu?
+            try {
+              Get-CimInstance Win32_Process -Filter "Name='msedgewebview2.exe'" |
+                Where-Object { $_.CommandLine -notmatch '--type=' } | ForEach-Object {
+                  "msedgewebview2 ana süreç PID $($_.ProcessId): remote-debugging-port=$($_.CommandLine -match 'remote-debugging-port=9222'), sahte cihaz=$($_.CommandLine -match 'use-fake-device-for-media-stream')"
+                  "  $($_.CommandLine)"
+                } | Tee-Object -FilePath $tani -Append | Out-Host
+              $dinle = @(Get-NetTCPConnection -LocalPort 9222 -State Listen -ErrorAction SilentlyContinue).Count
+              "9222 dinleyen soket: $dinle" | Tee-Object -FilePath $tani -Append | Out-Host
+            } catch { Write-Host "::warning::Tanı alınamadı: $_" }
             Stop-Process -Id $sv.Id -Force -ErrorAction SilentlyContinue
             Write-Host '----- sesver_log.txt (son 60 satır) -----'
             Get-Content 'sesver_log.txt' -Tail 60 -Encoding utf8 -ErrorAction SilentlyContinue | Out-Host
             Copy-Item 'sesver_log.txt' (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-sesver_log.txt') -ErrorAction SilentlyContinue
           }
-          if ($kod -ne 0) { throw "Mikrofon duman testi başarısız (çıkış kodu $kod; 1 = Ses Oluştur ya da Ses Klonlama kaydı geçmedi, 2 = SesVer penceresi/sekmesi yok)" }
+          $neden = switch ($kod) {
+            1 { 'sekmeye bağlanıldı, Ses Oluştur ya da Ses Klonlama kaydı geçmedi' }
+            2 { 'SesVer 300 sn içinde açılmadı' }
+            4 { 'SesVer açık ama WebView2 hata ayıklama portu ya da SesVer sekmesi gelmedi (WebView2 bayrakları uygulanmadı; tanı yukarıda)' }
+            5 { 'duman aracında beklenmeyen hata (Python istisnası yukarıda)' }
+            default { 'bilinmeyen çıkış' }
+          }
+          if ($kod -ne 0) { throw "Mikrofon duman testi başarısız (çıkış kodu ${kod}: $neden)" }
           $global:LASTEXITCODE = 0
           Write-Host 'Mikrofon duman testi BAŞARILI: SesVer penceresinde (WebView2) Kaydet → Durdur; Ses Oluştur kaydı dosya yüklemeyle aynı hazırlıktan geçti, Ses Klonlama referans kaydı 1–30 sn WAV olarak yüklendi.'
 

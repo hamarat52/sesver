@@ -7,11 +7,17 @@ ve sonucu JSON olarak basar:
   yüklenmeli (referans alanında /gradio_api/file= bağlantısı) ve indirilen WAV, sunucunun klon
   denetimiyle (generate_audio: 1–30 sn) aynı aralıkta olmalı.
 
-Gerçek mikrofon gerekmez: tarayıcı/WebView2 sahte cihazla başlatılır. Windows CI örneği (WebView2):
+Gerçek mikrofon gerekmez: tarayıcı/WebView2 sahte cihazla başlatılır. Windows CI (WebView2): bayraklar
+SesVer'in kodunda değil, yalnız CI adımında verilir. GitHub'ın Windows makineleri yönetici (UAC kapalı)
+çalışır; WebView2 150+ yükseltilmiş süreçte WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS ortam değişkenini
+yok sayar, HKLM ilkesini okur (ayrıntı: .github/workflows/windows-installer.yml, mikrofon-duman job'u):
 
-    set WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9222 --use-fake-device-for-media-stream --use-fake-ui-for-media-stream
+    HKLM\\SOFTWARE\\Policies\\Microsoft\\Edge\\WebView2\\AdditionalBrowserArguments
+        pythonw.exe = --remote-debugging-port=9222 --use-fake-device-for-media-stream --use-fake-ui-for-media-stream
     pythonw desktop.py            (SesVer penceresi açılır)
-    python tools/mikrofon_duman.py --cdp http://127.0.0.1:9222
+    python tools/mikrofon_duman.py --cdp http://127.0.0.1:9222 --uygulama http://127.0.0.1:7860
+
+Yükseltilmemiş bir oturumda aynı bayraklar WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS ile de verilebilir.
 
 Chrome/Edge ile (tarayıcı yolu):
 
@@ -21,8 +27,16 @@ Chrome/Edge ile (tarayıcı yolu):
 
 Güvenlik: yalnız adresi http://127.0.0.1 ile başlayan SesVer sekmesine bağlanır; başka sekmeye
 (kullanıcının açık tarayıcısı vb.) hiçbir komut göndermez; kayıt dosyası da yalnız 127.0.0.1'den
-indirilir. Çıkış kodu: 0 seçilen alanların (--alan, varsayılan hepsi) hepsi geçti, 1 en az biri
-geçmedi (iletiyle), 2 SesVer sekmesi bulunamadı, 3 (--paket-denetimi) gerekli paket eksik.
+indirilir; --cdp ve --uygulama yalnız 127.0.0.1/localhost olabilir.
+
+Çıkış kodları (her biri JSON "hata" satırıyla; çıktı her konsolda UTF-8, cp1252'de de çökmez):
+  0  seçilen alanların (--alan, varsayılan hepsi) hepsi geçti
+  1  sekmeye bağlanıldı, en az bir kayıt geçmedi (iletiyle)
+  2  SesVer --bekle sn içinde açılmadı (--uygulama adresi yanıt vermedi; --uygulama yoksa: sekme yok)
+  3  (--paket-denetimi) gerekli paket eksik
+  4  SesVer açıldıktan sonra --cdp-bekle sn içinde hata ayıklama portu açılmadı ya da SesVer sekmesi
+     yok (WebView2 bayrakları uygulanmadı); en uzun süre --bekle + --cdp-bekle
+  5  beklenmeyen hata (Python istisnası; ayrıntı stderr'de)
 
 Yalnız standart kütüphane kullanır (en küçük WebSocket istemcisi aşağıda): SesVer'in kilitli paket
 listesinde (kilit/) WebSocket kütüphanesi yok, CI ek paket kurmaz.
@@ -36,6 +50,8 @@ import socket
 import struct
 import sys
 import time
+import traceback
+import urllib.error
 import urllib.parse
 import urllib.request
 import wave
@@ -201,11 +217,90 @@ def _yerel_indir(url):
         return r.read()
 
 
+def _yerel_mi(url):
+    return urllib.parse.urlsplit(url).hostname in ("127.0.0.1", "localhost")
+
+
+def _cdp_sekmesi(cdp):
+    """(port_acik, sekme): CDP /json yanıt verdi mi ve içinde SesVer sekmesi (http://127.0.0.1...) var mı."""
+    try:
+        with urllib.request.urlopen(cdp + "/json", timeout=3) as r:
+            hedefler = json.load(r)
+    except (OSError, ValueError):
+        return False, None
+    return True, next((t for t in hedefler if t.get("type") == "page"
+                       and t.get("url", "").startswith("http://127.0.0.1")), None)
+
+
+def _yanit_veriyor(url):
+    try:
+        with urllib.request.urlopen(url, timeout=3):
+            return True
+    except urllib.error.HTTPError:
+        return True  # sunucu ayakta (ör. 404 de olsa)
+    except (OSError, ValueError):
+        return False
+
+
+def sekme_bekle(cdp, uygulama=None, bekle=300.0, cdp_bekle=90.0, uyku=1.0, saat=time.monotonic):
+    """SesVer sekmesini bekler; (sekme, 0, None) ya da (None, çıkış kodu, hata iletisi) döner.
+
+    Süre duvar saatiyle ölçülür (Windows'ta kapalı porta her bağlantı denemesi ~2 sn sürer; döngü
+    sayısıyla ölçmek 300 "saniyeyi" 15 dakikaya uzatıyordu). ``uygulama`` verilirse SesVer'in
+    sunucusu yanıt verdikten sonra hata ayıklama portu ``cdp_bekle`` sn içinde gelmezse biter
+    (kod 4): pencere açık ama WebView2 bayrakları uygulanmamış demektir, beklemek sonucu değiştirmez.
+    SesVer ``bekle`` sn içinde hiç yanıt vermezse kod 2. En uzun süre: bekle + cdp_bekle.
+    """
+    bas = saat()
+    acildi = None   # SesVer sunucusunun ilk yanıt verdiği an
+    port_goruldu = False
+    while True:
+        port, sekme = _cdp_sekmesi(cdp)
+        if sekme:
+            return sekme, 0, None
+        port_goruldu |= port
+        simdi = saat()
+        if uygulama and acildi is None and _yanit_veriyor(uygulama):
+            acildi = simdi
+            print(json.dumps({"bilgi": f"SesVer açık ({uygulama}), {round(simdi - bas)} sn; "
+                              f"hata ayıklama portu bekleniyor ({cdp})"}, ensure_ascii=False), flush=True)
+        if acildi is not None and simdi - acildi >= cdp_bekle:
+            return None, 4, _port_iletisi(cdp, port_goruldu, uygulama, cdp_bekle)
+        if acildi is None and simdi - bas >= bekle:
+            if uygulama:
+                return None, 2, f"SesVer {round(bekle)} sn içinde açılmadı ({uygulama} yanıt vermedi)"
+            return None, 2, f"SesVer sekmesi (http://127.0.0.1...) {round(bekle)} sn içinde bulunamadı ({cdp})"
+        time.sleep(uyku)
+
+
+def _port_iletisi(cdp, port_goruldu, uygulama, sure):
+    if port_goruldu:
+        return (f"SesVer açık ({uygulama}) ve hata ayıklama portu ({cdp}) yanıt veriyor ama SesVer "
+                f"sekmesi (http://127.0.0.1...) {round(sure)} sn içinde görünmedi")
+    return (f"SesVer açık ({uygulama}) ama WebView2 hata ayıklama portu ({cdp}) {round(sure)} sn içinde "
+            "açılmadı: --remote-debugging-port bayrağı WebView2'ye ulaşmadı (yükseltilmiş süreçte "
+            "WEBVIEW2_* ortam değişkenleri yok sayılır; HKLM ilkesi gerekir)")
+
+
+def _utf8_cikti():
+    """Windows CI konsolu cp1252; Türkçe ileti yazarken UnicodeEncodeError ile çökmesin (kod 1'e
+    dönüşüp "kayıt geçmedi" gibi görünüyordu). -E ile çalıştığı için PYTHONIOENCODING işe yaramaz."""
+    for akis in (sys.stdout, sys.stderr):
+        try:
+            akis.reconfigure(encoding="utf-8", errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cdp", default="http://127.0.0.1:9222")
+    ap.add_argument("--uygulama", default=None,
+                    help="SesVer sunucusu (ör. http://127.0.0.1:7860): açıldıysa port için yalnız --cdp-bekle beklenir")
     ap.add_argument("--saniye", type=float, default=9.5)
-    ap.add_argument("--bekle", type=int, default=300, help="SesVer sekmesi için en fazla bekleme (sn)")
+    ap.add_argument("--bekle", type=float, default=300, help="SesVer'in açılması için en fazla bekleme (sn)")
+    ap.add_argument("--cdp-bekle", type=float, default=90,
+                    help="SesVer açıldıktan sonra hata ayıklama portu/sekme için en fazla bekleme (sn)")
     ap.add_argument("--alan", choices=("hepsi", "yukle", "klon"), default="hepsi",
                     help="yukle: Ses Oluştur → Dosya yükle; klon: Ses Klonlama → Referans ses")
     ap.add_argument("--paket-denetimi", action="store_true",
@@ -216,20 +311,13 @@ def main():
         print(json.dumps({"python": sys.executable, "gerekli": list(GEREKLI_PAKETLER), "eksik": eksik},
                          ensure_ascii=False))
         return 3 if eksik else 0
-    sekme = None
-    for _ in range(a.bekle):  # SesVer açılana kadar (ilk açılış yavaş olabilir)
-        try:
-            with urllib.request.urlopen(a.cdp + "/json", timeout=5) as r:
-                sekme = next((t for t in json.load(r) if t.get("type") == "page"
-                              and t.get("url", "").startswith("http://127.0.0.1")), None)
-        except OSError:
-            pass
-        if sekme:
-            break
-        time.sleep(1)
+    for adres in (a.cdp, a.uygulama):
+        if adres and not _yerel_mi(adres):
+            raise ValueError(f"yalnız yerel adres: {adres}")
+    sekme, kod, hata = sekme_bekle(a.cdp, a.uygulama, a.bekle, a.cdp_bekle)
     if not sekme:
-        print(json.dumps({"hata": "SesVer sekmesi (http://127.0.0.1...) bulunamadı"}, ensure_ascii=False))
-        return 2
+        print(json.dumps({"hata": hata, "kod": kod}, ensure_ascii=False), flush=True)
+        return kod
     ws = WebSocket(sekme["webSocketDebuggerUrl"])
     try:
         return _calistir(Sekme(ws), sekme["url"], a.saniye, a.alan)
@@ -307,5 +395,17 @@ def _klon(s, saniye):
     return out
 
 
+def _ana():
+    """Beklenmeyen istisna 1 (kayıt geçmedi) ile karışmasın: 5 ve açık ileti."""
+    _utf8_cikti()
+    try:
+        return main()
+    except Exception as exc:  # noqa: BLE001
+        traceback.print_exc()
+        print(json.dumps({"hata": f"beklenmeyen hata: {type(exc).__name__}: {exc}", "kod": 5},
+                         ensure_ascii=False), flush=True)
+        return 5
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(_ana())
