@@ -248,44 +248,66 @@ jobs:
           if (-not (Select-String -Path $log -Pattern '/ORTAMKUR verilmedi' -SimpleMatch -Quiet)) { throw 'Sessiz kurulum ilk kurulumu atladığını günlüğe yazmadı' }
           # python-embed yukarıdaki adımdan hazır → bat pip adımına hızla gelir. Sihirbazın
           # izlediği her şey sınanır: durum satırı biçimi, kurulum_log.txt, kurulum_pid.txt
-          # (cmd.exe PID'i) ve "Kurulumu durdur" = taskkill /T /F /PID → süreç ağacı biter,
-          # kurulum tamam işareti yazılmaz (sonraki açılışta kaldığı yerden devam).
+          # (cmd.exe PID'i) ve "Kurulumu durdur" = sihirbazın çalıştırdığı komutun aynısı
+          # ({app}\kurulum_durdur.ps1, Windows PowerShell): süreç ağacı biter, SesVer
+          # klasöründen süreç kalmaz, kurulum tamam işareti yazılmaz (sonraki açılışta devam).
+          # İptal üç ayrı anda denenir (2/6 görünür görünmez, +0,7 sn, +1,5 sn): bat bu adımda art
+          # arda kısa ömürlü python'lar başlatır; eski tek "taskkill /T /F" kökü en son
+          # öldürdüğü için arada doğan python yetim kalıyordu (43265425949).
           Write-Host '::group::Yalnız-kurulum kipi (sihirbaz akışı) + iptal'
           $durum = Join-Path $app 'kurulum_durum.txt'; $ykLog = Join-Path $app 'kurulum_log.txt'; $pidD = Join-Path $app 'kurulum_pid.txt'
-          Remove-Item $durum, $ykLog, $pidD -Force -ErrorAction SilentlyContinue
-          $yk = Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList '/d', '/c', 'call', "`"$app\WINDOWS_BASLAT.bat`"", '/yalniz-kurulum' -WorkingDirectory $app -WindowStyle Hidden -PassThru
-          $gorulen = @(); $sinir = (Get-Date).AddMinutes(8)
-          while ((Get-Date) -lt $sinir) {
-            Start-Sleep -Milliseconds 500
-            $s = Get-Content $durum -TotalCount 1 -ErrorAction SilentlyContinue
-            if ($s -and ($gorulen.Count -eq 0 -or $gorulen[-1] -ne $s)) { $gorulen += $s; Write-Host "durum: $s" }
-            if ($s -match '\|(tamam|hata:)') { break }
-            if ($s -match '^[2-6]/6\|' -and (Test-Path $pidD)) { break }
-            if ($yk.HasExited) { break }
+          $durdur = Join-Path $app 'kurulum_durdur.ps1'
+          if (-not (Test-Path $durdur)) { throw 'kurulum_durdur.ps1 kurulum klasörüne kopyalanmadı' }
+          $winPs = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+          function Show-SesVerSurecleri([string]$baslik) {
+            $s = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($app, [StringComparison]::OrdinalIgnoreCase) })
+            foreach ($p in $s) { Write-Host ("{0}: PID {1} ust {2} olusma {3:HH:mm:ss.fff} {4}" -f $baslik, $p.ProcessId, $p.ParentProcessId, $p.CreationDate, $p.CommandLine) }
+            return $s.Count
           }
-          foreach ($g in $gorulen) { if ($g -notmatch '^\d+/6\|[\x20-\x7e]+$') { throw "Durum satırı biçim dışı: '$g'" } }
-          if (-not (Test-Path $ykLog)) { throw 'kurulum_log.txt oluşmadı' }
-          if (-not ($gorulen | Where-Object { $_ -match '^[2-6]/6\|' -and $_ -notmatch '\|hata:' })) {
-            Get-Content $ykLog -Tail 40 | Out-Host
-            throw "Yalnız-kurulum kipi pip adımına gelmedi: $($gorulen -join ' ; ')"
+          foreach ($gecikme in 0, 700, 1500) {
+            Write-Host "--- iptal denemesi: 2/6'dan $gecikme ms sonra ---"
+            Remove-Item $durum, $ykLog, $pidD -Force -ErrorAction SilentlyContinue
+            $yk = Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" -ArgumentList '/d', '/c', 'call', "`"$app\WINDOWS_BASLAT.bat`"", '/yalniz-kurulum' -WorkingDirectory $app -WindowStyle Hidden -PassThru
+            $gorulen = @(); $sinir = (Get-Date).AddMinutes(8)
+            while ((Get-Date) -lt $sinir) {
+              Start-Sleep -Milliseconds 500
+              $s = Get-Content $durum -TotalCount 1 -ErrorAction SilentlyContinue
+              if ($s -and ($gorulen.Count -eq 0 -or $gorulen[-1] -ne $s)) { $gorulen += $s; Write-Host "durum: $s" }
+              if ($s -match '\|(tamam|hata:)') { break }
+              if ($s -match '^[2-6]/6\|' -and (Test-Path $pidD)) { break }
+              if ($yk.HasExited) { break }
+            }
+            foreach ($g in $gorulen) { if ($g -notmatch '^\d+/6\|[\x20-\x7e]+$') { throw "Durum satırı biçim dışı: '$g'" } }
+            if (-not (Test-Path $ykLog)) { throw 'kurulum_log.txt oluşmadı' }
+            if (-not ($gorulen | Where-Object { $_ -match '^[2-6]/6\|' -and $_ -notmatch '\|hata:' })) {
+              Get-Content $ykLog -Tail 40 | Out-Host
+              throw "Yalnız-kurulum kipi pip adımına gelmedi: $($gorulen -join ' ; ')"
+            }
+            $ykPid = [int]((Get-Content $pidD -TotalCount 1).Trim())
+            $pc = Get-CimInstance Win32_Process -Filter "ProcessId=$ykPid"
+            Write-Host "kurulum_pid.txt: $ykPid -> $($pc.Name) $($pc.CommandLine)"
+            if (-not $pc -or $pc.Name -ne 'cmd.exe' -or $pc.CommandLine -notlike '*yalniz-kurulum*') { throw "kurulum_pid.txt yalnız-kurulum cmd.exe'sini göstermiyor ($ykPid)" }
+            if ($gecikme -gt 0) { Start-Sleep -Milliseconds $gecikme }
+            $null = Show-SesVerSurecleri 'iptal öncesi'
+            # Sihirbazdaki "Kurulumu durdur" ile aynı komut (windows\SesVer.iss OrtamSureciniDurdur):
+            $bas = Get-Date
+            & $winPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $durdur -Kok $ykPid -Klasor $app | Out-Host
+            $dkod = $LASTEXITCODE
+            Write-Host ("kurulum_durdur.ps1 çıkış {0}, {1:N1} sn" -f $dkod, ((Get-Date) - $bas).TotalSeconds)
+            if ($dkod -ne 0) { $null = Show-SesVerSurecleri 'kalan'; throw "kurulum_durdur.ps1 başarısız (çıkış $dkod)" }
+            if (Get-CimInstance Win32_Process -Filter "ProcessId=$ykPid") { throw 'İptalden sonra yalnız-kurulum cmd.exe hâlâ çalışıyor' }
+            # Hemen ve 3 sn sonra: SesVer klasöründen hiçbir süreç kalmamalı (geç doğan yetim de yakalanır).
+            if (Show-SesVerSurecleri 'iptalden hemen sonra kaldı') { throw 'İptalden hemen sonra SesVer klasöründen süreç kaldı' }
+            Start-Sleep -Seconds 3
+            if (Show-SesVerSurecleri 'iptalden 3 sn sonra kaldı') { throw 'İptalden 3 sn sonra SesVer klasöründen süreç kaldı' }
+            if (Test-Path (Join-Path $app 'python-embed\sesver_kurulum_tamam.txt')) { throw 'İptal edilen kurulum tamam işareti yazmış' }
+            $ykIcerik = Get-Content $ykLog -Raw
+            foreach ($m in @('[SesVer baslatici calisiyor]', '[BILGI] Yalniz kurulum kipi', '[DURUM] ')) { if (-not $ykIcerik.Contains($m)) { throw "kurulum_log.txt'de beklenen satır yok: $m" } }
+            if ($ykIcerik.Contains('SesVer aciliyor')) { throw 'Yalnız-kurulum kipi SesVer''i başlatmaya çalıştı' }
           }
-          $ykPid = [int]((Get-Content $pidD -TotalCount 1).Trim())
-          $pc = Get-CimInstance Win32_Process -Filter "ProcessId=$ykPid"
-          Write-Host "kurulum_pid.txt: $ykPid -> $($pc.Name) $($pc.CommandLine)"
-          if (-not $pc -or $pc.Name -ne 'cmd.exe' -or $pc.CommandLine -notlike '*yalniz-kurulum*') { throw "kurulum_pid.txt yalnız-kurulum cmd.exe'sini göstermiyor ($ykPid)" }
-          # Sihirbazdaki "Kurulumu durdur" ile aynı komut:
-          & taskkill.exe /T /F /PID $ykPid | Out-Host
-          Start-Sleep -Seconds 3
-          if (Get-CimInstance Win32_Process -Filter "ProcessId=$ykPid") { throw 'İptalden sonra yalnız-kurulum cmd.exe hâlâ çalışıyor' }
-          $kalan = Get-Process | Where-Object { $_.Path -and $_.Path.StartsWith($app, [StringComparison]::OrdinalIgnoreCase) }
-          if ($kalan) { throw "İptalden sonra SesVer klasöründen süreç kaldı: $(($kalan | ForEach-Object Name) -join ',')" }
-          if (Test-Path (Join-Path $app 'python-embed\sesver_kurulum_tamam.txt')) { throw 'İptal edilen kurulum tamam işareti yazmış' }
-          $ykIcerik = Get-Content $ykLog -Raw
-          foreach ($m in @('[SesVer baslatici calisiyor]', '[BILGI] Yalniz kurulum kipi', '[DURUM] ')) { if (-not $ykIcerik.Contains($m)) { throw "kurulum_log.txt'de beklenen satır yok: $m" } }
-          if ($ykIcerik.Contains('SesVer aciliyor')) { throw 'Yalnız-kurulum kipi SesVer''i başlatmaya çalıştı' }
           Write-Host '----- kurulum_log.txt (son 15 satır) -----'; Get-Content $ykLog -Tail 15 | Out-Host
           $global:LASTEXITCODE = 0
-          Write-Host 'Yalnız-kurulum kipi KANITLANDI: durum satırları biçimde, günlük yazıldı, PID yalnız-kurulum cmd.exe''si, taskkill /T ile süreç ağacı bitti, tamam işareti yazılmadı.'
+          Write-Host 'Yalnız-kurulum kipi KANITLANDI: durum satırları biçimde, günlük yazıldı, PID yalnız-kurulum cmd.exe''si, üç ayrı anda "Kurulumu durdur" (kurulum_durdur.ps1) süreç ağacını bitirdi, SesVer klasöründen süreç kalmadı, tamam işareti yazılmadı.'
           Write-Host '::endgroup::'
           # Sonraki adımlar için temiz duruma dön (yarım kalan python-embed ve geçici dosyalar).
           for ($i = 0; $i -lt 10; $i++) {

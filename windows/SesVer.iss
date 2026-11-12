@@ -251,6 +251,8 @@ Source: "{#SrcRoot}\kilit\*.txt"; DestDir: "{app}\kilit"; Flags: ignoreversion
 Source: "{#SrcRoot}\VERSION"; DestDir: "{app}"; Flags: ignoreversion
 ; Ortam kurulumunu yapan başlatıcı (kısayol ve son ekran bunu çağırır).
 Source: "{#SrcRoot}\WINDOWS_BASLAT.bat"; DestDir: "{app}"; Flags: ignoreversion
+; Sihirbazdaki "Kurulumu durdur": ilk kurulum süreç ağacını yeniden denemeli sonlandırır.
+Source: "kurulum_durdur.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SrcRoot}\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SrcRoot}\README.md"; DestDir: "{app}"; Flags: ignoreversion
 ; hata_rehberi.py hata mesajlarında "SesVer klasöründeki AI_KURULUM.md"ye yönlendirir.
@@ -317,6 +319,8 @@ const
   OrtamPaylasGunlukDosyasi = 'kurulum_log_paylas.txt';
   OrtamEvMaskesi = '<ev>';
   OrtamPidDosyasi = 'kurulum_pid.txt';
+  // "Kurulumu durdur": süreç ağacını yeniden denemeli sonlandıran betik ({app}'e kurulur).
+  OrtamDurdurBetigi = 'kurulum_durdur.ps1';
   OrtamYalnizKurulumArg = '/yalniz-kurulum';
   OrtamToplamAdim = 6;
   OrtamDurumTamam = 'tamam';
@@ -1134,12 +1138,30 @@ end;
 
 // İlk kurulum süreç ağacını sonlandırır (cmd.exe + python/pip/curl alt süreçleri).
 // Konsol programları ExecAndLogOutput ile çalıştırılır: pencere açılmaz.
+// Asıl yol {app}\kurulum_durdur.ps1: önce kök cmd.exe, sonra torunlar ve python-embed'den
+// başlamış süreçler, yeni süreç doğmayana dek. Tek "taskkill /T /F" yetmiyor: kökü en son
+// sonlandırır, kök o arada bat'ın sonraki python'unu başlatabiliyor ve o süreç yetim kalıyordu
+// (CI 43265425949). Betik yoksa ya da çalışmazsa eski yol (taskkill / PowerShell) denenir.
 procedure OrtamSureciniDurdur(Pid: Integer);
 var
   RC: Integer;
-  Komut: String;
+  Komut, Betik: String;
 begin
   try
+    Betik := ExpandConstant('{app}\') + OrtamDurdurBetigi;
+    if FileExists(Betik) then
+    begin
+      Komut := '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + Betik + '" -Kok ' +
+        IntToStr(Pid) + ' -Klasor "' + ExpandConstant('{app}') + '"';
+      Log('İlk kurulum süreç ağacı sonlandırılıyor: ' + OrtamDurdurBetigi + ' -Kok ' + IntToStr(Pid));
+      if ExecAndLogOutput(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Komut, '',
+        SW_HIDE, ewWaitUntilTerminated, RC, @BaslaticiCiktisi) and ((RC = 0) or (RC = 2)) then
+      begin
+        Log('Sonlandırma çıkış kodu: ' + IntToStr(RC));
+        Exit;
+      end;
+      Log('Sonlandırma betiği başarısız (çıkış ' + IntToStr(RC) + '); taskkill ile yeniden deneniyor.');
+    end;
     if Pid > 0 then
     begin
       Log('İlk kurulum süreç ağacı sonlandırılıyor: taskkill /T /F /PID ' + IntToStr(Pid));

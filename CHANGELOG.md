@@ -10,6 +10,7 @@
 - README: özellik satırı, sorun giderme ve gizlilik politikası (mikrofon kaydı yalnız bilgisayarınızda kalır) güncellendi.
 - Mikrofon kayıtları ve yüklenen ses dosyaları artık birikmiyor: SesVer bunları ve hazırlık kopyalarını kendi geçici klasöründe tutar; kayıt ses olarak kaydedilince, 2 saat kullanılmayınca (30 dakikada bir bakılır) ve her durumda SesVer kapanınca siler. Hazırlık kopyaları artık `outputs/`'a yazılmaz. Başka uygulamaların dosyalarına, kayıtlı seslere ve `outputs/`'a dokunulmaz.
 - Eski sürümlerin `outputs/` içine bıraktığı `yukleme-*.wav` hazırlık kopyaları otomatik silinmez; isterseniz kendiniz silebilirsiniz (README'de not var).
+- Windows: kurulum sihirbazında **Kurulumu durdur**'a basınca arkada çalışan bir Python süreci kalmıyor. Önceden nadiren, durdurmaya tam yeni bir adım başlarken basılırsa paket kurulumu arkada sürüp SesVer klasörünü meşgul edebiliyordu.
 
 ## 1.4.1 (2026-11-12)
 

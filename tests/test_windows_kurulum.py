@@ -1065,5 +1065,77 @@ class BilesenSaklamaTests(unittest.TestCase):
         self.assertIn('set "VOXCPM_SURUM=2.0.3"', bat)
 
 
+class KurulumDurdurTests(unittest.TestCase):
+    """"Kurulumu durdur": süreç ağacı yeniden denemeli sonlanır (CI 43265425949).
+
+    Tek ``taskkill /T /F /PID <cmd>`` ağacın anlık listesini alıp kökü (bat'ın cmd.exe'si) EN SON
+    sonlandırır; kök o arada bitmekte olan kısa ömürlü python'un (pip --version, sürüm okuma)
+    ardından sonrakini başlatabiliyor, yeni süreç listede olmadığı için yetim kalıyordu.
+    """
+
+    PS1 = ROOT / "windows" / "kurulum_durdur.ps1"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.ps1 = cls.PS1.read_text(encoding="utf-8")
+        cls.kod = iss_bolumu("Code")
+
+    def test_betik_kurulur_ve_ascii(self):
+        self.PS1.read_bytes().decode("ascii")  # Windows PowerShell 5.1 BOM'suz dosyayı ANSI okur
+        self.assertIn('Source: "kurulum_durdur.ps1"; DestDir: "{app}"; Flags: ignoreversion', iss_bolumu("Files"))
+        self.assertRegex(self.kod, r"(?m)^\s*OrtamDurdurBetigi = 'kurulum_durdur\.ps1';")
+
+    def test_sihirbaz_betigi_calistirir_eski_yol_yedek(self):
+        govde = pascal_govde(self.kod, "procedure", "OrtamSureciniDurdur")
+        self.assertIn("ExpandConstant('{app}\\') + OrtamDurdurBetigi", govde)
+        self.assertIn("'-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"' + Betik + '\" -Kok ' +", govde)
+        self.assertIn("' -Klasor \"' + ExpandConstant('{app}') + '\"'", govde)
+        self.assertIn("{sys}\\WindowsPowerShell\\v1.0\\powershell.exe", govde)
+        self.assertIn("((RC = 0) or (RC = 2))", govde)  # 2: kurulum zaten bitmiş (kök yok)
+        # Betik önce; yoksa ya da başarısızsa eski taskkill / PowerShell yolu.
+        self.assertLess(govde.index("OrtamDurdurBetigi"), govde.index("'/T /F /PID '"))
+        # İptal düğmesi ve PID'siz yedek bu yordamdan geçer.
+        self.assertIn("OrtamSureciniDurdur(Pid);", self.kod)
+        self.assertIn("OrtamSureciniDurdur(0);", self.kod)
+
+    def test_kok_once_sonra_agac_ve_klasor_tekrarli(self):
+        p = self.ps1
+        kok = p.index("foreach ($k in $kokler) {\n    Stop-Process")
+        dongu = p.index("while ($true)")
+        self.assertLess(kok, dongu)  # kök önce: yeni alt süreç doğamaz
+        self.assertNotIn("taskkill", p.split("param(")[1])  # tek seferlik ağaç öldürmeye dayanmaz
+        # Ağaç: üst süreç numarası + oluşma zamanı (PID yeniden kullanımına karşı), torunlar dahil.
+        self.assertIn("$agac.ContainsKey($ust) -and $p.CreationDate -ge $agac[$ust]", p)
+        self.assertIn("} while ($eklendi)", p)
+        # Güvenlik ağı yalnız SesVer'in python-embed'i ve kökten sonra başlamış süreçler:
+        # kurulumdan önce açılmış SesVer'e ve başka uygulamalara dokunulmaz.
+        self.assertIn("$embed = (Join-Path $Klasor 'python-embed')", p)
+        self.assertIn("StartsWith($embed, [StringComparison]::OrdinalIgnoreCase) -and $p.CreationDate -ge $esik", p)
+        self.assertIn("if ($bosTur -ge 3) { break }", p)  # ardışık boş turlar: geç doğan da yakalanır
+        self.assertIn("$bitis = $basla.AddSeconds($SureSn)", p)
+        # Son denetim ve anlamlı çıkış kodları.
+        self.assertIn("$kalan = @(Surecler | Where-Object { Kaynak $_ })", p)
+        for kod in ("exit 0", "exit 1", "exit 2"):
+            self.assertIn(kod, p)
+        self.assertNotIn("Stop-Process -Name", p)  # adla toplu öldürme yok
+
+    def test_ci_iptal_testi_sihirbazla_ayni_betigi_kullanir(self):
+        wf = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")
+        blok = wf.split("::group::Yalnız-kurulum kipi (sihirbaz akışı) + iptal", 1)[1].split("::endgroup::", 1)[0]
+        self.assertIn("$durdur = Join-Path $app 'kurulum_durdur.ps1'", blok)
+        self.assertIn("& $winPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $durdur -Kok $ykPid -Klasor $app", blok)
+        self.assertIn('$winPs = "$env:SystemRoot\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"', blok)
+        self.assertNotIn("& taskkill.exe /T /F /PID $ykPid", blok)
+        self.assertIn("foreach ($gecikme in 0, 700, 1500)", blok)  # yarışa farklı anlarda denk gel
+        # Denetim gevşemedi: betik 0, kök yok, SesVer klasöründen süreç yok (hemen ve 3 sn sonra),
+        # tamam işareti yok.
+        self.assertIn("if ($dkod -ne 0)", blok)
+        self.assertIn("'İptalden hemen sonra SesVer klasöründen süreç kaldı'", blok)
+        self.assertIn("Start-Sleep -Seconds 3", blok)
+        self.assertIn("'İptalden 3 sn sonra SesVer klasöründen süreç kaldı'", blok)
+        self.assertIn("ExecutablePath.StartsWith($app, [StringComparison]::OrdinalIgnoreCase)", blok)
+        self.assertIn("'İptal edilen kurulum tamam işareti yazmış'", blok)
+
+
 if __name__ == "__main__":
     unittest.main()
