@@ -1550,16 +1550,18 @@ begin
 end;
 
 // Etkileşimli kaldırmada soru. True = sakla. İletişim kutusu açılamazsa (0) saklanır: veri kaybı yok.
+// Dikkat: [Code] içinde hiçbir satır "[" ile başlamamalı; Inno onu bölüm başlığı sanar ("Invalid
+// section tag"). Düğme dizisi bu yüzden değişkenlerle tek satırda verilir (tests/test_windows_kurulum.py).
 function BilesenSaklamaSorusu(const App: String): Boolean;
 var
-  Boyut: String;
+  Boyut, Metin, SaklaDugmesi, SilDugmesi: String;
   Cevap: Integer;
 begin
   Boyut := GBMetni(IndirilenBilesenBoyutu(App));
-  Cevap := TaskDialogMsgBox(CustomMessage('KaldirSaklaBaslik'),
-    FmtMessage(CustomMessage('KaldirSaklaMetni'), [Boyut, App]), mbConfirmation, MB_YESNO,
-    [CustomMessage('KaldirSaklaDugmesi') + #13#10 + CustomMessage('KaldirSaklaNotu'),
-     CustomMessage('KaldirSilDugmesi') + #13#10 + FmtMessage(CustomMessage('KaldirSilNotu'), [Boyut])], 0);
+  SaklaDugmesi := CustomMessage('KaldirSaklaDugmesi') + #13#10 + CustomMessage('KaldirSaklaNotu');
+  SilDugmesi := CustomMessage('KaldirSilDugmesi') + #13#10 + FmtMessage(CustomMessage('KaldirSilNotu'), [Boyut]);
+  Metin := FmtMessage(CustomMessage('KaldirSaklaMetni'), [Boyut, App]);
+  Cevap := TaskDialogMsgBox(CustomMessage('KaldirSaklaBaslik'), Metin, mbConfirmation, MB_YESNO, [SaklaDugmesi, SilDugmesi], 0);
   Result := Cevap <> IDNO;
 end;
 

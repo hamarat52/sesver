@@ -50,6 +50,55 @@ def pascal_govde(kod, tur, ad):
     return m.group(0)
 
 
+# ---------------------------------------------------------------- [Code] statik denetimi (ISCC'siz)
+# Bu makinede ISCC yok; Inno Setup'ın Pascal Script'ten ÖNCE yaptığı satır temelli ayrıştırmanın
+# bilinen tuzakları burada yakalanır (1.4.1: satır başındaki "[" → "Invalid section tag", CI kırmızı).
+
+ISPP_YONERGELERI = {"define", "undef", "if", "ifdef", "ifndef", "ifexist", "ifnexist", "elif", "else", "endif",
+                    "include", "pragma", "emit", "expr", "insert", "append", "error", "sub", "endsub", "for",
+                    "redim", "dim"}
+
+
+def code_satirlari(metin):
+    """[Code] başlığından sonraki satırlar: (satır_no, satır). Inno [Code]'u dosyanın sonuna kadar okur."""
+    satirlar = metin.split("\n")
+    bas = next(i for i, s in enumerate(satirlar) if s.strip().lower() == "[code]")
+    return [(i + 1, s) for i, s in enumerate(satirlar) if i > bas]
+
+
+def code_satir_sorunlari(metin):
+    """Inno'nun satır ayrıştırıcısını bozan satırlar. Yorum ya da metin içinde olsa da sayılır:
+    Inno bölüm başlığını Pascal'dan önce, satırın ilk boş olmayan karakterine bakarak arar."""
+    sorunlar = []
+    for no, s in code_satirlari(metin):
+        bas = s.lstrip(" \t")
+        if bas.startswith("["):
+            sorunlar.append((no, "satır başında '[' (Inno bölüm başlığı sanar: Invalid section tag)", s))
+        elif bas.startswith("#"):
+            kelime = re.match(r"#\s*([A-Za-z]*)", bas).group(1).lower()
+            if kelime not in ISPP_YONERGELERI:
+                sorunlar.append((no, "satır başında '#' (ISPP yönergesi sanılır; ör. #13#10'u önceki satıra al)", s))
+    return sorunlar
+
+
+def pascal_jetonlari(kod):
+    """Yorumları ({ }, (* *), //) ve 'metin' sabitlerini atıp anahtar kelimeleri döndürür."""
+    kod = re.sub(r"\{[^}]*\}|\(\*.*?\*\)", " ", kod, flags=re.S)
+    temiz = []
+    for satir in kod.split("\n"):
+        satir = re.sub(r"'(?:[^']|'')*'", "''", satir)
+        temiz.append(satir.split("//", 1)[0])
+    return re.findall(r"[A-Za-z_][A-Za-z0-9_]*", "\n".join(temiz))
+
+
+def pascal_blok_dengesi(kod):
+    """begin/try/case/record ... end sayısı. Dengesiz blok ISCC'de 'Identifier expected' gibi
+    hatalara yol açar. Döner: (açan, kapanan)."""
+    jetonlar = [j.lower() for j in pascal_jetonlari(kod)]
+    acan = sum(jetonlar.count(k) for k in ("begin", "try", "case", "record"))
+    return acan, jetonlar.count("end")
+
+
 # ---------------------------------------------------------------- bat akış çözümleyici
 
 GOTO = re.compile(r"\bgoto\s+:([A-Za-z0-9_]+)", re.I)
@@ -871,6 +920,32 @@ class GuncellemeSecenegiTests(unittest.TestCase):
                 self.assertNotIn("\u2014", d[ad], ad)  # em dash yok
 
 
+class CodeBolumuStatikTests(unittest.TestCase):
+    """ISCC'siz statik denetim: Inno'nun satır ayrıştırıcısı ve Pascal blok dengesi."""
+
+    def test_code_bolumunde_satir_basi_koseli_parantez_ve_yabanci_diyez_yok(self):
+        sorunlar = code_satir_sorunlari(iss_metni())
+        self.assertEqual(sorunlar, [], "\n".join(f"SesVer.iss:{n}: {neden}\n    {s}" for n, neden, s in sorunlar))
+
+    def test_denetim_kendisi_hatayi_yakalar(self):
+        # 1.4.1'de CI'ı kıran biçim (TaskDialogMsgBox düğme dizisi yeni satırda "[" ile).
+        kotu = ("[Setup]\nAppName=X\n[Code]\nbegin\n  Cevap := TaskDialogMsgBox('a', 'b', mbConfirmation, MB_YESNO,\n"
+                "    ['Sakla', 'Sil'], 0);\n  S := 'x' +\n    #13#10 + 'y';\n#ifdef DEBUG\n#endif\nend;\n")
+        sorunlar = code_satir_sorunlari(kotu)
+        self.assertEqual([n for n, _, _ in sorunlar], [6, 8])
+        self.assertIn("Invalid section tag", sorunlar[0][1])
+        # Düzgün biçim (dizi önceki satırda başlar) temiz.
+        iyi = kotu.replace("MB_YESNO,\n    ['Sakla'", "MB_YESNO, [\n    'Sakla'").replace("+\n    #13#10", "+ #13#10")
+        self.assertEqual(code_satir_sorunlari(iyi), [])
+
+    def test_pascal_bloklari_dengeli(self):
+        acan, kapanan = pascal_blok_dengesi(iss_bolumu("Code"))
+        self.assertGreater(acan, 50)
+        self.assertEqual(acan, kapanan)
+        # Denetim yorum ve metin içindeki kelimeleri saymaz.
+        self.assertEqual(pascal_blok_dengesi("// begin\n{ try }\nS := 'case end';\nbegin\nend;"), (1, 1))
+
+
 # ---------------------------------------------------------------- 1.4.1: kaldırırken bileşenleri sakla
 
 class BilesenSaklamaTests(unittest.TestCase):
@@ -913,6 +988,7 @@ class BilesenSaklamaTests(unittest.TestCase):
         # İlk düğme (Evet, varsayılan) = Sakla; yalnız açıkça "Sil" seçilirse silinir.
         self.assertLess(soru.index("KaldirSaklaDugmesi"), soru.index("KaldirSilDugmesi"))
         self.assertIn("Result := Cevap <> IDNO;", soru)
+        self.assertIn("MB_YESNO, [SaklaDugmesi, SilDugmesi], 0);", soru)  # 1. düğme = Sakla
         self.assertIn("GBMetni(IndirilenBilesenBoyutu(App))", soru)
         mesajlar = iss_bolumu("CustomMessages")
         tr = dict(re.findall(r"^turkish\.([A-Za-z0-9]+)=(.*)$", mesajlar, re.M))
