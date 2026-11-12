@@ -1,5 +1,13 @@
 # Değişiklikler
 
+## 1.4.2 (2026-11-12)
+
+- Ses Oluştur → Dosya yükle'de artık mikrofonla doğrudan kayıt alabilirsiniz: dosya kutusunun altındaki **Mikrofonla kaydedin** bölümünde **Kaydet**'e basıp konuşun, **Durdur**'a basın. Kayıt sürerken süre 8–20 sn kuralına göre gösterilir (kısa / uygun / 20 sn'yi geçti); kaydı dinleyip beğenmezseniz silip yeniden alabilirsiniz.
+- Mikrofon kaydı dosya yüklemeyle aynı işlemlerden geçer: mono 16-bit WAV'a çevrilir, sessizlik kırpılır, aynı uyarılar ve 8–20 sn kuralı, uzunsa aralık seçimi, yerel Whisper ile yazıya dökme ve izin kutucuğu işaretlenmeden kaydetmeme. Kayıt yalnız bu bilgisayarda kalır.
+- Mikrofon izni verilmezse, mikrofon bulunamazsa ya da başka bir uygulama kullanıyorsa kısa bir ileti ne yapacağınızı söyler; dosya yükleme her zaman çalışır.
+- Mac: SesVer ilk kayıtta mikrofon izni ister (Sistem Ayarları → Gizlilik ve Güvenlik → Mikrofon'da SesVer olarak görünür). Bunun için uygulamaya mikrofon kullanım açıklaması ve mikrofon yetkisi eklendi.
+- README: özellik satırı, sorun giderme ve gizlilik politikası (mikrofon kaydı yalnız bilgisayarınızda kalır) güncellendi.
+
 ## 1.4.1 (2026-11-12)
 
 - İlk üretim mesajı artık doğru: ses modeli bilgisayarınızda kayıtlıysa yalnız "belleğe yükleniyor, indirme yapılmaz" yazar. Model gerçekten ilk kez inecekse bunu boyutuyla (yaklaşık 5 GB) bir kez söyler ve indirme sürerken "Ses modeli indiriliyor: 1.49 / 4.96 GB (%30)" gibi anlaşılır bir ilerleme gösterir. Normal üretim, klon, ses tarifi ve kuyrukta aynı.
