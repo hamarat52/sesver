@@ -1,5 +1,15 @@
 # Değişiklikler
 
+## 1.4.1 (2026-11-12)
+
+- İlk üretim mesajı artık doğru: ses modeli bilgisayarınızda kayıtlıysa yalnız "belleğe yükleniyor, indirme yapılmaz" yazar. Model gerçekten ilk kez inecekse bunu boyutuyla (yaklaşık 5 GB) bir kez söyler ve indirme sürerken "Ses modeli indiriliyor: 1.49 / 4.96 GB (%30)" gibi anlaşılır bir ilerleme gösterir. Normal üretim, klon, ses tarifi ve kuyrukta aynı.
+- "0/0 B | 0/0 B | 6.4s" gibi ham ilerleme satırları arayüzde görünmüyor; durum mesajı ilerleme göstergesinin altında soluklaşmıyor, okunuyor.
+- Adaylar: her aday kartında seed ve üretim süresi yazıyor ("Aday 2 · seed 22 · 41.3 saniye"), bitince toplam süre görünüyor.
+- Adaylar: seed değiştirilebiliyor. Bir adayın seed'ini yazıp "Yeniden üret"e basınca yalnız o aday yeniden üretilir, diğerleri değişmez. Geçerli seed 0 ile 4294967295 arası bir tam sayı; aynı tarif, aynı cümle ve aynı seed aynı sesi verir. Kaydedilen ses, seçilen adayın gerçek seed'ini saklar.
+- Aday kartları sadeleşti: oynatıcı kartın içine sığıyor, düğmeler taşmıyor, kaydırma çubuğu çıkmıyor (dar pencere ve Arapça dahil).
+- Windows: kaldırırken indirilen Python ortamını ve paketleri (yaklaşık 3 GB) saklamayı seçebilirsiniz ("Sakla" varsayılan). Aynı klasöre yeniden kurunca bunlar yeniden inmez. Sessiz kaldırma eskisi gibi siler; `/BILESENLERISAKLA` ile saklar.
+- Windows kurulum testleri, üstüne yeniden kurulumda ve "Sakla" ile kaldırıp yeniden kurulumda paketlerin yeniden inmediğini ölçüyor.
+
 ## 1.4.0 (2026-11-09)
 
 - Büyük "Yazdığınız metne ses verin." karşılaması artık panelde sürekli yer kaplamıyor: SesVer açılırken ekranın ortasında kısa bir açılış ekranı olarak belirip kayboluyor, çalışma alanı sayfanın üstünden başlıyor. Tıklama ya da bir tuşla hemen geçilebilir; dil değiştirince ya da sayfayı yenileyince tekrar oynamaz. Hareket azaltma açıksa animasyonsuz gösterilir.

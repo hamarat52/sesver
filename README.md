@@ -26,7 +26,7 @@ Normal bir Windows programı gibi **İleri** ve **Kur** düğmeleriyle kurulur; 
 
 - **Başlat** menüsüne **SesVer** yazıp Enter'a basın ya da masaüstündeki **SesVer** simgesine çift tıklayın. Kurulum tekrarlanmaz.
 - İlk kurulum yarıda kaldıysa aynı simge kaldığı yerden devam eder.
-- **Kaldırma:** Ayarlar → Uygulamalar → **SesVer** → Kaldır. Kendi sesleriniz (`voices\seslerim`) ve ürettiğiniz sesler (`outputs`) silinmez.
+- **Kaldırma:** Ayarlar → Uygulamalar → **SesVer** → Kaldır. Kendi sesleriniz (`voices\seslerim`) ve ürettiğiniz sesler (`outputs`) silinmez. Kaldırırken SesVer, indirdiği Python ortamını ve paketleri (yaklaşık 3 GB) saklamak isteyip istemediğinizi sorar: **Sakla** (varsayılan) seçerseniz aynı klasöre yeniden kurduğunuzda bunlar yeniden inmez; **Sil** seçerseniz yer açılır. Sessiz kaldırmada (`/VERYSILENT`) bunlar silinir; saklamak için `/BILESENLERISAKLA` ekleyin.
 
 ### Alternatif (ileri kullanıcı): ZIP ile
 
@@ -117,7 +117,7 @@ SesVer, OpenBMB'nin [VoxCPM2](https://huggingface.co/openbmb/VoxCPM2) ses modeli
 
 SesVer açılışta, arka planda GitHub'daki son sürüm numarasına bakar (tek bir istek, en fazla 3 saniye; hiçbir kişisel veri gönderilmez). Daha yeni bir sürüm varsa sayfanın üstünde **"Yeni sürüm var"** bildirimi çıkar; internet yoksa hiçbir şey göstermez. Kapatmak için: **Ayarlar → Açılışta güncellemeleri denetle**.
 
-- **Windows:** release sayfasındaki yeni `SesVer-Kurulum-Windows.exe`'yi indirip çalıştırın. Ayarlarınız ve sesleriniz korunur.
+- **Windows:** release sayfasındaki yeni `SesVer-Kurulum-Windows.exe`'yi indirip çalıştırın. Ayarlarınız ve sesleriniz korunur. Önceden indirilen Python ortamı ve paketler (~3 GB) yeniden inmez; yalnız yeni sürümde değişen paket varsa o kurulur. Önce kaldırıp sonra kuruyorsanız kaldırırken **Sakla**'yı seçin, aynı klasöre yeniden kurulumda da hiçbir şey yeniden inmez.
 - **Mac:** release sayfasından yeni sürümü indirin. DMG kullanıyorsanız yeni `SesVer.app`'i Uygulamalar klasörüne sürükleyip eskisinin yerine koyun (sesleriniz ve ayarlarınız `~/Library/Application Support/SesVer` içinde olduğu için korunur). ZIP/klasör kurulumu kullanıyorsanız yeni klasörü açıp `voices/seslerim` klasörünüzü (kendi sesleriniz) ve `ayarlar.json`'u eski klasörden yenisine kopyalayın. Yeni klasörde ilk açılış, Python ve paket kurulumunu bir kez yeniden yapar.
 
 Bu sürüm numarası kökteki `VERSION` dosyasındadır.
