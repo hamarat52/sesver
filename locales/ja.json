@@ -159,7 +159,7 @@
  "Dosya yükle": "ファイルをアップロード",
  "Ses Klonlama": "ボイスクローン",
  "3 adım": "3 ステップ",
- "Örnek sesi yükleyin": "サンプル音声をアップロード",
+ "Örnek sesi yükleyin ya da kaydedin": "サンプル音声をアップロードまたは録音",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "音楽のない、1 人だけが話すクリアな <b>3～15 秒の WAV</b> が最適です（1～30 秒まで受け付けます）。",
  "Referans ses (gerekli)": "参照音声（必須）",
  "Kayıtta ne söylendiğini yazın": "録音で話されている内容を入力",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "マイクを開けませんでした。もう一度試すか、ファイルをアップロードしてください。",
  "{sn} sn · en az 8 sn konuşun": "{sn} 秒 · 8 秒以上話してください",
  "{sn} sn · süre uygun": "{sn} 秒 · 長さは十分です",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} 秒 · 20 秒を超えました。使う部分はあとで選べます"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} 秒 · 20 秒を超えました。使う部分はあとで選べます",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "マイクで録音するには、枠の下にあるマイクのアイコンを押してから「録音」を押します。3–15 秒話して「停止」を押し、聞き直して気に入らなければ削除して録り直してください。録音はこのパソコンにのみ保存されます。",
+ "{sn} sn · en az 1 sn gerekir": "{sn} 秒 · 1 秒以上必要です",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} 秒 · 使用できます。3–15 秒がおすすめです",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} 秒 · 使用できます。3–15 秒のほうが良い結果になります",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} 秒 · 30 秒を超えました。削除して短く録り直してください"
 }

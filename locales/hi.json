@@ -159,7 +159,7 @@
  "Dosya yükle": "फ़ाइल अपलोड करें",
  "Ses Klonlama": "आवाज़ क्लोनिंग",
  "3 adım": "3 चरण",
- "Örnek sesi yükleyin": "नमूना आवाज़ अपलोड करें",
+ "Örnek sesi yükleyin ya da kaydedin": "नमूना आवाज़ अपलोड या रिकॉर्ड करें",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "बिना संगीत की, केवल एक व्यक्ति की साफ़ <b>3–15 सेकंड की WAV</b> सबसे अच्छा परिणाम देती है (1–30 सेकंड स्वीकार्य)।",
  "Referans ses (gerekli)": "संदर्भ आवाज़ (आवश्यक)",
  "Kayıtta ne söylendiğini yazın": "रिकॉर्डिंग में जो कहा गया है वह लिखें",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "माइक्रोफ़ोन नहीं खुल सका। दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
  "{sn} sn · en az 8 sn konuşun": "{sn} सेकंड · कम से कम 8 सेकंड बोलें",
  "{sn} sn · süre uygun": "{sn} सेकंड · अवधि ठीक है",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} सेकंड · 20 सेकंड से ज़्यादा, इस्तेमाल होने वाला हिस्सा बाद में चुनेंगे"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} सेकंड · 20 सेकंड से ज़्यादा, इस्तेमाल होने वाला हिस्सा बाद में चुनेंगे",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "माइक्रोफ़ोन से रिकॉर्ड करने के लिए बॉक्स के नीचे माइक्रोफ़ोन आइकन दबाएँ, फिर रिकॉर्ड दबाएँ। 3–15 सेकंड बोलें और रोकें दबाएँ; सुनकर देखें, पसंद न आए तो हटाकर दोबारा रिकॉर्ड करें। रिकॉर्डिंग केवल इसी कंप्यूटर पर रहती है।",
+ "{sn} sn · en az 1 sn gerekir": "{sn} सेकंड · कम से कम 1 सेकंड चाहिए",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} सेकंड · स्वीकार्य; 3–15 सेकंड सुझाया गया",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} सेकंड · स्वीकार्य; 3–15 सेकंड से बेहतर नतीजा मिलता है",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} सेकंड · 30 सेकंड से ज़्यादा; हटाकर छोटा रिकॉर्ड करें"
 }

@@ -159,7 +159,7 @@
  "Dosya yükle": "Datei hochladen",
  "Ses Klonlama": "Stimmklonen",
  "3 adım": "3 Schritte",
- "Örnek sesi yükleyin": "Beispielstimme hochladen",
+ "Örnek sesi yükleyin ya da kaydedin": "Beispielstimme hochladen oder aufnehmen",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "Eine saubere <b>WAV mit 3–15 Sekunden</b> ohne Musik, in der nur eine Person spricht, liefert das beste Ergebnis (1–30 Sekunden werden akzeptiert).",
  "Referans ses (gerekli)": "Referenzstimme (erforderlich)",
  "Kayıtta ne söylendiğini yazın": "Schreiben Sie, was in der Aufnahme gesagt wird",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Das Mikrofon konnte nicht geöffnet werden. Versuchen Sie es erneut oder laden Sie eine Datei hoch.",
  "{sn} sn · en az 8 sn konuşun": "{sn} s · mindestens 8 s sprechen",
  "{sn} sn · süre uygun": "{sn} s · Länge passt",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · über 20 s, den zu verwendenden Abschnitt wählen Sie danach"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · über 20 s, den zu verwendenden Abschnitt wählen Sie danach",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Zum Aufnehmen mit dem Mikrofon klicken Sie auf das Mikrofonsymbol unten im Feld und dann auf Aufnehmen. Sprechen Sie 3–15 Sekunden und drücken Sie Stopp; hören Sie die Aufnahme an, gefällt sie Ihnen nicht, löschen Sie sie und nehmen Sie neu auf. Die Aufnahme bleibt nur auf diesem Computer.",
+ "{sn} sn · en az 1 sn gerekir": "{sn} s · mindestens 1 s nötig",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} s · zulässig; 3–15 s empfohlen",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} s · zulässig; 3–15 s ergeben bessere Ergebnisse",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} s · über 30 s; löschen und kürzer aufnehmen"
 }

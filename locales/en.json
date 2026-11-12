@@ -159,7 +159,7 @@
  "Dosya yükle": "Upload a file",
  "Ses Klonlama": "Voice Cloning",
  "3 adım": "3 steps",
- "Örnek sesi yükleyin": "Upload a sample voice",
+ "Örnek sesi yükleyin ya da kaydedin": "Upload or record a sample voice",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "A clean <b>3–15 second WAV</b> of a single speaker without music gives the best result (1–30 seconds accepted).",
  "Referans ses (gerekli)": "Reference voice (required)",
  "Kayıtta ne söylendiğini yazın": "Write what is said in the recording",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "The microphone could not be opened. Try again or upload a file.",
  "{sn} sn · en az 8 sn konuşun": "{sn} s · speak for at least 8 s",
  "{sn} sn · süre uygun": "{sn} s · length is good",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · over 20 s, you'll choose the part to use next"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · over 20 s, you'll choose the part to use next",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "To record with your microphone, click the microphone icon at the bottom of the box, then Record. Speak for 3–15 seconds and press Stop; listen back, and if you don't like it, delete it and record again. The recording stays only on this computer.",
+ "{sn} sn · en az 1 sn gerekir": "{sn} s · at least 1 s needed",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} s · accepted; 3–15 s recommended",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} s · accepted; 3–15 s gives better results",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} s · over 30 s; delete it and record a shorter one"
 }

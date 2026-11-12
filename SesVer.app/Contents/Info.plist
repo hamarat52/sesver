@@ -33,6 +33,6 @@
 	<key>NSDownloadsFolderUsageDescription</key>
 	<string>SesVer, İndirilenler'deki kendi proje klasöründen (desktop.py, sesler, Python ortamı) çalışır; bu dosyaları okuyup üretilen sesleri oraya kaydetmek için izin gerekir.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>SesVer, Ses Oluştur'da kendi sesinizi kaydetmeniz için mikrofonu yalnız Kaydet'e bastığınızda kullanır; kayıt bu bilgisayardan çıkmaz. / SesVer uses the microphone only when you press Record to record your own voice; the recording never leaves this computer.</string>
+	<string>SesVer, kendi sesinizi kaydetmeniz için (Ses Oluştur ve Ses Klonlama) mikrofonu yalnız Kaydet'e bastığınızda kullanır; kayıt bu bilgisayardan çıkmaz. / SesVer uses the microphone only when you press Record to record your own voice (Create voice and Voice cloning); the recording never leaves this computer.</string>
 </dict>
 </plist>

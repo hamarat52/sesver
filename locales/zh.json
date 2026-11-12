@@ -159,7 +159,7 @@
  "Dosya yükle": "上传文件",
  "Ses Klonlama": "声音克隆",
  "3 adım": "3 个步骤",
- "Örnek sesi yükleyin": "上传示例音色",
+ "Örnek sesi yükleyin ya da kaydedin": "上传或录制示例音色",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "只有一人说话、无音乐的干净 <b>3–15 秒 WAV</b> 效果最好（可接受 1–30 秒）。",
  "Referans ses (gerekli)": "参考音色（必填）",
  "Kayıtta ne söylendiğini yazın": "写下录音中说了什么",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "无法打开麦克风。请重试或上传文件。",
  "{sn} sn · en az 8 sn konuşun": "{sn} 秒 · 请至少说 8 秒",
  "{sn} sn · süre uygun": "{sn} 秒 · 时长合适",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} 秒 · 已超过 20 秒，稍后可选择要使用的片段"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} 秒 · 已超过 20 秒，稍后可选择要使用的片段",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "要用麦克风录制，请点击框底部的麦克风图标，然后点击“录制”。说 3–15 秒后点击“停止”；回听一遍，不满意就删除重录。录音只保存在这台电脑上。",
+ "{sn} sn · en az 1 sn gerekir": "{sn} 秒 · 至少需要 1 秒",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} 秒 · 可接受；建议 3–15 秒",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} 秒 · 可接受；3–15 秒效果更好",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} 秒 · 已超过 30 秒；请删除后录一段更短的"
 }

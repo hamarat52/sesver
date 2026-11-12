@@ -142,7 +142,7 @@ http://127.0.0.1:7881/` 200.
 ## 5. Entitlement gerekçeleri (`macos/SesVer.entitlements`)
 
 Hardened runtime (`--options runtime`) açık; **tek istisna** `com.apple.security.device.audio-input`
-(1.4.2, Ses Oluştur → Dosya yükle → mikrofonla kayıt).
+(1.4.2, mikrofonla kayıt: Ses Oluştur → Dosya yükle ve Ses Klonlama → Referans ses).
 
 | Anahtar | Durum | Neden |
 |---|---|---|

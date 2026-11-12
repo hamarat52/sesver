@@ -159,7 +159,7 @@
  "Dosya yükle": "Загрузить файл",
  "Ses Klonlama": "Клонирование голоса",
  "3 adım": "3 шага",
- "Örnek sesi yükleyin": "Загрузите образец голоса",
+ "Örnek sesi yükleyin ya da kaydedin": "Загрузите или запишите образец голоса",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "Лучший результат даёт чистый <b>WAV на 3–15 секунд</b> без музыки, где говорит один человек (принимается 1–30 секунд).",
  "Referans ses (gerekli)": "Эталонный голос (обязательно)",
  "Kayıtta ne söylendiğini yazın": "Напишите, что сказано в записи",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Не удалось открыть микрофон. Попробуйте снова или загрузите файл.",
  "{sn} sn · en az 8 sn konuşun": "{sn} с · говорите не меньше 8 с",
  "{sn} sn · süre uygun": "{sn} с · длительность подходит",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} с · больше 20 с, нужный отрезок выберете дальше"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} с · больше 20 с, нужный отрезок выберете дальше",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Чтобы записать с микрофона, нажмите значок микрофона внизу поля, затем «Запись». Говорите 3–15 секунд и нажмите «Стоп»; прослушайте, если не понравилось, удалите и запишите заново. Запись остаётся только на этом компьютере.",
+ "{sn} sn · en az 1 sn gerekir": "{sn} с · нужно не меньше 1 с",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} с · подходит; рекомендуется 3–15 с",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} с · подходит; 3–15 с дают лучший результат",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} с · больше 30 с; удалите и запишите короче"
 }

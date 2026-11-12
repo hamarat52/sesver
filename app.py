@@ -1044,13 +1044,38 @@ def _mic_intro_html():
             f'<p>{escape(hint)}</p></div>')
 
 
-def _mic_status_html():
-    """Kaydedicinin altı: canlı süre göstergesi (8–20 sn) ve izin/cihaz iletisi.
+def _clone_mic_hint_html():
+    """Ses Klonlama referans alanının altı: mikrofon kaynağına nasıl geçileceği."""
+    hint = t("Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. "
+             "3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. "
+             "Kayıt yalnız bu bilgisayarda kalır.")
+    return f'<p class="sv-mic-note">{_svg(_IC_MIC)}<span>{escape(hint)}</span></p>'
 
+
+# Süre göstergesi kuralları: (üst sınır sn, ileti anahtarı, ton). Saniye ilk sınırın altındaysa o
+# satır geçerli. "ok" tonu mercan, "long"/"over" koyu; diğerleri gri. scale: çubuğun dolduğu saniye;
+# band: önerilen aralık (çubukta açık mercan şerit).
+_MIC_RULES = {
+    # Ses Oluştur → Dosya yükle: 8–20 sn (audio_prep.MIN_SECONDS / MAX_SECONDS).
+    "yukle": {"steps": [[8, "short", "short"], [20.05, "ok", "ok"], [1e9, "long", "long"]],
+              "scale": 25, "band": (8, 20)},
+    # Ses Klonlama referansı: 1–30 sn kabul (generate_audio), 3–15 sn önerilir.
+    "klon": {"steps": [[1, "cshort", "short"], [3, "cbrief", "short"], [15.05, "ok", "ok"],
+                       [30.05, "clong", "long"], [1e9, "cover", "over"]],
+             "scale": 36, "band": (3, 15)},
+}
+
+
+def _mic_status_html(kind="yukle"):
+    """Kaydedicinin altı: canlı süre göstergesi ve izin/cihaz iletisi.
+
+    kind: "yukle" (Ses Oluştur, 8–20 sn) ya da "klon" (Ses Klonlama referansı, 1–30 sn, 3–15 önerilir).
     Metinler bu sayfanın dilinde data-* özniteliklerinde durur; _MIC_JS durumu bunlardan yazar
     ({sn} yerine saniye). İleti seçimi: SesVer penceresi (window.pywebview) Mac/Windows ayar yolunu,
-    tarayıcı adres çubuğunu söyler.
+    tarayıcı adres çubuğunu söyler. Kaydedici ile kutusu belge sırasıyla eşleşir: her .sv-mic'in
+    kutusu ondan sonra gelen ilk .sv-mic-status'tur.
     """
+    rules = _MIC_RULES[kind]
     data = {
         "wait": t("Mikrofon izni bekleniyor. Açılan pencerede izin verin."),
         "denied-mac": t("Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i "
@@ -1064,13 +1089,28 @@ def _mic_status_html():
                   "ya da dosya yükleyin."),
         "unsupported": t("Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin."),
         "error": t("Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin."),
-        "short": t("{sn} sn · en az 8 sn konuşun"),
         "ok": t("{sn} sn · süre uygun"),
-        "long": t("{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz"),
     }
+    if kind == "yukle":
+        data.update({
+            "short": t("{sn} sn · en az 8 sn konuşun"),
+            "long": t("{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz"),
+        })
+    else:
+        data.update({
+            "cshort": t("{sn} sn · en az 1 sn gerekir"),
+            "cbrief": t("{sn} sn · kabul edilir; 3–15 sn önerilir"),
+            "clong": t("{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir"),
+            "cover": t("{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin"),
+        })
+    data["steps"] = json.dumps(rules["steps"])
+    data["scale"] = str(rules["scale"])
     attrs = " ".join(f'data-{k}="{escape(v)}"' for k, v in data.items())
-    return (f'<div class="sv-mic-status" {attrs}>'
-            '<div class="sv-mic-meter" hidden><div class="sv-mic-bar"><i></i></div>'
+    lo, hi = rules["band"]
+    band = (f'--sv-band-a: {lo / rules["scale"] * 100:.2f}%; '
+            f'--sv-band-w: {(hi - lo) / rules["scale"] * 100:.2f}%')
+    return (f'<div class="sv-mic-status sv-mic-status-{kind}" {attrs}>'
+            f'<div class="sv-mic-meter" hidden><div class="sv-mic-bar" style="{band}"><i></i></div>'
             '<span class="sv-mic-time"></span></div>'
             '<p class="sv-mic-msg" role="status" aria-live="polite"></p></div>')
 
@@ -1786,12 +1826,23 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 .sv-mic-meter[hidden] { display: none; }
 .sv-mic-bar { position: relative; flex: 1; height: 8px; border-radius: 999px; overflow: hidden;
   background: var(--sv-line); }
-.sv-mic-bar::before { content: ""; position: absolute; top: 0; bottom: 0; inset-inline-start: 32%; width: 48%;
-  background: rgba(242, 92, 59, .16); }
+.sv-mic-bar::before { content: ""; position: absolute; top: 0; bottom: 0; inset-inline-start: var(--sv-band-a, 32%);
+  width: var(--sv-band-w, 48%); background: rgba(242, 92, 59, .16); }
 .sv-mic-bar i { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; border-radius: inherit;
   background: #9C918A; transition: width .1s linear; }
-.sv-mic-meter[data-state="ok"] .sv-mic-bar i { background: var(--sv-coral); }
-.sv-mic-meter[data-state="long"] .sv-mic-bar i { background: #B5452B; }
+.sv-mic-meter[data-tone="ok"] .sv-mic-bar i { background: var(--sv-coral); }
+.sv-mic-meter[data-tone="long"] .sv-mic-bar i { background: #B5452B; }
+.sv-mic-meter[data-tone="over"] .sv-mic-bar i { background: #8A2E17; }
+.sv-mic-meter[data-tone="over"] .sv-mic-time { color: #8A2E17; }
+.sv-mic-note { display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: .85rem; line-height: 1.5;
+  color: var(--sv-muted); }
+.sv-mic-note .sv-ic { flex: none; width: 16px; height: 16px; margin-top: 2px; color: var(--sv-coral); }
+body.sv-rtl .sv-mic-note { direction: rtl; text-align: right; }
+/* Ses Klonlama referansı: dosya / mikrofon kaynak seçici simgeleri biraz daha büyük ve okunur. */
+.sv-mic-ref .source-selection { gap: 6px; }
+.sv-mic-ref .source-selection button.icon { width: 30px !important; height: 30px !important; padding: 5px !important;
+  border-radius: 10px; color: var(--sv-ink-2) !important; }
+.sv-mic-ref .source-selection button.icon:hover { background: #FFF1EC; color: var(--sv-coral) !important; }
 .sv-mic-time { font-size: .82rem; font-weight: 600; color: var(--sv-ink-2); font-variant-numeric: tabular-nums; }
 .sv-mic-meter.is-live .sv-mic-time::before { content: ""; display: inline-block; width: 8px; height: 8px;
   margin-inline-end: 6px; border-radius: 50%; background: var(--sv-coral); animation: sv-mic-blink 1s infinite; }
@@ -2017,35 +2068,45 @@ _THEME = gr.themes.Base(
 # eşleşmediğini) sınar.
 _HAM_ILERLEME = (r"Downloading bytes|Reconstructing|Fetching \d+ files|/\s*\d+\s*steps"
                  r"|\d[\d.]*[kMGT]?/\d[\d.]*[kMGT]?\s*(?:B|it)\b")
-# Mikrofon kaydı (Ses Oluştur → Dosya yükle → 1). Gradio kaydedicisinin kendisi değişmez; bu yardımcı
-# yalnız (a) getUserMedia hatasını sayfanın dilinde, nedenine göre (izin / cihaz yok / meşgul /
-# desteklenmiyor) .sv-mic-msg'ye yazar, (b) izin penceresi beklerken ipucu verir ve (c) kayıt sürerken
-# 8–20 sn kuralına göre canlı süre gösterir. Metinler .sv-mic-status'un data-* özniteliklerindedir
-# (bkz. _mic_status_html). Yalnız .sv-mic içindeki "kaydet" tıklamasının açtığı istek izlenir.
+# Mikrofon kaydı (Ses Oluştur → Dosya yükle → 1 ve Ses Klonlama → Referans ses). Gradio kaydedicisinin
+# kendisi değişmez; bu yardımcı yalnız (a) getUserMedia hatasını sayfanın dilinde, nedenine göre (izin /
+# cihaz yok / meşgul / desteklenmiyor) .sv-mic-msg'ye yazar, (b) izin penceresi beklerken ipucu verir ve
+# (c) kayıt sürerken o alanın süre kuralına göre (data-steps, bkz. _MIC_RULES) canlı süre gösterir.
+# Metinler .sv-mic-status'un data-* özniteliklerindedir (bkz. _mic_status_html). Bir sayfada birden çok
+# kaydedici vardır: tıklanan .sv-mic'in kutusu, belge sırasında ondan sonraki ilk .sv-mic-status'tur.
+# Yalnız bir .sv-mic içindeki "kaydet" tıklamasının açtığı istek izlenir.
 _MIC_JS = """
     (() => {
-        const box = () => document.querySelector('.sv-mic-status');
         const inMic = (el, sel) => !!(el && el.closest && el.closest('.sv-mic') && el.closest(sel));
-        let asked = false, t0 = 0, timer = 0, waitTimer = 0;
+        const boxFor = (mic) => [...document.querySelectorAll('.sv-mic-status')]
+            .find((s) => mic.compareDocumentPosition(s) & 4) || null;
+        let cur = null, asked = false, t0 = 0, timer = 0, waitTimer = 0;
         // Saniye, sunucunun "Süre: 10.8 sn" iletisiyle aynı biçimde (nokta, tek ondalık, Latin rakam).
         const fmt = (s) => s.toFixed(1);
-        function say(key) {
-            const b = box();
+        function say(key, b) {
+            b = b || (cur && cur.box);
             if (!b) return;
             b.querySelector('.sv-mic-msg').textContent = key ? (b.dataset[key] || b.dataset.error) : '';
             b.classList.toggle('has-msg', !!key);
         }
+        function rule(b, sec) {
+            let steps = [[8, 'short', 'short'], [20.05, 'ok', 'ok'], [1e9, 'long', 'long']];
+            try { if (b.dataset.steps) steps = JSON.parse(b.dataset.steps); } catch (e) { /* varsayılan */ }
+            return steps.find((s) => sec < s[0]) || steps[steps.length - 1];
+        }
         function show(sec, live) {
-            const b = box();
+            const b = cur && cur.box;
             if (!b) return;
             const m = b.querySelector('.sv-mic-meter');
             m.hidden = sec === null;
             if (sec === null) return;
-            const state = sec < 8 ? 'short' : (sec <= 20 ? 'ok' : 'long');
-            m.dataset.state = state;
+            const [, key, tone] = rule(b, sec);
+            m.dataset.state = key;
+            m.dataset.tone = tone;
             m.classList.toggle('is-live', !!live);
-            m.querySelector('.sv-mic-bar i').style.width = (Math.min(sec / 25, 1) * 100).toFixed(1) + '%';
-            m.querySelector('.sv-mic-time').textContent = b.dataset[state].replace('{sn}', fmt(sec));
+            const scale = parseFloat(b.dataset.scale) || 25;
+            m.querySelector('.sv-mic-bar i').style.width = (Math.min(sec / scale, 1) * 100).toFixed(1) + '%';
+            m.querySelector('.sv-mic-time').textContent = (b.dataset[key] || '{sn}').replace('{sn}', fmt(sec));
         }
         function finish() {
             if (!timer) return;
@@ -2103,22 +2164,26 @@ _MIC_JS = """
         }
         document.addEventListener('click', (ev) => {
             if (inMic(ev.target, '.record-button')) {
+                const mic = ev.target.closest('.sv-mic');
+                if (!timer && (!cur || cur.mic !== mic)) {
+                    if (cur && cur.box) { show(null); say(''); }  // önceki alanın göstergesi kapanır
+                    cur = {mic, box: boxFor(mic), shown: false};
+                }
                 if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) say('unsupported');
                 else asked = true;
             } else if (inMic(ev.target, '.stop-button, .stop-button-paused')) {
                 finish();
             }
         }, true);
-        // Kayıt silinince ya da dosya yüklenince kaydedici boş hâline döner: eski süre kalmasın. Durdur'dan
-        // hemen sonra kayıt işlenirken kaydedici kısa bir an boş görünebilir; bu yüzden yalnız oynatıcı
-        // bir kez göründükten (shown) sonra boşa dönüş sayılır.
-        let shown = false;
+        // Kayıt silinince, kaynak değişince ya da dosya yüklenince kaydedici boş hâline döner: eski süre
+        // kalmasın. Durdur'dan hemen sonra kayıt işlenirken kaydedici kısa bir an boş görünebilir; bu
+        // yüzden yalnız oynatıcı bir kez göründükten (shown) sonra boşa dönüş sayılır.
         setInterval(() => {
-            const b = box();
-            if (timer || !b) { shown = false; return; }
-            const empty = !!document.querySelector('.sv-mic .record-button');
-            if (!empty) shown = true;
-            else if (shown) { shown = false; show(null); }
+            if (!cur || !cur.box) return;
+            if (timer) { cur.shown = false; return; }
+            const empty = !!cur.mic.querySelector('.record-button');
+            if (!empty) cur.shown = true;
+            else if (cur.shown) { cur.shown = false; show(null); }
         }, 400);
     })();
 """
@@ -2733,13 +2798,18 @@ def _clone_tab():
                 f'<span class="sv-chip sv-chip-dark">{_svg(_IC_LOCK)}{t("Yerel")}</span></div>'
             )
             with gr.Column(elem_classes=["sv-panel"]):
-                _head(None, t("Örnek sesi yükleyin"),
+                _head(None, t("Örnek sesi yükleyin ya da kaydedin"),
                       t("Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu "
                         "verir (1–30 saniye kabul edilir)."), step="1")
+                # Dosya ya da mikrofon: aynı bileşen, aynı değer. Kayıt (Gradio tarayıcıda WAV'a çevirip yerel
+                # sunucuya yükler) dosya gibi generate_audio / kuyruk 1–30 sn denetiminden ve aynı
+                # auto_transcribe'dan geçer. "upload" ilk sırada: varsayılan görünüm 1.4.1'deki gibi.
                 c_reference = gr.Audio(
-                    label=t("Referans ses (gerekli)"), sources=["upload"], type="filepath",
-                    buttons=["download"], elem_classes=["sv-audio", "sv-upload"],
+                    label=t("Referans ses (gerekli)"), sources=["upload", "microphone"], type="filepath",
+                    buttons=["download"], elem_classes=["sv-audio", "sv-upload", "sv-mic", "sv-mic-ref"],
                 )
+                _html(_clone_mic_hint_html())
+                _html(_mic_status_html("klon"))
                 _html('<div class="sv-divider"></div>')
                 _head(None, t("Kayıtta ne söylendiğini yazın"),
                       t("İsteğe bağlı ama önerilir: model kaydı anlayarak devam eder ve ses çok daha "

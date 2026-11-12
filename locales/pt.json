@@ -159,7 +159,7 @@
  "Dosya yükle": "Enviar arquivo",
  "Ses Klonlama": "Clonagem de voz",
  "3 adım": "3 etapas",
- "Örnek sesi yükleyin": "Envie uma voz de amostra",
+ "Örnek sesi yükleyin ya da kaydedin": "Envie ou grave uma voz de amostra",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "Um <b>WAV de 3–15 segundos</b> limpo, sem música e com uma só pessoa falando dá o melhor resultado (aceita 1–30 segundos).",
  "Referans ses (gerekli)": "Voz de referência (obrigatória)",
  "Kayıtta ne söylendiğini yazın": "Escreva o que é dito na gravação",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Não foi possível abrir o microfone. Tente de novo ou envie um arquivo.",
  "{sn} sn · en az 8 sn konuşun": "{sn} s · fale pelo menos 8 s",
  "{sn} sn · süre uygun": "{sn} s · duração adequada",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · mais de 20 s, depois você escolhe o trecho a usar"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · mais de 20 s, depois você escolhe o trecho a usar",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Para gravar com o microfone, clique no ícone do microfone na parte de baixo da caixa e depois em Gravar. Fale por 3–15 segundos e clique em Parar; ouça e, se não gostar, apague e grave de novo. A gravação fica apenas neste computador.",
+ "{sn} sn · en az 1 sn gerekir": "{sn} s · é preciso pelo menos 1 s",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} s · aceito; 3–15 s recomendados",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} s · aceito; 3–15 s dão melhores resultados",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} s · mais de 30 s; apague e grave uma mais curta"
 }

@@ -1,5 +1,11 @@
-"""Mikrofon kaydı duman testi (CDP): açık bir SesVer sayfasında Ses Oluştur → Dosya yükle → Kaydet →
-N sn → Durdur yapar ve sonucu JSON olarak basar.
+"""Mikrofon kaydı duman testi (CDP): açık bir SesVer sayfasında iki kaydediciyi gerçek tıklamayla dener
+ve sonucu JSON olarak basar:
+
+- yukle: Ses Oluştur → Dosya yükle → Kaydet → N sn → Durdur; kayıt dosya yolundaki hazırlıktan geçmeli
+  (sayfada "… WAV …" hazırlık satırı).
+- klon: Ses Klonlama → Referans ses → mikrofon simgesi → Kaydet → N sn → Durdur; kayıt yerel sunucuya
+  yüklenmeli (referans alanında /gradio_api/file= bağlantısı) ve indirilen WAV, sunucunun klon
+  denetimiyle (generate_audio: 1–30 sn) aynı aralıkta olmalı.
 
 Gerçek mikrofon gerekmez: tarayıcı/WebView2 sahte cihazla başlatılır. Windows CI örneği (WebView2):
 
@@ -14,14 +20,16 @@ Chrome/Edge ile (tarayıcı yolu):
     python tools/mikrofon_duman.py --cdp http://127.0.0.1:9222
 
 Güvenlik: yalnız adresi http://127.0.0.1 ile başlayan SesVer sekmesine bağlanır; başka sekmeye
-(kullanıcının açık tarayıcısı vb.) hiçbir komut göndermez. Çıkış kodu: 0 kayıt hazırlandı,
-1 hazırlanmadı (iletiyle), 2 SesVer sekmesi bulunamadı.
+(kullanıcının açık tarayıcısı vb.) hiçbir komut göndermez; kayıt dosyası da yalnız 127.0.0.1'den
+indirilir. Çıkış kodu: 0 seçilen alanların (--alan, varsayılan hepsi) hepsi geçti, 1 en az biri
+geçmedi (iletiyle), 2 SesVer sekmesi bulunamadı.
 
 Yalnız standart kütüphane kullanır (en küçük WebSocket istemcisi aşağıda): SesVer'in kilitli paket
 listesinde (kilit/) WebSocket kütüphanesi yok, CI ek paket kurmaz.
 """
 import argparse
 import base64
+import io
 import json
 import os
 import socket
@@ -30,6 +38,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
+import wave
 
 
 class WebSocket:
@@ -141,7 +150,7 @@ class Sekme:
 
 
 DURUM_JS = """(() => {
-  const s = document.querySelector('.sv-mic-status'); if (!s) return null;
+  const s = document.querySelector('.sv-mic-status-yukle'); if (!s) return null;
   const m = s.querySelector('.sv-mic-meter'); const vis = (e) => e && e.offsetParent;
   return {sure: m.hidden ? null : s.querySelector('.sv-mic-time').textContent, durum: m.dataset.state || null,
           ileti: s.querySelector('.sv-mic-msg').textContent,
@@ -150,11 +159,44 @@ DURUM_JS = """(() => {
 })()"""
 
 
+# Ses Klonlama referansı: süre göstergesi + kayıt sunucuya yüklendiyse indirme bağlantısı.
+KLON_JS = """(() => {
+  const vis = (e) => e && e.offsetParent;
+  const s = [...document.querySelectorAll('.sv-mic-status-klon')].find(vis); if (!s) return null;
+  const r = [...document.querySelectorAll('.sv-mic-ref')].find(vis);
+  const m = s.querySelector('.sv-mic-meter');
+  const a = r && [...r.querySelectorAll('a[href]')].find((x) => x.getAttribute('href').includes('/gradio_api/file='));
+  return {sure: m.hidden ? null : s.querySelector('.sv-mic-time').textContent, durum: m.dataset.state || null,
+          ileti: s.querySelector('.sv-mic-msg').textContent, dosya: a ? a.href : null};
+})()"""
+
+KLON_MIN, KLON_MAX = 1.0, 30.0  # app.generate_audio / kuyruga_ekle_klon_ui ile aynı
+
+
+def wav_bilgisi(veri):
+    """WAV baytlarından (saniye, kanal, örnek genişliği bayt). Bozuksa ValueError."""
+    try:
+        with wave.open(io.BytesIO(veri)) as w:
+            return w.getnframes() / float(w.getframerate()), w.getnchannels(), w.getsampwidth()
+    except (wave.Error, EOFError, ZeroDivisionError) as exc:
+        raise ValueError(f"WAV okunamadı: {exc}") from exc
+
+
+def _yerel_indir(url):
+    u = urllib.parse.urlsplit(url)
+    if u.scheme != "http" or u.hostname not in ("127.0.0.1", "localhost"):
+        raise ValueError(f"yalnız yerel dosya indirilir: {url[:60]}")
+    with urllib.request.urlopen(url, timeout=30) as r:
+        return r.read()
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cdp", default="http://127.0.0.1:9222")
     ap.add_argument("--saniye", type=float, default=9.5)
     ap.add_argument("--bekle", type=int, default=300, help="SesVer sekmesi için en fazla bekleme (sn)")
+    ap.add_argument("--alan", choices=("hepsi", "yukle", "klon"), default="hepsi",
+                    help="yukle: Ses Oluştur → Dosya yükle; klon: Ses Klonlama → Referans ses")
     a = ap.parse_args()
     sekme = None
     for _ in range(a.bekle):  # SesVer açılana kadar (ilk açılış yavaş olabilir)
@@ -172,12 +214,12 @@ def main():
         return 2
     ws = WebSocket(sekme["webSocketDebuggerUrl"])
     try:
-        return _calistir(Sekme(ws), sekme["url"], a.saniye)
+        return _calistir(Sekme(ws), sekme["url"], a.saniye, a.alan)
     finally:
         ws.close()
 
 
-def _calistir(s, url, saniye):
+def _calistir(s, url, saniye, alan="hepsi"):
     s.cdp("Runtime.enable")
     for _ in range(120):
         if s.js("[...document.querySelectorAll('#sv-tabs button[role=tab]')].filter(x => x.offsetParent).length"):
@@ -186,22 +228,65 @@ def _calistir(s, url, saniye):
     s.cdp("Input.dispatchKeyEvent", type="keyDown", key="Escape")  # açılış ekranını geç
     s.cdp("Input.dispatchKeyEvent", type="keyUp", key="Escape")
     time.sleep(1.5)
+    rapor = {"sekme": url, "ua": s.js("navigator.userAgent")}
+    gecti = True
+    if alan in ("hepsi", "yukle"):
+        rapor["yukle"] = _yukle(s, saniye)
+        gecti &= rapor["yukle"]["gecti"]
+    if alan in ("hepsi", "klon"):
+        rapor["klon"] = _klon(s, saniye)
+        gecti &= rapor["klon"]["gecti"]
+    print(json.dumps(rapor, ensure_ascii=False, indent=1))
+    return 0 if gecti else 1
+
+
+def _durdur(s, kapsam):
+    sel = f"{kapsam} .stop-button"
+    if s.js(f"[...document.querySelectorAll({json.dumps(sel)})].some(x => x.offsetParent)"):
+        s.tikla(sel)
+
+
+def _yukle(s, saniye):
     s.tikla("#sv-tabs button[role=tab]", 1)       # Ses Oluştur
     s.tikla("#sv-subtabs button[role=tab]", 1)    # Dosya yükle
-    s.tikla(".sv-mic .record-button")
+    s.tikla(".sv-mic:not(.sv-mic-ref) .record-button")
     time.sleep(saniye)
     sirasinda = s.js(DURUM_JS)
-    if s.js("!!document.querySelector('.sv-mic .stop-button') && !!document.querySelector('.sv-mic .stop-button').offsetParent"):
-        s.tikla(".sv-mic .stop-button")
+    _durdur(s, ".sv-mic:not(.sv-mic-ref)")
     sonuc = None
     for _ in range(30):
         time.sleep(1)
         sonuc = s.js(DURUM_JS)
         if sonuc and (sonuc["hazirlik"] or sonuc["ileti"]):
             break
-    print(json.dumps({"sekme": url, "kayit_sirasinda": sirasinda, "sonuc": sonuc,
-                      "ua": s.js("navigator.userAgent")}, ensure_ascii=False, indent=1))
-    return 0 if sonuc and sonuc["hazirlik"] and not sonuc["ileti"] else 1
+    return {"kayit_sirasinda": sirasinda, "sonuc": sonuc,
+            "gecti": bool(sonuc and sonuc["hazirlik"] and not sonuc["ileti"])}
+
+
+def _klon(s, saniye):
+    s.tikla("#sv-tabs button[role=tab]", 2)                 # Ses Klonlama
+    s.tikla(".sv-mic-ref .source-selection button", 1)      # mikrofon kaynağı (dosya simgesinden sonra)
+    s.tikla(".sv-mic-ref .record-button")
+    time.sleep(saniye)
+    sirasinda = s.js(KLON_JS)
+    _durdur(s, ".sv-mic-ref")
+    sonuc = None
+    for _ in range(30):
+        time.sleep(1)
+        sonuc = s.js(KLON_JS)
+        if sonuc and (sonuc["dosya"] or sonuc["ileti"]):
+            break
+    out = {"kayit_sirasinda": sirasinda, "sonuc": sonuc, "gecti": False}
+    if not (sonuc and sonuc["dosya"]) or sonuc["ileti"]:
+        return out
+    try:
+        sure, kanal, genislik = wav_bilgisi(_yerel_indir(sonuc["dosya"]))
+    except (OSError, ValueError) as exc:
+        out["wav_hata"] = str(exc)
+        return out
+    out["wav"] = {"saniye": round(sure, 2), "kanal": kanal, "bit": genislik * 8}
+    out["gecti"] = KLON_MIN <= sure <= KLON_MAX
+    return out
 
 
 if __name__ == "__main__":

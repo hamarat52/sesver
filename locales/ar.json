@@ -159,7 +159,7 @@
  "Dosya yükle": "رفع ملف",
  "Ses Klonlama": "استنساخ الصوت",
  "3 adım": "3 خطوات",
- "Örnek sesi yükleyin": "ارفع صوتًا نموذجيًا",
+ "Örnek sesi yükleyin ya da kaydedin": "ارفع صوتًا نموذجيًا أو سجّله",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "أفضل نتيجة يعطيها <b>ملف WAV مدته 3–15 ثانية</b> نظيف بلا موسيقى يتحدث فيه شخص واحد (تُقبل 1–30 ثانية).",
  "Referans ses (gerekli)": "الصوت المرجعي (مطلوب)",
  "Kayıtta ne söylendiğini yazın": "اكتب ما يُقال في التسجيل",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "تعذّر فتح الميكروفون. حاول مجددًا أو ارفع ملفًا.",
  "{sn} sn · en az 8 sn konuşun": "{sn} ث · تحدّث 8 ث على الأقل",
  "{sn} sn · süre uygun": "{sn} ث · المدة مناسبة",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} ث · تجاوز 20 ث، ستختار الجزء المستخدم لاحقًا"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} ث · تجاوز 20 ث، ستختار الجزء المستخدم لاحقًا",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "للتسجيل بالميكروفون، اضغط رمز الميكروفون أسفل المربع ثم اضغط تسجيل. تحدّث لمدة 3–15 ثانية ثم اضغط إيقاف؛ استمع إلى التسجيل، وإن لم يعجبك فاحذفه وسجّل من جديد. يبقى التسجيل على هذا الحاسوب فقط.",
+ "{sn} sn · en az 1 sn gerekir": "{sn} ث · يلزم 1 ث على الأقل",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} ث · مقبول؛ يُنصح بـ 3–15 ث",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} ث · مقبول؛ تعطي 3–15 ث نتيجة أفضل",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} ث · تجاوز 30 ث؛ احذفه وسجّل تسجيلًا أقصر"
 }

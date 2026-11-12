@@ -907,11 +907,13 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  # 1.4.2: Ses Oluştur → Dosya yükle → mikrofonla kayıt, gerçek SesVer penceresinde (desktop.py:
-  # pywebview + Edge WebView2). Gerçek mikrofon yok: WebView2 sahte ses cihazı ve otomatik izinle
-  # başlatılır (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS); tools/mikrofon_duman.py CDP ile Kaydet →
-  # ~9,5 sn → Durdur yapar ve kaydın dosya yüklemeyle aynı hazırlıktan geçtiğini (WAV satırı, ileti
-  # yok) denetler. Kurulum programından bağımsızdır (kaynaktan, kilit/ dosyalarıyla, kurulumla aynı
+  # 1.4.2: mikrofonla kayıt, gerçek SesVer penceresinde (desktop.py: pywebview + Edge WebView2).
+  # Gerçek mikrofon yok: WebView2 sahte ses cihazı ve otomatik izinle başlatılır
+  # (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS); tools/mikrofon_duman.py CDP ile iki alanı dener:
+  # Ses Oluştur → Dosya yükle (Kaydet → ~9,5 sn → Durdur; kayıt dosya yüklemeyle aynı hazırlıktan
+  # geçmeli: WAV satırı, ileti yok) ve Ses Klonlama → Referans ses (mikrofon simgesi → Kaydet → Durdur;
+  # kayıt yerel sunucuya yüklenmeli ve indirilen WAV 1–30 sn olmalı). Kurulum programından
+  # bağımsızdır (kaynaktan, kilit/ dosyalarıyla, kurulumla aynı
   # pip bayrakları). Başarısızlık workflow'u kırmızı yapar; release job'u yalnız build'i bekler,
   # yayın akışı ve var olan adımlar değişmez.
   mikrofon-duman:
@@ -966,9 +968,9 @@ jobs:
             Get-Content 'sesver_log.txt' -Tail 60 -Encoding utf8 -ErrorAction SilentlyContinue | Out-Host
             Copy-Item 'sesver_log.txt' (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-sesver_log.txt') -ErrorAction SilentlyContinue
           }
-          if ($kod -ne 0) { throw "Mikrofon duman testi başarısız (çıkış kodu $kod; 1 = kayıt hazırlanmadı, 2 = SesVer penceresi/sekmesi yok)" }
+          if ($kod -ne 0) { throw "Mikrofon duman testi başarısız (çıkış kodu $kod; 1 = Ses Oluştur ya da Ses Klonlama kaydı geçmedi, 2 = SesVer penceresi/sekmesi yok)" }
           $global:LASTEXITCODE = 0
-          Write-Host 'Mikrofon duman testi BAŞARILI: SesVer penceresinde (WebView2) Kaydet → Durdur, kayıt dosya yüklemeyle aynı hazırlıktan geçti.'
+          Write-Host 'Mikrofon duman testi BAŞARILI: SesVer penceresinde (WebView2) Kaydet → Durdur; Ses Oluştur kaydı dosya yüklemeyle aynı hazırlıktan geçti, Ses Klonlama referans kaydı 1–30 sn WAV olarak yüklendi.'
 
       - name: Mikrofon duman testi kanıtı
         if: always()

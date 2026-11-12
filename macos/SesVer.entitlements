@@ -6,7 +6,8 @@
 
   TEK İSTİSNA: com.apple.security.device.audio-input (1.4.2, mikrofonla kayıt).
   Gerekçe (ayrıntı ve gerçek çıktı: docs/macos-yayin.md, "Entitlement gerekçeleri"):
-    - Ses Oluştur > Dosya yükle adımında kullanıcı Kaydet'e basınca pencere (WKWebView)
+    - Ses Oluştur > Dosya yükle adımında ve Ses Klonlama > Referans ses alanında kullanıcı
+      Kaydet'e basınca pencere (WKWebView)
       getUserMedia ile mikrofonu açar. TCC bu isteği paketin sorumlu sürecine, yani bu
       başlatıcıya (com.hamaratlabs.sesver) atfeder. Başlatıcı hardened runtime ile imzalı
       olduğundan bu anahtar yoksa tccd izin penceresini hiç göstermez:

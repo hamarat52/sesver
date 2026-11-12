@@ -1,8 +1,9 @@
-"""1.4.2: Ses Oluştur → Dosya yükle adımında mikrofonla kayıt.
+"""1.4.2: mikrofonla kayıt (Ses Oluştur → Dosya yükle ve Ses Klonlama → Referans ses).
 
-Kayıt dosya yolundaki işlemlerin aynısından geçer (dönüştürme, kırpma, 8–20 sn kuralı, izin
-kutucuğu); izin reddi / cihaz yok iletileri sayfanın dilinde; Mac paketi mikrofon iznini
-isteyebilir (Info.plist + entitlement). Model yüklenmez; ağ çağrılmaz.
+Kayıt dosya yolundaki işlemlerin aynısından geçer (Ses Oluştur: dönüştürme, kırpma, 8–20 sn kuralı,
+izin kutucuğu; Ses Klonlama: 1–30 sn denetimi, otomatik yazıya dökme); izin reddi / cihaz yok
+iletileri sayfanın dilinde; Mac paketi mikrofon iznini isteyebilir (Info.plist + entitlement).
+Model yüklenmez; ağ çağrılmaz.
 """
 import json
 import plistlib
@@ -42,6 +43,14 @@ MIC_KEYS = [
     "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.",
     "{sn} sn · en az 8 sn konuşun", "{sn} sn · süre uygun",
     "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz",
+]
+# Ses Klonlama → Referans ses (mikrofon, 1–30 sn; 3–15 önerilir).
+CLONE_KEYS = [
+    "Örnek sesi yükleyin ya da kaydedin",
+    "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup "
+    "Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.",
+    "{sn} sn · en az 1 sn gerekir", "{sn} sn · kabul edilir; 3–15 sn önerilir",
+    "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir", "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin",
 ]
 
 
@@ -135,7 +144,11 @@ class MicUiTests(unittest.TestCase):
         cls.by_id = {c["id"]: c for c in cls.comps}
 
     def _mics(self):
-        return [c for c in self.comps if c["type"] == "audio" and "sv-mic" in (c["props"].get("elem_classes") or [])]
+        return [c for c in self.comps if c["type"] == "audio" and "sv-mic" in (c["props"].get("elem_classes") or [])
+                and "sv-mic-ref" not in c["props"]["elem_classes"]]
+
+    def _refs(self):
+        return [c for c in self.comps if c["type"] == "audio" and "sv-mic-ref" in (c["props"].get("elem_classes") or [])]
 
     def test_recorder_on_every_language_page(self):
         mics = self._mics()
@@ -148,10 +161,6 @@ class MicUiTests(unittest.TestCase):
             self.assertIsNone(p.get("format"))  # sunucuda ikinci dönüştürme (ffmpeg) yok
         self.assertIn("Mikrofon kaydı", {c["props"]["label"] for c in mics})
         self.assertIn("Microphone recording", {c["props"]["label"] for c in mics})
-        # Ses Klonlama referans alanı bu işin kapsamı dışında: yalnız dosya yükleme.
-        refs = [c for c in self.comps if c["type"] == "audio" and c["props"].get("label") == "Referans ses (gerekli)"]
-        self.assertTrue(refs)
-        self.assertTrue(all(c["props"]["sources"] == ["upload"] for c in refs))
 
     def test_events_share_the_file_pipeline(self):
         mic_ids = {c["id"] for c in self._mics()}
@@ -172,13 +181,13 @@ class MicUiTests(unittest.TestCase):
 
     def test_status_messages_are_in_the_page_language(self):
         htmls = [str(c["props"].get("value")) for c in self.comps if c["type"] == "html"]
-        durum = [h for h in htmls if "sv-mic-status" in h]
+        durum = [h for h in htmls if "sv-mic-status-yukle" in h]
         self.assertEqual(len(durum), len(i18n.LANGUAGES))
         tr = next(h for h in durum if "Mikrofon izni verilmedi" in h)
         en = next(h for h in durum if "Microphone permission was not given" in h)
         for h in (tr, en):
             for anahtar in ("wait", "denied-mac", "denied-win", "denied-browser", "nodevice", "busy", "unsupported",
-                            "error", "short", "ok", "long"):
+                            "error", "short", "ok", "long", "steps", "scale"):
                 self.assertRegex(h, rf'data-{anahtar}="[^"]+"')
             self.assertIn("{sn}", h)
         self.assertIn("Sistem Ayarları &gt; Gizlilik ve Güvenlik &gt; Mikrofon", tr)
@@ -225,10 +234,14 @@ const bar = {style: {}};
 const time = {textContent: ''};
 const meter = {hidden: true, dataset: {}, classList: {toggle() {}},
                querySelector: (s) => (s === '.sv-mic-bar i' ? bar : time)};
-const box = {dataset: {wait: 'WAIT', deniedMac: 'MAC', deniedWin: 'WIN', deniedBrowser: 'BROWSER',
+const box = {dataset: Object.assign({wait: 'WAIT', deniedMac: 'MAC', deniedWin: 'WIN', deniedBrowser: 'BROWSER',
                        nodevice: 'NODEV', busy: 'BUSY', unsupported: 'UNSUP', error: 'ERR',
-                       short: '{sn} kisa', ok: '{sn} uygun', long: '{sn} uzun'},
+                       short: '{sn} kisa', ok: '{sn} uygun', long: '{sn} uzun'}, scenario.data || {}),
              classList: {toggle() {}}, querySelector: (s) => (s === '.sv-mic-msg' ? msg : meter)};
+// Sayfada önce başka bir alanın kutusu var (belge sırasında kaydediciden önce): ona yazılmamalı.
+const other = {dataset: {}, classList: {toggle() { throw new Error('yanlış kutu'); }},
+               querySelector() { throw new Error('yanlış kutu'); }};
+const mic = {querySelector: () => null, compareDocumentPosition: (n) => (n === box ? 4 : 2)};
 let clock = 0;
 globalThis.performance = {now: () => clock};
 globalThis.window = scenario.pywebview ? {pywebview: {}} : {};
@@ -240,9 +253,9 @@ const md = scenario.noMedia ? undefined : {getUserMedia: () => new Promise((res,
 })};
 Object.defineProperty(globalThis, 'navigator', {value: {mediaDevices: md, platform: scenario.platform,
   userAgent: scenario.platform}, configurable: true});
-globalThis.document = {querySelector: (s) => (s === '.sv-mic-status' ? box : null),
+globalThis.document = {querySelectorAll: (s) => (s === '.sv-mic-status' ? [other, box] : []),
   addEventListener: (t, f) => { listeners[t] = f; }, documentElement: {lang: 'tr'}};
-const inMic = (sel) => ({closest: (q) => (q === '.sv-mic' || q === sel ? {} : null)});
+const inMic = (sel) => ({closest: (q) => (q === '.sv-mic' ? mic : (q === sel ? {} : null))});
 (0, eval)(MIC_JS);
 (async () => {
   const out = {};
@@ -255,8 +268,9 @@ const inMic = (sel) => ({closest: (q) => (q === '.sv-mic' || q === sel ? {} : nu
     clock = 9300; resolveGum(); await p;
     await new Promise((r) => setTimeout(r, 150));
     out.live = time.textContent; out.meterHidden = meter.hidden; out.width = bar.style.width;
-    clock = 23400; track.stop();
-    out.final = time.textContent; out.state = meter.dataset.state;
+    clock = 9300 + (scenario.recordMs || 14100); track.stop();
+    out.final = time.textContent; out.state = meter.dataset.state; out.tone = meter.dataset.tone;
+    out.finalWidth = bar.style.width;
   } else { await p; }
   out.msg = msg.textContent;
   console.log(JSON.stringify(out));
@@ -290,6 +304,134 @@ const inMic = (sel) => ({closest: (q) => (q === '.sv-mic' || q === sel ? {} : nu
         self.assertFalse(out["meterHidden"])
         self.assertEqual(out["final"], "14.1 uygun")  # 9.3 sn'de başladı, 23.4 sn'de durdu
         self.assertEqual(out["state"], "ok")
+
+    def test_clone_reference_uses_its_own_duration_rule(self):
+        # Ses Klonlama referansı: kurallar kutunun data-steps / data-scale özniteliklerinden (1–30 sn, 3–15 önerilir).
+        html = app._mic_status_html("klon")
+        steps = json.loads(re.search(r'data-steps="([^"]+)"', html).group(1).replace("&quot;", '"'))
+        data = {"steps": json.dumps(steps), "scale": re.search(r'data-scale="([^"]+)"', html).group(1),
+                "cshort": "{sn} 1alti", "cbrief": "{sn} kisa", "ok": "{sn} uygun", "clong": "{sn} uzun",
+                "cover": "{sn} fazla"}
+        beklenen = {500: ("0.5 1alti", "short"), 2000: ("2.0 kisa", "short"), 9000: ("9.0 uygun", "ok"),
+                    22000: ("22.0 uzun", "long"), 31000: ("31.0 fazla", "over")}
+        for ms, (metin, ton) in beklenen.items():
+            with self.subTest(ms=ms):
+                out = self.run_js(platform="Win32", pywebview=True, data=data, recordMs=ms)
+                self.assertEqual((out["final"], out["tone"]), (metin, ton))
+        self.assertEqual(self.run_js(platform="Win32", data=data, recordMs=40000)["finalWidth"], "100.0%")
+
+
+class CloneReferenceMicTests(unittest.TestCase):
+    """Ses Klonlama → Referans ses: aynı bileşende dosya ya da mikrofon; kayıt dosyayla aynı denetimden
+    (1–30 sn) ve aynı yazıya dökmeden geçer. Model yüklenmez (get_model / Whisper taklit)."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.demo = _demo()
+        cls.comps = cls.demo.config["components"]
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _refs(self):
+        return [c for c in self.comps if c["type"] == "audio" and "sv-mic-ref" in (c["props"].get("elem_classes") or [])]
+
+    def test_reference_offers_upload_and_microphone_on_every_page(self):
+        refs = self._refs()
+        self.assertEqual(len(refs), len(i18n.LANGUAGES))
+        for c in refs:
+            p = c["props"]
+            self.assertEqual(p["sources"], ["upload", "microphone"])  # dosya varsayılan, mikrofon ikinci
+            self.assertEqual(p["type"], "filepath")
+            self.assertNotIn("share", p.get("buttons") or [])
+            self.assertIsNone(p.get("format"))  # kayıt tarayıcıda WAV olur; sunucuda ikinci dönüştürme yok
+        self.assertIn("Referans ses (gerekli)", {c["props"]["label"] for c in refs})
+        htmls = [str(c["props"].get("value")) for c in self.comps if c["type"] == "html"]
+        durum = [h for h in htmls if "sv-mic-status-klon" in h]
+        self.assertEqual(len(durum), len(i18n.LANGUAGES))
+        tr = next(h for h in durum if "Mikrofon izni verilmedi" in h)
+        for anahtar in ("wait", "denied-mac", "denied-win", "denied-browser", "nodevice", "busy", "unsupported",
+                        "error", "cshort", "cbrief", "ok", "clong", "cover", "steps", "scale"):
+            self.assertRegex(tr, rf'data-{anahtar}="[^"]+"')
+        self.assertIn("en az 1 sn", tr)
+        self.assertIn("30 sn", tr)
+        notlar = [h for h in htmls if "sv-mic-note" in h]
+        self.assertEqual(len(notlar), len(i18n.LANGUAGES))
+        self.assertTrue(any("Kayıt yalnız bu bilgisayarda kalır." in h for h in notlar))
+
+    def test_clone_rule_matches_server_limits(self):
+        steps = app._MIC_RULES["klon"]["steps"]
+        self.assertEqual(steps[0][0], 1)  # generate_audio: 1 <= süre
+        self.assertAlmostEqual(steps[-2][0], 30, delta=0.1)  # süre <= 30
+        self.assertEqual(app._MIC_RULES["klon"]["band"], (3, 15))  # önerilen
+        self.assertEqual(app._MIC_RULES["yukle"]["band"], (audio_prep.MIN_SECONDS, audio_prep.MAX_SECONDS))
+
+    def test_transcribe_button_reads_the_same_reference(self):
+        ref_ids = {c["id"] for c in self._refs()}
+        tr = [f for f in self.demo.fns.values() if f.fn is app.auto_transcribe]
+        self.assertEqual(len(tr), len(i18n.LANGUAGES))
+        for f in tr:
+            self.assertEqual(len(f.inputs), 1)
+            self.assertIn(f.inputs[0]._id, ref_ids)  # dosya da kayıt da aynı değer
+        uret = [f for f in self.demo.fns.values() if getattr(f.fn, "__name__", "") == "_clone_generate"
+                or getattr(getattr(f.fn, "__wrapped__", None), "__name__", "") == "_clone_generate"]
+        for f in uret:
+            self.assertIn(f.inputs[1]._id, ref_ids)
+
+    def test_recording_is_checked_like_a_file(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        model = SimpleNamespace(tts_model=SimpleNamespace(sample_rate=48000), generate=Mock(return_value=np.zeros(4800)))
+        uygun = recorder_wav(self.tmp / "audio.wav", 8)  # Gradio kaydı: 44.1 kHz stereo 16-bit
+        dosya = self.tmp / "yuklenen.wav"
+        shutil.copy(uygun, dosya)
+        with patch.object(app, "OUTPUT_DIR", self.tmp / "out"), patch.object(app, "get_model", return_value=model):
+            for ref in (uygun, str(dosya)):
+                list(app._clone_generate("Merhaba.", ref, "Nötr", None))
+                self.assertEqual(model.generate.call_args.kwargs.get("reference_wav_path"), ref)
+        for sn, lead, tail in ((31, 0.6, 0.8), (0.4, 0.1, 0.1)):  # 30 sn üstü / 1 sn altı: ikisi de aynı ret
+            kayit = recorder_wav(self.tmp / f"audio-{sn}.wav", sn, lead_s=lead, tail_s=tail)
+            kopya = self.tmp / f"dosya-{sn}.wav"
+            shutil.copy(kayit, kopya)
+            for ref in (kayit, str(kopya)):
+                with self.subTest(sn=sn, ref=Path(ref).name), patch.object(app, "get_model") as load:
+                    with self.assertRaisesRegex(app.gr.Error, "1–30 saniyelik"):
+                        list(app._clone_generate("Merhaba.", ref, "Nötr", None))
+                    load.assert_not_called()
+                    with self.assertRaisesRegex(app.gr.Error, "1–30 saniyelik"):
+                        app.kuyruga_ekle_klon_ui("Merhaba.", ref, "Nötr", "")
+
+    def test_auto_transcribe_runs_on_the_recording(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        kayit = recorder_wav(self.tmp / "audio.wav", 5)
+        whisper = Mock(transcribe=Mock(return_value=([SimpleNamespace(text=" Bu benim sesim. ")], None)))
+        with patch.object(app, "_get_whisper", return_value=whisper):
+            self.assertEqual(app.auto_transcribe(kayit), "Bu benim sesim.")
+        self.assertEqual(whisper.transcribe.call_args.args[0], kayit)  # kaydın kendisi, değişmeden
+
+    def test_clone_texts_translated_without_em_dash(self):
+        kaynak = json.loads((ROOT / "locales" / "_kaynak.json").read_text(encoding="utf-8"))
+        self.assertNotIn("Örnek sesi yükleyin", kaynak)  # yerine "... ya da kaydedin"
+        for k in CLONE_KEYS:
+            self.assertIn(k, kaynak)
+            self.assertNotIn("\u2014", k)
+        for lang in i18n.LANGUAGES:
+            if lang == i18n.DEFAULT:
+                continue
+            d = json.loads((ROOT / "locales" / f"{lang}.json").read_text(encoding="utf-8"))
+            for k in CLONE_KEYS:
+                with self.subTest(dil=lang, anahtar=k[:30]):
+                    self.assertTrue(d.get(k, "").strip())
+                    self.assertNotIn("\u2014", d[k])
+                    self.assertEqual(re.findall(r"\{[^{}]*\}", k), re.findall(r"\{[^{}]*\}", d[k]))
+        for lang in ("tr", "en", "ar"):
+            with i18n.use(lang):
+                for h in (app._clone_mic_hint_html(), app._mic_status_html("klon")):
+                    self.assertNotIn("\u2014", h)
 
 
 class MacPackagingTests(unittest.TestCase):
@@ -335,6 +477,7 @@ class WindowsCiSmokeTests(unittest.TestCase):
         run = adim["run"]
         self.assertIn("-ArgumentList 'desktop.py'", run)  # tarayıcı değil, gerçek pencere
         self.assertIn(r"tools\mikrofon_duman.py --cdp http://127.0.0.1:9222", run)
+        self.assertNotIn("--alan", run)  # varsayılan "hepsi": Ses Oluştur ve Ses Klonlama birlikte
         self.assertIn("if ($kod -ne 0) { throw", run)
         for k in (r"kilit\pip.txt", r"kilit\torch-pypi.txt", r"kilit\windows-x64-py311.txt"):
             self.assertIn(k, run)
@@ -364,6 +507,17 @@ class WindowsCiSmokeTests(unittest.TestCase):
         spec = importlib.util.spec_from_file_location("mikrofon_duman", ROOT / "tools" / "mikrofon_duman.py")
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
+        # Klon referansı denetimi: sunucudan inen kaydın süresi, sunucunun 1–30 sn sınırıyla.
+        with tempfile.TemporaryDirectory() as d:
+            veri = Path(recorder_wav(Path(d) / "audio.wav", 10)).read_bytes()
+        sure, kanal, genislik = mod.wav_bilgisi(veri)
+        self.assertAlmostEqual(sure, 11.4, places=2)
+        self.assertEqual((kanal, genislik), (2, 2))
+        self.assertEqual((mod.KLON_MIN, mod.KLON_MAX), (1.0, 30.0))
+        with self.assertRaises(ValueError):
+            mod.wav_bilgisi(b"RIFF bozuk")
+        with self.assertRaises(ValueError):  # kayıt yalnız yerel sunucudan indirilir
+            mod._yerel_indir("http://example.com/gradio_api/file=/x.wav")
         with self.assertRaises(ValueError):  # yalnız yerel adres
             mod.WebSocket("ws://example.com:9222/devtools/page/x")
         a, b = socket.socketpair()

@@ -159,7 +159,7 @@
  "Dosya yükle": "Importer un fichier",
  "Ses Klonlama": "Clonage de voix",
  "3 adım": "3 étapes",
- "Örnek sesi yükleyin": "Importez une voix d'exemple",
+ "Örnek sesi yükleyin ya da kaydedin": "Importez ou enregistrez une voix d'exemple",
  "Tek kişinin konuştuğu, müziksiz ve temiz <b>3–15 saniyelik WAV</b> en iyi sonucu verir (1–30 saniye kabul edilir).": "Un <b>WAV de 3 à 15 secondes</b> propre, sans musique et avec une seule personne qui parle donne le meilleur résultat (1 à 30 secondes acceptées).",
  "Referans ses (gerekli)": "Voix de référence (obligatoire)",
  "Kayıtta ne söylendiğini yazın": "Écrivez ce qui est dit dans l'enregistrement",
@@ -623,5 +623,10 @@
  "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Impossible d'ouvrir le micro. Réessayez ou importez un fichier.",
  "{sn} sn · en az 8 sn konuşun": "{sn} s · parlez au moins 8 s",
  "{sn} sn · süre uygun": "{sn} s · durée correcte",
- "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · plus de 20 s, vous choisirez ensuite la partie à utiliser"
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · plus de 20 s, vous choisirez ensuite la partie à utiliser",
+ "Mikrofonla kaydetmek için kutunun altındaki mikrofon simgesine, sonra Kaydet'e basın. 3–15 saniye konuşup Durdur'a basın; dinleyin, beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Pour enregistrer avec le micro, cliquez sur l'icône du micro en bas du cadre, puis sur Enregistrer. Parlez 3–15 secondes puis appuyez sur Arrêter ; réécoutez et, si cela ne vous convient pas, supprimez et recommencez. L'enregistrement reste uniquement sur cet ordinateur.",
+ "{sn} sn · en az 1 sn gerekir": "{sn} s · au moins 1 s requise",
+ "{sn} sn · kabul edilir; 3–15 sn önerilir": "{sn} s · acceptée ; 3–15 s recommandées",
+ "{sn} sn · kabul edilir; 3–15 sn daha iyi sonuç verir": "{sn} s · acceptée ; 3–15 s donnent de meilleurs résultats",
+ "{sn} sn · 30 sn'yi geçti; silip daha kısa kaydedin": "{sn} s · plus de 30 s ; supprimez et enregistrez plus court"
 }
