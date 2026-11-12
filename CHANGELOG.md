@@ -8,6 +8,7 @@
 - Mac: SesVer ilk kayıtta mikrofon izni ister (Sistem Ayarları → Gizlilik ve Güvenlik → Mikrofon'da SesVer olarak görünür). Bunun için uygulamaya mikrofon kullanım açıklaması ve mikrofon yetkisi eklendi.
 - Ses Klonlama'da referans sesi de mikrofonla kaydedebilirsiniz: referans kutusunun altındaki mikrofon simgesine, sonra **Kaydet**'e basın. Süre 1–30 sn kuralına göre gösterilir (3–15 sn önerilir); kayıt yüklenen dosyayla aynı denetimden geçer ve **Otomatik yazıya dök** kayıtla da çalışır. Aynı izin ve cihaz iletileri burada da gösterilir.
 - README: özellik satırı, sorun giderme ve gizlilik politikası (mikrofon kaydı yalnız bilgisayarınızda kalır) güncellendi.
+- Mikrofon kayıtları ve yüklenen ses dosyaları artık birikmiyor: SesVer bunları ve hazırlık kopyalarını kendi geçici klasöründe tutar; kayıt ses olarak kaydedilince, 2 saat kullanılmayınca (30 dakikada bir bakılır) ve her durumda SesVer kapanınca siler. Hazırlık kopyaları artık `outputs/`'a yazılmaz. Başka uygulamaların dosyalarına, kayıtlı seslere ve `outputs/`'a dokunulmaz.
 
 ## 1.4.1 (2026-11-12)
 

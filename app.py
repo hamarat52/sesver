@@ -23,6 +23,7 @@ import soundfile as sf
 
 import audio_prep
 import effects as fx
+import gecici
 import guncelleme
 import hata_raporu
 import hizlandirma as hiz
@@ -277,6 +278,7 @@ def _whisper_language():
 def auto_transcribe(reference_audio):
     if not reference_audio:
         raise gr.Error(t("Önce bir referans ses yükleyin."))
+    gecici.dokun(reference_audio)
     try:
         with _whisper_lock:
             model = _get_whisper()
@@ -368,6 +370,7 @@ def generate_audio(text, reference_audio, instruction=None, prompt_text=None, pr
     if prompt_text and not reference_audio:
         raise gr.Error(t("Referans metni yalnız bir referans ses yüklendiğinde kullanılabilir."))
     if reference_audio:
+        gecici.dokun(reference_audio)  # klon referansı (dosya ya da mikrofon) kullanılıyor
         try:
             info = sf.info(reference_audio)
             if not 1 <= info.duration <= 30:
@@ -901,20 +904,25 @@ def save_designed_ui(name, aciklama, kategori, picked, cands):
 
 # --- Ses oluştur: dosya yükle -------------------------------------------------
 def upload_analyze_ui(path):
-    """Çöz → mono → sessizliği kırp → kontroller. Hazırlanan dosya outputs/ altına yazılır."""
+    """Çöz → mono → sessizliği kırp → kontroller.
+
+    Hazırlanan kopyalar outputs/'a DEĞİL SesVer'in geçici oturum klasörüne (gecici.py) yazılır: bunlar
+    kullanıcının ses kaydının ara kopyalarıdır; ses olarak kaydedilince, uzun süre kullanılmayınca ya
+    da SesVer kapanınca silinir. Kaydedilen ses voices/ altına ayrıca kopyalanır."""
     if not path:
         return (None, None, None, "", gr.update(visible=False), gr.update(), gr.update(), "")
+    gecici.dokun(path)
     try:
         info = audio_prep.analyze(path)
     except audio_prep.PrepError as exc:
         raise gr.Error(tr_message(str(exc)))
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    full = str(audio_prep.write_wav(info["audio"], info["sr"], OUTPUT_DIR / f"yukleme-{uuid4().hex}-tam.wav"))
+    hedef = gecici.hazirlik_klasoru()
+    full = str(audio_prep.write_wav(info["audio"], info["sr"], hedef / f"yukleme-{uuid4().hex}-tam.wav"))
     dur = info["duration"]
     long_ = dur > audio_prep.MAX_SECONDS
     if long_:
         prepared = str(audio_prep.write_wav(audio_prep.cut(info["audio"], info["sr"], 0, audio_prep.MAX_SECONDS),
-                                            info["sr"], OUTPUT_DIR / f"yukleme-{uuid4().hex}.wav"))
+                                            info["sr"], hedef / f"yukleme-{uuid4().hex}.wav"))
     else:
         prepared = full
     lines = [t("Süre (sessizlik kırpıldı): **{sec} sn** · mono, 16-bit WAV'a çevrildi.", sec=f"{dur:.1f}")]
@@ -928,12 +936,13 @@ def upload_analyze_ui(path):
 def upload_cut_ui(full, start, end):
     if not full:
         raise gr.Error(t("Önce bir ses dosyası yükleyin."))
+    gecici.dokun(full)
     audio, sr = sf.read(full, dtype="float32")
     try:
         clip = audio_prep.cut(audio, sr, start, end)
     except audio_prep.PrepError as exc:
         raise gr.Error(tr_message(str(exc)))
-    out = str(audio_prep.write_wav(clip, sr, OUTPUT_DIR / f"yukleme-{uuid4().hex}.wav"))
+    out = str(audio_prep.write_wav(clip, sr, gecici.hazirlik_klasoru() / f"yukleme-{uuid4().hex}.wav"))
     return out, out, t("Seçilen aralık: {start}–{end} sn ({length} sn).", start=f"{float(start):.1f}",
                        end=f"{float(end):.1f}", length=f"{float(end) - float(start):.1f}")
 
@@ -941,6 +950,7 @@ def upload_cut_ui(full, start, end):
 def upload_transcribe_ui(prepared):
     if not prepared:
         raise gr.Error(t("Önce bir ses dosyası yükleyin."))
+    gecici.dokun(prepared)
     try:
         text, ratio = transcribe_with_info(prepared)
     except Exception:
@@ -971,6 +981,15 @@ def save_uploaded_ui(prepared, text, name, aciklama, kategori, consent):
     except (vlib.VoiceError, PermissionError) as exc:
         raise _voice_error(exc)
     return _voice_list(), voice["id"], gr.Tabs(selected="lib"), t("Kaydedildi: **{ad}**.", ad=escape(voice["ad"]))
+
+
+def save_uploaded_and_clean_ui(prepared, text, name, aciklama, kategori, consent, full, file_value, mic_value):
+    """Kaydet + kaydın geçici kopyalarını sil: ses voices/ altına kopyalandı (vlib.save_voice), geçici
+    klasördeki mikrofon kaydına / yüklenen dosyaya ve hazırlık kopyalarına gerek kalmadı. Kaydetme
+    başarısızsa (izin kutucuğu, süre, ad) hiçbir şey silinmez. Silinen dosyalar ekrandan da kalkar."""
+    sonuc = save_uploaded_ui(prepared, text, name, aciklama, kategori, consent)
+    gecici.sil(prepared, full, file_value, mic_value)
+    return (*sonuc, None, None, None, None, None)
 
 
 # --- Ses oluştur: mikrofonla kaydet ------------------------------------------
@@ -2629,8 +2648,9 @@ def _upload_subtab(lib, tabs):
     u_transcribe.click(upload_transcribe_ui, inputs=u_prepared, outputs=[u_text, u_transcribe_md],
                        concurrency_limit=1, show_progress="full")
     u_consent.change(lambda v: gr.update(interactive=bool(v)), inputs=u_consent, outputs=u_save, queue=False)
-    u_save.click(save_uploaded_ui, inputs=[u_prepared, u_text, u_name, u_desc, u_cat, u_consent],
-                 outputs=[lib.voices, lib.selected, tabs, u_msg]).then(
+    u_save.click(save_uploaded_and_clean_ui,
+                 inputs=[u_prepared, u_text, u_name, u_desc, u_cat, u_consent, u_full, u_file, u_mic],
+                 outputs=[lib.voices, lib.selected, tabs, u_msg, u_full, u_prepared, u_preview, u_file, u_mic]).then(
         select_voice_ui, inputs=[lib.selected, lib.emotion, lib.text], outputs=lib.select_outputs)
 
 
@@ -2777,6 +2797,9 @@ def build_app():
     kapsam dışıdır). Bu yüzden dil seçici ilgili sayfaya geçer; tüm sayfalar
     açılışta bir kez kurulur (~0,1 sn/dil).
     """
+    # Yüklemeler ve mikrofon kayıtları SesVer'in kendi geçici oturum klasörüne (bkz. gecici.py):
+    # bileşenler kurulmadan ÖNCE, çünkü Gradio önbellek yolunu bileşen kurulurken okur.
+    gecici.kur()
     with gr.Blocks(title=t("SesVer · Türkçe yerel ses üretimi", i18n.DEFAULT), analytics_enabled=False) as demo:
         _build_page(demo, i18n.DEFAULT)
     for code, name in i18n.LANGUAGES.items():
@@ -2784,6 +2807,7 @@ def build_app():
             continue
         with demo.route(name, f"/{code}", show_in_navbar=False):
             _build_page(demo, code)
+    gecici.izle(demo)  # aralıklı temizlik kullanıcı yüklemelerini demo.upload_file_set'ten bilir
     return demo.queue(default_concurrency_limit=1, max_size=8)
 
 
@@ -3735,6 +3759,7 @@ def kuyruga_ekle_klon_ui(text, reference_audio, emotion, prompt_text):
     gece üretilebilsin). Klonda kalite/efekt yok (bugünkü davranış)."""
     if not reference_audio:
         raise gr.Error(t("Önce bir referans ses yükleyin."))
+    gecici.dokun(reference_audio)
     try:
         if not 1 <= sf.info(reference_audio).duration <= 30:
             raise ValueError("referans süresi")

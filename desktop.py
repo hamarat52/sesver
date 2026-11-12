@@ -498,14 +498,27 @@ def main():
             # Başlatıcıya bildirip çık; o, uygulamayı konsollu python.exe ile yeniden açar.
             sys.stdout.flush()
             _report_status("pencere_yok")
+            _gecici_kapat()
             os._exit(3)
         _run_browser(server)
+        _gecici_kapat()
         return
     # Pencere kapatıldı: arka plandaki Gradio sunucusu ve tüm thread'lerle birlikte çık.
     print("Pencere kapatıldı, SesVer kapanıyor.", flush=True)
+    _gecici_kapat()
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(0)
+
+
+def _gecici_kapat():
+    """os._exit atexit'i çalıştırmaz: mikrofon kayıtları ve yüklemelerin geçici oturum klasörü
+    (gecici.py) burada açıkça silinir. Hata kapanışı engellemez."""
+    try:
+        if app.gecici.kapat():
+            print("Geçici kayıt ve yükleme dosyaları silindi.", flush=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[UYARI] Geçici dosyalar silinemedi: {hata_raporu.exc_line(exc)}", flush=True)
 
 
 if __name__ == "__main__":
