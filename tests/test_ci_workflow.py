@@ -108,6 +108,57 @@ class PinnedActionsTests(unittest.TestCase):
         release_uses = [s.get("uses", "") for s in data["jobs"]["release"]["steps"]]
         self.assertFalse([u for u in release_uses if u.startswith("actions/checkout@")])
 
+    def test_uninstall_keep_step_proves_keep_reinstall_and_default_delete(self):
+        """1.4.1: "sakla" ile kaldırma, aynı yere yeniden kurulum ve varsayılan (sessiz) silme her push'ta
+        build job'unda koşulur; bir denetim tutmazsa job (ve release) düşer."""
+        data = _workflow()
+        steps = data["jobs"]["build"]["steps"]
+        names = [s.get("name", "") for s in steps]
+        idx = next(i for i, n in enumerate(names) if n.startswith("Kaldırma testi"))
+        self.assertGreater(idx, next(i for i, n in enumerate(names) if n.startswith("Duman testi")))
+        self.assertLess(idx, names.index("Release dosyalarını hazırla (iki asset + SHA256 + notlar)"))
+        step = steps[idx]
+        self.assertNotIn("continue-on-error", step)
+        self.assertNotIn("if", step)
+        run = step["run"]
+        for parca in ("$ErrorActionPreference = 'Stop'",
+                      "Kaldir 'sakla' @('/BILESENLERISAKLA')",
+                      "'Kaldirma: indirilen bilesenler saklandi'",
+                      "if (Compare-Object $once $sonra) {",
+                      "Kur 'sakla-2'",
+                      "Kaldir 'varsayilan' @()",
+                      "'Kaldirma: indirilen bilesenler siliniyor'",
+                      "if (Test-Path $pe) { throw 'Varsayılan sessiz kaldırmada python-embed silinmedi' }",
+                      "'voices\\seslerim\\kisisel.txt','outputs\\uretim.wav'"):
+            self.assertIn(parca, run)
+        self.assertEqual(run.count("BAŞARILI"), 1)
+        self.assertTrue(run.rstrip().endswith("kullanıcı verisi her durumda korundu.'"))
+        # Duman testindeki varsayılan kaldırma python-embed'in (artık son adımda) silinmesini bekler.
+        duman = next(s for s in steps if s.get("name", "").startswith("Duman testi"))["run"]
+        self.assertIn("(Test-Path (Join-Path $app 'python-embed'))); $i++) { Start-Sleep -Seconds 1 }", duman)
+
+    def test_full_launch_measures_that_packages_are_not_downloaded_again(self):
+        """Gerçek ortamla (torch dahil): üstüne yeniden kurulum ve "sakla" ile kaldırıp yeniden kurulum
+        sırasında indirme yok (günlük + dosya + ağ baytı); başarısızlık job'u kırmızı yapar."""
+        data = _workflow()
+        run = data["jobs"]["full-launch"]["steps"][-2]["run"]
+        for parca in ("function Test-TekrarIndirmeYok(",
+                      "'^\\s*(Downloading|Collecting|Installing collected) |Indiriliyor: cpython|Ilk kurulum yapiliyor|esitleniyor'",
+                      "if ($mb -gt 500) { throw",
+                      "if ($sonra.TorchZaman -ne $once.TorchZaman) { throw",
+                      "if ($sonra.Isaret -ne $once.Isaret) { throw",
+                      "Test-TekrarIndirmeYok 'yeniden' $o3 $rx3 $bas3",
+                      "'/BILESENLERISAKLA', \"/LOG=$kl\"",
+                      "Test-TekrarIndirmeYok 'sakla-yeniden' $o5 $rx5 $bas5",
+                      "$u5 = Test-Acilis 'sakla sonrası açılış'",
+                      "throw 'Varsayılan sessiz kaldırmada python-embed silinmedi'"):
+            self.assertIn(parca, run)
+        # Ölçüm, ölçülen kurulumdan SONRA yapılır.
+        self.assertLess(run.index("$g2 = Kur-OrtamKur 'yeniden' 15"), run.index("Test-TekrarIndirmeYok 'yeniden'"))
+        self.assertLess(run.index("$g5 = Kur-OrtamKur 'sakla-yeniden' 15"),
+                        run.index("Test-TekrarIndirmeYok 'sakla-yeniden'"))
+        self.assertNotIn("continue-on-error", data["jobs"]["full-launch"]["steps"][-2])
+
 
 if __name__ == "__main__":
     unittest.main()

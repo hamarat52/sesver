@@ -334,8 +334,9 @@ jobs:
           if (-not (Test-Path $un)) { throw 'unins000.exe yok' }
           $p = Start-Process -FilePath $un -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Kaldırma çıkış kodu: $($p.ExitCode)" }
-          # Kaldırıcı kendini kopyadan çalıştırır; dosyaların silinmesini bekle.
-          for ($i = 0; $i -lt 30 -and (Test-Path (Join-Path $app 'app.py')); $i++) { Start-Sleep -Seconds 1 }
+          # Kaldırıcı kendini kopyadan çalıştırır; dosyaların silinmesini bekle. python-embed\ artık
+          # [UninstallDelete]'te değil, kaldırıcının son adımında (usPostUninstall) silinir: onu da bekle.
+          for ($i = 0; $i -lt 60 -and ((Test-Path (Join-Path $app 'app.py')) -or (Test-Path (Join-Path $app 'python-embed'))); $i++) { Start-Sleep -Seconds 1 }
           foreach ($g in @('app.py','desktop.py','WINDOWS_BASLAT.bat','python-embed','voices\hazir')) {
             if (Test-Path (Join-Path $app $g)) { throw "Kaldırmadan sonra kaldı: $g" }
           }
@@ -346,6 +347,85 @@ jobs:
             if (-not (Test-Path (Join-Path $app $k))) { throw "Kullanıcı verisi silindi: $k" }
           }
           Write-Host 'Duman testi BAŞARILI: kurulum, Kaldır/Ekle kaydı, kısayollar (hedef/çalışma klasörü/ikon), kısayoldan açılış (başlatıcı + Python + pip başlangıcı), kısayol seçimi, kaldırma ve kullanıcı verisinin korunması doğrulandı.'
+
+      # 1.4.1: kaldırırken indirilen bileşenleri (python-embed\, .venv\) saklama. Sessiz kaldırmada
+      # varsayılan silmedir (eski davranış, yukarıdaki duman testi bunu da sınar); /BILESENLERISAKLA
+      # ile kalır ve aynı yere yeniden kurulum onları (kurulum işareti dahil) olduğu gibi kullanır.
+      # Ortam burada taklittir (CI süresi); gerçek paketlerle "yeniden inmedi" ölçümü full-launch'ta.
+      - name: Kaldırma testi — sakla seçeneği (/BILESENLERISAKLA), yeniden kurulum, varsayılan silme
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $app = Join-Path $env:LOCALAPPDATA 'Programs\SesVer'
+          $unKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{12D750B7-D7C7-400A-A81A-2A083B04A266}_is1'
+          $pe = Join-Path $app 'python-embed'
+          $venv = Join-Path $app '.venv'
+          function Kur([string]$ad) {
+            $p = Start-Process -FilePath $env:INSTALLER -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/TASKS=desktopicon',"/LOG=$(Join-Path $env:RUNNER_TEMP "sesver-kurulum-$ad.log")" -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "[$ad] kurulum çıkış kodu: $($p.ExitCode)" }
+          }
+          function Kaldir([string]$ad, [string[]]$ek) {
+            $kl = Join-Path $env:RUNNER_TEMP "sesver-kaldir-$ad.log"
+            $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList (@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART',"/LOG=$kl") + $ek) -Wait -PassThru
+            if ($p.ExitCode -ne 0) { throw "[$ad] kaldırma çıkış kodu: $($p.ExitCode)" }
+            # Kaldırıcı kendini kopyadan çalıştırır: dosyalar, kayıt ve günlükteki son karar satırı beklenir.
+            for ($i = 0; $i -lt 90; $i++) {
+              $karar = Select-String -Path $kl -Pattern 'Kaldirma: indirilen bilesenler (saklandi|siliniyor)' -ErrorAction SilentlyContinue
+              if (-not (Test-Path (Join-Path $app 'app.py')) -and -not (Test-Path $unKey) -and $karar) { break }
+              Start-Sleep -Seconds 1
+            }
+            Start-Sleep -Seconds 3
+            if (Test-Path (Join-Path $app 'app.py')) { throw "[$ad] kaldırmadan sonra app.py kaldı" }
+            if (Test-Path $unKey) { throw "[$ad] kaldırmadan sonra Kaldır/Ekle kaydı kaldı" }
+            Write-Host "[$ad] kaldırma günlüğü (karar satırı): $((Select-String -Path $kl -Pattern 'Kaldirma: ' | ForEach-Object Line) -join ' | ')"
+            return $kl
+          }
+          function Ortam-Izi {
+            Get-ChildItem $pe, $venv -Recurse -File -Force -ErrorAction SilentlyContinue |
+              ForEach-Object { "$($_.FullName.Substring($app.Length))|$($_.Length)|$((Get-FileHash $_.FullName -Algorithm SHA256).Hash)" } | Sort-Object
+          }
+
+          Kur 'sakla-1'
+          # Kurulmuş bir ortam taklidi: python-embed (pythonw + işaret + büyük paket dosyası) ve .venv.
+          New-Item -ItemType Directory -Force (Join-Path $pe 'Lib\site-packages\ornekpaket'), (Join-Path $venv 'Scripts') | Out-Null
+          Copy-Item "$env:SystemRoot\System32\cmd.exe" (Join-Path $pe 'pythonw.exe')
+          Copy-Item "$env:SystemRoot\System32\cmd.exe" (Join-Path $pe 'python.exe')
+          Set-Content (Join-Path $pe 'sesver_kurulum_tamam.txt') 'kilit_sha256=ci-taklit voxcpm=2.0.3'
+          $buyuk = New-Object byte[] (8MB); (New-Object Random 141).NextBytes($buyuk)
+          [IO.File]::WriteAllBytes((Join-Path $pe 'Lib\site-packages\ornekpaket\agirlik.bin'), $buyuk)
+          Set-Content (Join-Path $venv 'pyvenv.cfg') 'home = C:\taklit'
+          $once = Ortam-Izi
+          Write-Host "Taklit ortam: $($once.Count) dosya"
+
+          # 1) Sessiz kaldırma + /BILESENLERISAKLA: python-embed ve .venv aynen kalır, SesVer dosyaları gider.
+          $kl = Kaldir 'sakla' @('/BILESENLERISAKLA')
+          if (-not (Select-String -Path $kl -Pattern 'Kaldirma: indirilen bilesenler saklandi' -Quiet)) { throw 'Kaldırma günlüğünde "saklandi" kararı yok' }
+          $sonra = Ortam-Izi
+          if (Compare-Object $once $sonra) { Compare-Object $once $sonra | Out-Host; throw '/BILESENLERISAKLA ile kaldırmada indirilen bileşenler değişti/silindi' }
+          foreach ($k in @('voices\seslerim\kisisel.txt','outputs\uretim.wav')) { if (-not (Test-Path (Join-Path $app $k))) { throw "Kullanıcı verisi silindi: $k" } }
+
+          # 2) Aynı yere yeniden kurulum: bileşenler olduğu gibi kullanılır (işaret aynı → bat kurulumu atlar).
+          Kur 'sakla-2'
+          $sonra = Ortam-Izi
+          if (Compare-Object $once $sonra) { Compare-Object $once $sonra | Out-Host; throw 'Yeniden kurulum saklanan bileşenleri değiştirdi' }
+          $wv = @('HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}',
+                  'HKCU:\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}') |
+                ForEach-Object { (Get-ItemProperty -Path $_ -Name pv -ErrorAction SilentlyContinue).pv } |
+                Where-Object { $_ -and $_ -ne '0.0.0.0' } | Select-Object -First 1
+          $t = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\SesVer.lnk'))
+          Write-Host "Yeniden kurulum sonrası kısayol: $($t.TargetPath) $($t.Arguments) (WebView2: $(if ($wv) { $wv } else { 'YOK' }))"
+          if ($wv -and $t.TargetPath -ne "$app\python-embed\pythonw.exe") { throw "Saklanan ortamla kısayol doğrudan pythonw.exe olmalı: $($t.TargetPath)" }
+
+          # 3) Parametresiz sessiz kaldırma: eski davranış, indirilen bileşenler silinir.
+          $kl = Kaldir 'varsayilan' @()
+          if (-not (Select-String -Path $kl -Pattern 'Kaldirma: indirilen bilesenler siliniyor' -Quiet)) { throw 'Kaldırma günlüğünde "siliniyor" kararı yok' }
+          for ($i = 0; $i -lt 30 -and ((Test-Path $pe) -or (Test-Path $venv)); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path $pe) { throw 'Varsayılan sessiz kaldırmada python-embed silinmedi' }
+          if (Test-Path $venv) { throw 'Varsayılan sessiz kaldırmada .venv silinmedi' }
+          foreach ($k in @('voices\seslerim\kisisel.txt','outputs\uretim.wav')) { if (-not (Test-Path (Join-Path $app $k))) { throw "Kullanıcı verisi silindi: $k" } }
+          $global:LASTEXITCODE = 0
+          Write-Host 'Kaldırma testi BAŞARILI: /BILESENLERISAKLA ile python-embed ve .venv bayt bayt aynı kaldı, aynı yere yeniden kurulum onları değiştirmeden kullandı, parametresiz sessiz kaldırma onları sildi; kullanıcı verisi her durumda korundu.'
 
       # Siberguvenlik 1.2.1 şartı: sihirbazın hata yolu gerçekten koşulur. İlk kurulum hata verince
       # kurulum_log_paylas.txt oluşmalı ve ev klasörü yolu içermemeli; "Açılışta güncellemeleri
@@ -715,8 +795,44 @@ jobs:
             Start-Sleep -Seconds 5
           }
 
+          # 1.4.1 ÖLÇÜM: kurulu ortamın üstüne yeniden kurulumda (aynı sürüm) ve "sakla" ile kaldırıp aynı
+          # yere yeniden kurulumda paketler yeniden İNMEMELİ. Üç bağımsız kanıt, biri tutmazsa job düşer:
+          #   1) kurulum_log.txt'de pip/Python indirme ya da kurulum satırı yok (Downloading, Collecting,
+          #      Installing collected, "Indiriliyor: cpython", "Ilk kurulum yapiliyor", "esitleniyor");
+          #   2) python-embed bayt toplamı (±50 MB) ve torch\__init__.py'nin yazılma zamanı değişmedi;
+          #   3) ağ bağdaştırıcılarının aldığı bayt kurulum boyunca 500 MB'ı geçmedi (ilk kurulum ~3 GB).
+          # Süre ve MB her koşuda ÖLÇÜM satırına yazılır.
+          function Get-OrtamIzi {
+            $pe = Join-Path $app 'python-embed'
+            $dosyalar = @(Get-ChildItem $pe -Recurse -File -Force -ErrorAction SilentlyContinue)
+            $torch = Join-Path $pe 'Lib\site-packages\torch\__init__.py'
+            [pscustomobject]@{
+              Isaret = (Get-Content (Join-Path $pe 'sesver_kurulum_tamam.txt') -Raw -ErrorAction SilentlyContinue)
+              TorchZaman = if (Test-Path $torch) { (Get-Item $torch).LastWriteTimeUtc } else { $null }
+              Sayi = $dosyalar.Count
+              Bayt = [int64]($dosyalar | Measure-Object -Property Length -Sum).Sum
+            }
+          }
+          function Get-AgBayt { [int64](Get-NetAdapterStatistics -ErrorAction SilentlyContinue | Measure-Object -Property ReceivedBytes -Sum).Sum }
+          function Test-TekrarIndirmeYok([string]$etiket, $once, [int64]$rx0, [datetime]$bas) {
+            $sure = [int]((Get-Date) - $bas).TotalSeconds
+            $mb = [math]::Round(((Get-AgBayt) - $rx0) / 1MB, 1)
+            $sonra = Get-OrtamIzi
+            $satirlar = @(Select-String -Path $ykLog -Pattern '^\s*(Downloading|Collecting|Installing collected) |Indiriliyor: cpython|Ilk kurulum yapiliyor|esitleniyor' -ErrorAction SilentlyContinue)
+            Write-Host ("[{0}] ÖLÇÜM: süre {1} sn; ağdan alınan {2} MB; python-embed {3} dosya / {4:N2} GB (önce {5} / {6:N2} GB); indirme/kurulum satırı {7}" -f $etiket, $sure, $mb, $sonra.Sayi, ($sonra.Bayt / 1GB), $once.Sayi, ($once.Bayt / 1GB), $satirlar.Count)
+            if (-not $once.Isaret -or -not $once.TorchZaman) { throw "[$etiket] ölçüm anlamsız: ölçümden önce kurulu ortam (işaret + torch) yok" }
+            if ($satirlar.Count) { $satirlar | Select-Object -First 15 | ForEach-Object { Write-Host "  | $($_.Line)" }; throw "[$etiket] kurulum günlüğünde indirme/kurulum satırı var: paketler yeniden indirildi ya da kuruldu" }
+            if ($sonra.Isaret -ne $once.Isaret) { throw "[$etiket] kurulum işareti değişti: '$($once.Isaret)' -> '$($sonra.Isaret)'" }
+            if ($sonra.TorchZaman -ne $once.TorchZaman) { throw "[$etiket] torch\__init__.py yeniden yazıldı ($($once.TorchZaman) -> $($sonra.TorchZaman))" }
+            if ([math]::Abs($sonra.Bayt - $once.Bayt) -gt 50MB) { throw "[$etiket] python-embed boyutu 50 MB'tan fazla değişti" }
+            if ($mb -gt 500) { throw "[$etiket] kurulum sırasında ağdan $mb MB alındı (eşik 500 MB; ilk kurulum ~3 GB)" }
+            Write-Host "[$etiket] yeniden indirme YOK: günlükte indirme/kurulum satırı yok, işaret ve torch dosyası aynı, ağ $mb MB, süre $sure sn."
+          }
+
           # 1) Sihirbazın ilk kurulumu: sessiz /ORTAMKUR (python-embed + pip + torch + paketler).
+          $ilkBas = Get-Date; $ilkRx = Get-AgBayt
           $g1 = Kur-OrtamKur 'ilk' 90
+          Write-Host ("[ilk] ÖLÇÜM (karşılaştırma için): süre {0} sn; ağdan alınan {1} MB" -f [int]((Get-Date) - $ilkBas).TotalSeconds, [math]::Round(((Get-AgBayt) - $ilkRx) / 1MB, 1))
           Write-Host "Sihirbazın gözlediği durum satırları: $($g1 -join ' ; ')"
           # Kısa adımlar (CPU'da 3-4) 0,5 sn örneklemede kaçabilir; bat her durumu günlüğe de yazar.
           $gunlukDurum = @(Select-String -Path $ykLog -Pattern '^\[DURUM\] (\d+/6\|.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value })
@@ -732,9 +848,11 @@ jobs:
           Get-Content (Join-Path $app 'sesver_log.txt') -TotalCount 40 -Encoding utf8 | Out-Host
           Stop-SesVer
 
-          # 3) Güncelleme benzeri yeniden kurulum: ortam hazır → bat hızlıca "tamam" demeli.
+          # 3) Güncelleme benzeri yeniden kurulum: ortam hazır → bat hızlıca "tamam" demeli, hiçbir şey inmemeli.
+          $o3 = Get-OrtamIzi; $rx3 = Get-AgBayt; $bas3 = Get-Date
           $g2 = Kur-OrtamKur 'yeniden' 15
           Write-Host "Yeniden kurulum durum satırları: $($g2 -join ' ; ')"
+          Test-TekrarIndirmeYok 'yeniden' $o3 $rx3 $bas3
           Test-Kisayollar 'yeniden'
 
           # 4) İkinci açılış: kullanıcının "tekrar açma" yolu — aynı Başlat Menüsü kısayolu.
@@ -746,8 +864,33 @@ jobs:
           Write-Host '----- sesver_log.txt (ikinci açılış, ilk 40 satır) -----'
           Get-Content (Join-Path $app 'sesver_log.txt') -TotalCount 40 -Encoding utf8 | Out-Host
           Stop-SesVer
+
+          # 5) "Sakla" ile kaldır → aynı yere yeniden kur: ortam yeniden inmemeli, SesVer açılmalı.
+          $unKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{12D750B7-D7C7-400A-A81A-2A083B04A266}_is1'
+          $o5 = Get-OrtamIzi
+          $kl = Join-Path $env:RUNNER_TEMP 'sesver-kaldir-sakla.log'
+          $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/BILESENLERISAKLA', "/LOG=$kl" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Sakla ile kaldırma çıkış kodu: $($p.ExitCode)" }
+          for ($i = 0; $i -lt 120 -and ((Test-Path (Join-Path $app 'app.py')) -or (Test-Path $unKey) -or -not (Select-String -Path $kl -Pattern 'Kaldirma: indirilen bilesenler' -Quiet -ErrorAction SilentlyContinue)); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path (Join-Path $app 'app.py')) { throw 'Sakla ile kaldırmadan sonra app.py kaldı' }
+          if (-not (Select-String -Path $kl -Pattern 'Kaldirma: indirilen bilesenler saklandi' -Quiet)) { throw 'Kaldırma günlüğünde "saklandi" kararı yok' }
+          if (-not (Test-Path (Join-Path $app 'python-embed\sesver_kurulum_tamam.txt'))) { throw 'Sakla ile kaldırmada python-embed/işaret silindi' }
+          Write-Host "Sakla ile kaldırma: python-embed kaldı ($([math]::Round($o5.Bayt / 1GB, 2)) GB)."
+          $rx5 = Get-AgBayt; $bas5 = Get-Date
+          $g5 = Kur-OrtamKur 'sakla-yeniden' 15
+          Write-Host "Sakla sonrası yeniden kurulum durum satırları: $($g5 -join ' ; ')"
+          Test-TekrarIndirmeYok 'sakla-yeniden' $o5 $rx5 $bas5
+          Test-Kisayollar 'sakla-yeniden'
+          $u5 = Test-Acilis 'sakla sonrası açılış' 10 (Join-Path $env:RUNNER_TEMP 'sesver-full-sakla.out.log')
+          Stop-SesVer
+
+          # 6) Parametresiz sessiz kaldırma: eski davranış, python-embed silinir.
+          $p = Start-Process -FilePath (Join-Path $app 'unins000.exe') -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Varsayılan kaldırma çıkış kodu: $($p.ExitCode)" }
+          for ($i = 0; $i -lt 300 -and ((Test-Path (Join-Path $app 'app.py')) -or (Test-Path (Join-Path $app 'python-embed'))); $i++) { Start-Sleep -Seconds 1 }
+          if (Test-Path (Join-Path $app 'python-embed')) { throw 'Varsayılan sessiz kaldırmada python-embed silinmedi' }
           $global:LASTEXITCODE = 0
-          Write-Host "Tam test BAŞARILI: sessiz /ORTAMKUR ilk kurulumu 6/6|tamam (görünür konsol penceresi yok), kısayollar pythonw, ilk açılış $u1 ve ikinci açılış $u2 HTTP 200."
+          Write-Host "Tam test BAŞARILI: sessiz /ORTAMKUR ilk kurulumu 6/6|tamam (görünür konsol penceresi yok), kısayollar pythonw, ilk açılış $u1 ve ikinci açılış $u2 HTTP 200; üstüne yeniden kurulumda ve sakla ile kaldırıp yeniden kurulumda paketler yeniden inmedi (açılış $u5 HTTP 200), varsayılan kaldırma python-embed'i sildi."
 
       - name: Tam açılış günlükleri ve ekran görüntüleri
         if: always()
