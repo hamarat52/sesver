@@ -309,7 +309,11 @@ jobs:
           # alt süreçlerine dokunmaz (çıkış 2); kök yokken kurulum başladıktan sonra python-embed'den
           # doğmuş yetimi durdurur; kurulumdan önce açılmış python-embed sürecine dokunmaz.
           Write-Host '--- kurulum_durdur.ps1: yanlış kök (D1) + kök yokken yetim (D3) ---'
-          $uyku = '-c', 'import time;time.sleep(120)'
+          # Python kodu BOŞLUKSUZ: Start-Process -ArgumentList dizisini tırnaklamadan boşlukla
+          # birleştirir; "import time;time.sleep(120)" python'a "-c import" olarak gidip SyntaxError
+          # ile hemen kapanıyordu (3f4a1ab koşuları 43275144721/43275195988: iki python da kendi
+          # kendine öldü, senaryo D3'ü sınamadan "kurulumdan önceki python durduruldu" dedi).
+          $uyku = '-c', '__import__(''time'').sleep(120)'
           $eski = $null; $yabanci = $null; $yetim = $null
           try {
             $eski = Start-Process -FilePath $embedPy -ArgumentList $uyku -WindowStyle Hidden -PassThru      # kurulumdan önce açık SesVer gibi
@@ -319,10 +323,23 @@ jobs:
             Start-Sleep -Seconds 2
             $yetim = Start-Process -FilePath $embedPy -ArgumentList $uyku -WindowStyle Hidden -PassThru     # kurulumdan sonra doğmuş, kökü yok
             Start-Sleep -Seconds 2
+            # Düzenek denetimi (kurulum_durdur ÇAĞRILMADAN önce): her süreç canlı, doğru yerden ve doğru
+            # sırada doğmuş olmalı. Tutmazsa senaryonun kendi hatası; ürün hatası gibi görünmesin.
             $ping = @(Get-CimInstance Win32_Process -Filter "ParentProcessId=$($yabanci.Id)" | Where-Object { $_.Name -match '^ping' })
-            if ($ping.Count -ne 1) { throw "D1 düzeneği kurulamadı: yabancı cmd'nin ping çocuğu yok" }
-            & $winPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $durdur -Kok $yabanci.Id -Klasor $app | Out-Host
+            if ($ping.Count -ne 1) { throw "D1/D3 düzeneği kurulamadı: yabancı cmd'nin ping çocuğu yok" }
+            $esikD = (Get-Item -LiteralPath $pidD).LastWriteTime
+            foreach ($d in @(@('kurulumdan önceki python', $eski, $false), @('yetim python', $yetim, $true))) {
+              $ad = $d[0]; $sp = $d[1]; $sonra = $d[2]
+              $ci = Get-CimInstance Win32_Process -Filter "ProcessId=$($sp.Id)"
+              if (-not $ci -or $sp.HasExited) { throw "D1/D3 düzeneği kurulamadı: $ad kurulum_durdur'dan önce kapanmış (çıkış $($sp.ExitCode)); senaryo hatası, ürün değil" }
+              if (-not $ci.ExecutablePath.StartsWith((Join-Path $app 'python-embed\'), [StringComparison]::OrdinalIgnoreCase)) { throw "D1/D3 düzeneği: $ad python-embed'den değil ($($ci.ExecutablePath))" }
+              if (($ci.CreationDate -ge $esikD) -ne $sonra) { throw ("D1/D3 düzeneği: {0} kurulum başlangıcına göre yanlış anda doğdu ({1:HH:mm:ss.fff} / {2:HH:mm:ss.fff})" -f $ad, $ci.CreationDate, $esikD) }
+              Write-Host ("D1/D3 düzenek: {0} canlı, PID {1}, olusma {2:HH:mm:ss.fff}, kurulum başlangıcı {3:HH:mm:ss.fff}; komut: {4}" -f $ad, $sp.Id, $ci.CreationDate, $esikD, $ci.CommandLine)
+            }
+            Write-Host ("D1/D3 düzenek: yabancı cmd canlı, PID {0}; ping canlı, PID {1}" -f $yabanci.Id, $ping[0].ProcessId)
+            $dcikti = @(& $winPs -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $durdur -Kok $yabanci.Id -Klasor $app)
             $dkod = $LASTEXITCODE
+            $dcikti | Out-Host
             Start-Sleep -Seconds 1
             $canli = { param($id) [bool](Get-Process -Id $id -ErrorAction SilentlyContinue) }
             Write-Host ("D1/D3 sonuç: çıkış {0}; yabancı cmd {1}, ping {2}, kurulumdan önceki python {3}, yetim python {4}" -f $dkod,
@@ -332,6 +349,9 @@ jobs:
             if (-not (& $canli $ping[0].ProcessId)) { throw 'D1: yabancı sürecin alt süreci durduruldu' }
             if (-not (& $canli $eski.Id)) { throw 'D3: kurulumdan önce açılmış python-embed süreci durduruldu' }
             if (& $canli $yetim.Id) { throw 'D3: kök yokken kurulumdan sonra doğmuş python-embed süreci durdurulmadı' }
+            # Yetimi betik durdurmuş olmalı (kendiliğinden ölmesi D3'ü kanıtlamaz).
+            if (-not ($dcikti | Where-Object { $_ -like "kurulum_durdur: durduruldu PID $($yetim.Id) *(klasor;*" })) { throw 'D3: yetim python kurulum_durdur tarafından durdurulmadı (çıktıda "durduruldu ... (klasor" satırı yok)' }
+            if ($dcikti | Where-Object { $_ -like "*PID $($eski.Id) *" -or $_ -like "*PID $($ping[0].ProcessId) *" }) { throw 'D1/D3: betik çıktısı korunması gereken bir süreçten söz ediyor' }
           } finally {
             foreach ($s in @($yetim, $eski)) { if ($s) { Stop-Process -Id $s.Id -Force -ErrorAction SilentlyContinue } }
             if ($yabanci) { & taskkill.exe /T /F /PID $yabanci.Id 2>&1 | Out-Null }

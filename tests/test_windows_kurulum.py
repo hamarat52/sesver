@@ -1189,6 +1189,37 @@ class KurulumDurdurTests(unittest.TestCase):
                          "'D3: kök yokken kurulumdan sonra doğmuş python-embed süreci durdurulmadı'"):
             self.assertIn(beklenen, blok)
 
+    def test_ci_d1_d3_duzenegi_cagridan_once_dogrulanir(self):
+        # 3f4a1ab koşuları: "-c import time;time.sleep(120)" Start-Process'te tırnaksız birleşti,
+        # python SyntaxError ile kapandı; iki python da kendiliğinden öldü ve senaryo ürün hatası
+        # gibi kırmızı oldu. Kod boşluksuz olmalı; düzenek kurulum_durdur'dan ÖNCE denetlenmeli.
+        wf = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")
+        blok = wf.split("--- kurulum_durdur.ps1: yanlış kök (D1) + kök yokken yetim (D3) ---", 1)[1].split("} finally {", 1)[0]
+        m = re.search(r"^\s*\$uyku = (.+)$", blok, re.M)
+        self.assertIsNotNone(m)
+        assert m is not None
+        argumanlar = re.findall(r"'((?:[^']|'')*)'", m.group(1))
+        self.assertEqual(argumanlar[0], "-c")
+        for a in argumanlar:
+            self.assertNotIn(" ", a)  # Start-Process -ArgumentList dizisi tırnaksız birleşir
+        kod = argumanlar[1].replace("''", "'")
+        compile(kod, "<uyku>", "exec")  # gerçek Python kodu
+        self.assertIn("sleep(120)", kod)
+        cagri = blok.index("-File $durdur -Kok $yabanci.Id -Klasor $app")
+        for denetim in ("if (-not $ci -or $sp.HasExited) { throw \"D1/D3 düzeneği kurulamadı:",
+                        "senaryo hatası, ürün değil",
+                        "ExecutablePath.StartsWith((Join-Path $app 'python-embed\\'), [StringComparison]::OrdinalIgnoreCase)",
+                        "if (($ci.CreationDate -ge $esikD) -ne $sonra)",
+                        "@('kurulumdan önceki python', $eski, $false), @('yetim python', $yetim, $true)",
+                        "D1/D3 düzenek: {0} canlı", "D1/D3 düzenek: yabancı cmd canlı",
+                        "throw \"D1/D3 düzeneği kurulamadı: yabancı cmd'nin ping çocuğu yok\""):
+            self.assertLess(blok.index(denetim), cagri, denetim)
+        # Yetimi betiğin durdurduğu çıktıdan doğrulanır; korunacaklar çıktıda geçmez.
+        self.assertIn('$_ -like "kurulum_durdur: durduruldu PID $($yetim.Id) *(klasor;*"', blok)
+        self.assertIn("'D3: yetim python kurulum_durdur tarafından durdurulmadı", blok)
+        self.assertIn('$_ -like "*PID $($eski.Id) *" -or $_ -like "*PID $($ping[0].ProcessId) *"', blok)
+        self.assertLess(cagri, blok.index("$dkod = $LASTEXITCODE"))
+
     def test_ci_iptal_testi_sihirbazla_ayni_betigi_kullanir(self):
         wf = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")
         blok = wf.split("::group::Yalnız-kurulum kipi (sihirbaz akışı) + iptal", 1)[1].split("::endgroup::", 1)[0]
