@@ -22,7 +22,7 @@ Chrome/Edge ile (tarayıcı yolu):
 Güvenlik: yalnız adresi http://127.0.0.1 ile başlayan SesVer sekmesine bağlanır; başka sekmeye
 (kullanıcının açık tarayıcısı vb.) hiçbir komut göndermez; kayıt dosyası da yalnız 127.0.0.1'den
 indirilir. Çıkış kodu: 0 seçilen alanların (--alan, varsayılan hepsi) hepsi geçti, 1 en az biri
-geçmedi (iletiyle), 2 SesVer sekmesi bulunamadı.
+geçmedi (iletiyle), 2 SesVer sekmesi bulunamadı, 3 (--paket-denetimi) gerekli paket eksik.
 
 Yalnız standart kütüphane kullanır (en küçük WebSocket istemcisi aşağıda): SesVer'in kilitli paket
 listesinde (kilit/) WebSocket kütüphanesi yok, CI ek paket kurmaz.
@@ -172,6 +172,17 @@ KLON_JS = """(() => {
 
 KLON_MIN, KLON_MAX = 1.0, 30.0  # app.generate_audio / kuyruga_ekle_klon_ui ile aynı
 
+# --paket-denetimi: duman testinin (desktop.py → app.py, pywebview + WebView2 köprüsü pythonnet,
+# yazıya dökme, model paketleri) gerçekten ihtiyaç duyduğu üst düzey modüller. Yalnız
+# importlib.util.find_spec: içe aktarılmaz, yan etki yok. pythonnet yalnız Windows kilidinde var.
+GEREKLI_PAKETLER = ("gradio", "numpy", "soundfile", "scipy", "webview", "pythonnet", "faster_whisper",
+                    "torch", "voxcpm")
+
+
+def eksik_paketler(adlar=GEREKLI_PAKETLER):
+    import importlib.util
+    return [ad for ad in adlar if importlib.util.find_spec(ad) is None]
+
 
 def wav_bilgisi(veri):
     """WAV baytlarından (saniye, kanal, örnek genişliği bayt). Bozuksa ValueError."""
@@ -197,7 +208,14 @@ def main():
     ap.add_argument("--bekle", type=int, default=300, help="SesVer sekmesi için en fazla bekleme (sn)")
     ap.add_argument("--alan", choices=("hepsi", "yukle", "klon"), default="hepsi",
                     help="yukle: Ses Oluştur → Dosya yükle; klon: Ses Klonlama → Referans ses")
+    ap.add_argument("--paket-denetimi", action="store_true",
+                    help="yalnız bu Python'da gerekli paketler var mı bak (3 = eksik var); sekmeye bağlanmaz")
     a = ap.parse_args()
+    if a.paket_denetimi:
+        eksik = eksik_paketler()
+        print(json.dumps({"python": sys.executable, "gerekli": list(GEREKLI_PAKETLER), "eksik": eksik},
+                         ensure_ascii=False))
+        return 3 if eksik else 0
     sekme = None
     for _ in range(a.bekle):  # SesVer açılana kadar (ilk açılış yavaş olabilir)
         try:

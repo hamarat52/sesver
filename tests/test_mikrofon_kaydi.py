@@ -475,13 +475,81 @@ class WindowsCiSmokeTests(unittest.TestCase):
         for b in ("--remote-debugging-port=9222", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"):
             self.assertIn(b, bayrak)
         run = adim["run"]
-        self.assertIn("-ArgumentList 'desktop.py'", run)  # tarayıcı değil, gerçek pencere
+        self.assertIn("-ArgumentList '-E', '-s', 'desktop.py'", run)  # tarayıcı değil, kısayolla aynı gerçek pencere
+        self.assertIn(r"python-embed\pythonw.exe", run)
         self.assertIn(r"tools\mikrofon_duman.py --cdp http://127.0.0.1:9222", run)
         self.assertNotIn("--alan", run)  # varsayılan "hepsi": Ses Oluştur ve Ses Klonlama birlikte
         self.assertIn("if ($kod -ne 0) { throw", run)
-        for k in (r"kilit\pip.txt", r"kilit\torch-pypi.txt", r"kilit\windows-x64-py311.txt"):
-            self.assertIn(k, run)
-        self.assertIn("'--require-hashes'", run)
+
+    def test_environment_is_installed_by_the_real_launcher(self):
+        # 1.4.2'nin ilk CI koşusu, iş bat'taki kurulumu elle kopyaladığı ve torch-pypi'yi --no-deps'siz
+        # kurduğu için düştü. Artık kurulum yalnız WINDOWS_BASLAT.bat /yalniz-kurulum ile yapılır:
+        # job'da paket listesi, pip bayrağı ya da ayrı Python yoktur (kopya kalmadı, sapma olamaz).
+        job = self.wf["jobs"]["mikrofon-duman"]
+        adlar = [s.get("name", "") for s in job["steps"]]
+        kur_i = next(i for i, a in enumerate(adlar) if a.startswith("SesVer ortamını kur"))
+        duman_i = next(i for i, a in enumerate(adlar) if a.startswith("Mikrofon kaydı duman testi"))
+        self.assertLess(kur_i, duman_i)
+        kur = job["steps"][kur_i]
+        self.assertNotIn("continue-on-error", kur)
+        run = kur["run"]
+        self.assertIn(r'WINDOWS_BASLAT.bat`"", ' + "'/yalniz-kurulum'", run)
+        self.assertIn("$durum -notlike '*|tamam'", run)  # bat'ın son durum satırı (sihirbazla aynı biçim)
+        self.assertIn(r"python-embed\sesver_kurulum_tamam.txt", run)
+        self.assertIn(r"tools\mikrofon_duman.py --paket-denetimi", run)
+        tum = "\n".join(s.get("run", "") for s in job["steps"])
+        for yasak in ("pip install", "--require-hashes", "--no-deps", "kilit\\", "RUNNER_TOOL_CACHE", ".venv"):
+            self.assertNotIn(yasak, tum)
+
+    def test_launcher_first_install_order_and_flags(self):
+        # CI artık bat'a güvendiği için bat'ın sırası ve bayrakları burada sabitlenir: pip, torch ve
+        # voxcpm --no-deps (torch'un filelock vb. bağımlılıkları temel kilitte hash'li gelir;
+        # --no-deps olmadan --require-hashes "versions pinned" hatasıyla düşer), temel kilit en son.
+        bat = (ROOT / "WINDOWS_BASLAT.bat").read_text(encoding="utf-8").replace("\r\n", "\n")
+
+        def kurulumlar(bas, son):
+            blok = bat.split(f"\n{bas}\n", 1)[1].split(f"\n{son}\n", 1)[0]
+            ek, out = None, []
+            for satir in blok.splitlines():
+                m = re.match(r'set "?SV_EK=([^"]*)"?$', satir.strip())
+                if m:
+                    ek = m.group(1)
+                m = re.match(r'call :kilitli_kur "([^"]+)"$', satir.strip())
+                if m:
+                    out.append((m.group(1), ek))
+            return out
+
+        self.assertEqual(kurulumlar(":ilk_kurulum", ":kurulum_bitti"), [
+            (r"kilit\pip.txt", "--no-deps"),
+            (r"kilit\torch-%CUDA_ETIKET%.txt", "--no-deps"),
+            (r"kilit\torch-pypi.txt", "--no-deps"),
+            (r"kilit\voxcpm.txt", "--no-deps"),
+            ("%TEMEL_KILIT%", ""),
+        ])
+        self.assertEqual(kurulumlar(":esitle", ":esitle_hata"), [
+            (r"kilit\pip.txt", "--no-deps"),
+            ("%TORCH_KILIT%", "--no-deps"),
+            (r"kilit\voxcpm.txt", "--no-deps"),
+            ("%TEMEL_KILIT%", "%SV_KISIT%"),
+        ])
+        self.assertIn('set "KILIT_PIP=--require-hashes --only-binary=:all:', bat)
+        self.assertIn('"%PYEXE%" -m pip install %KILIT_PIP% %SV_EK% -r "%~1"', bat)
+
+    def test_package_check_lists_what_the_smoke_test_needs(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("mikrofon_duman_pk", ROOT / "tools" / "mikrofon_duman.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # Pencere (pywebview + WebView2 köprüsü pythonnet), arayüz, ses, yazıya dökme ve model paketleri.
+        for ad in ("gradio", "numpy", "soundfile", "scipy", "webview", "pythonnet", "faster_whisper", "torch", "voxcpm"):
+            self.assertIn(ad, mod.GEREKLI_PAKETLER)
+        self.assertEqual(mod.eksik_paketler(("json", "boyle_bir_paket_yok_sv")), ["boyle_bir_paket_yok_sv"])
+        kilit = (ROOT / "kilit" / "windows-x64-py311.txt").read_text(encoding="utf-8")
+        for paket in ("gradio==", "numpy==", "soundfile==", "scipy==", "pywebview==", "pythonnet==",
+                      "faster-whisper=="):
+            self.assertRegex(kilit, rf"(?m)^{re.escape(paket)}")  # Windows temel kilidinde gerçekten var
+        self.assertRegex((ROOT / "kilit" / "torch-pypi.txt").read_text(encoding="utf-8"), r"(?m)^torch==")
+        self.assertRegex((ROOT / "kilit" / "voxcpm.txt").read_text(encoding="utf-8"), r"(?m)^voxcpm==")
 
     def test_release_and_existing_jobs_unchanged(self):
         self.assertEqual(self.wf["jobs"]["release"]["needs"], "build")

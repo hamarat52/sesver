@@ -912,18 +912,51 @@ jobs:
   # (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS); tools/mikrofon_duman.py CDP ile iki alanı dener:
   # Ses Oluştur → Dosya yükle (Kaydet → ~9,5 sn → Durdur; kayıt dosya yüklemeyle aynı hazırlıktan
   # geçmeli: WAV satırı, ileti yok) ve Ses Klonlama → Referans ses (mikrofon simgesi → Kaydet → Durdur;
-  # kayıt yerel sunucuya yüklenmeli ve indirilen WAV 1–30 sn olmalı). Kurulum programından
-  # bağımsızdır (kaynaktan, kilit/ dosyalarıyla, kurulumla aynı
-  # pip bayrakları). Başarısızlık workflow'u kırmızı yapar; release job'u yalnız build'i bekler,
-  # yayın akışı ve var olan adımlar değişmez.
+  # kayıt yerel sunucuya yüklenmeli ve indirilen WAV 1–30 sn olmalı).
+  # Ortam, kullanıcının bilgisayarındakiyle AYNI yoldan kurulur: WINDOWS_BASLAT.bat /yalniz-kurulum
+  # (sihirbazın /ORTAMKUR'da çağırdığı kip): SHA-256 doğrulamalı python-embed 3.11, ardından
+  # kilit\pip.txt, torch, voxcpm (üçü --no-deps) ve temel kilit; sıra ve bayraklar yalnız bat'ta
+  # tanımlıdır, burada kopyası yoktur (kopya 1.4.2'nin ilk CI koşusunda --no-deps eksikliğiyle
+  # düştü). Kurulum programından ve build job'undan bağımsızdır (needs yok). Başarısızlık
+  # workflow'u kırmızı yapar; release job'u yalnız build'i bekler, yayın akışı ve var olan
+  # adımlar değişmez.
   mikrofon-duman:
     runs-on: windows-latest
-    timeout-minutes: 40
+    timeout-minutes: 75
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: SesVer ortamını kur (WINDOWS_BASLAT.bat /yalniz-kurulum, kullanıcıyla aynı yol)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Paket listesi, sırası ve pip bayrakları burada YAZILMAZ: bat'ın kendisi çalışır (ilk
+          # kurulum: python-embed → pip → GPU yoksa torch-pypi → voxcpm → temel kilit). Çıktının
+          # tamamı kurulum_log.txt'ye, son durum kurulum_durum.txt'ye yazılır (sihirbazla aynı).
+          $bas = Get-Date
+          $yk = Start-Process -FilePath "$env:SystemRoot\System32\cmd.exe" `
+                  -ArgumentList '/d', '/c', 'call', "`"$PWD\WINDOWS_BASLAT.bat`"", '/yalniz-kurulum' `
+                  -WorkingDirectory $PWD -WindowStyle Hidden -PassThru
+          $null = $yk.Handle  # ExitCode, WaitForExit(süre) sonrası da okunabilsin
+          $bitti = $yk.WaitForExit(45 * 60 * 1000)
+          if (-not $bitti) { & taskkill.exe /T /F /PID $yk.Id | Out-Host }
+          $kod = if ($bitti) { $yk.ExitCode } else { 124 }
+          Write-Host ("Yalnız kurulum çıkış kodu {0}, süre {1:hh\:mm\:ss}" -f $kod, ((Get-Date) - $bas))
+          Copy-Item 'kurulum_log.txt' (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-kurulum_log.txt') -ErrorAction SilentlyContinue
+          Write-Host '----- kurulum_log.txt (son 40 satır) -----'
+          Get-Content 'kurulum_log.txt' -Tail 40 -Encoding utf8 -ErrorAction SilentlyContinue | Out-Host
+          $durum = Get-Content 'kurulum_durum.txt' -TotalCount 1 -ErrorAction SilentlyContinue
+          Write-Host "kurulum_durum.txt: $durum"
+          if (-not $bitti) { throw 'WINDOWS_BASLAT.bat /yalniz-kurulum 45 dk içinde bitmedi' }
+          if ($kod -ne 0 -or $durum -notlike '*|tamam') { throw "WINDOWS_BASLAT.bat /yalniz-kurulum başarısız (çıkış $kod, durum '$durum')" }
+          if (-not (Test-Path 'python-embed\sesver_kurulum_tamam.txt')) { throw 'Kurulum tamam işareti (python-embed\sesver_kurulum_tamam.txt) yok' }
+          # Duman testinin gerçekten kullandığı paketler kurulu mu (desktop.py → app.py, pencere,
+          # WebView2 köprüsü, yazıya dökme, model paketleri)? Yalnız find_spec: içe aktarma yan etkisi yok.
+          & (Join-Path $PWD 'python-embed\python.exe') -E -s tools\mikrofon_duman.py --paket-denetimi
+          if ($LASTEXITCODE -ne 0) { throw "Duman testinin gerektirdiği paketler eksik (çıkış $LASTEXITCODE)" }
 
       - name: Mikrofon kaydı duman testi (WebView2 sahte cihaz, tools/mikrofon_duman.py)
         shell: pwsh
@@ -933,26 +966,15 @@ jobs:
           GRADIO_SERVER_PORT: "7860"
         run: |
           $ErrorActionPreference = 'Stop'
-          # Runner araç önbelleğindeki Python 3.11 (ek action yok). Paketler kilit/ dosyalarından,
-          # WINDOWS_BASLAT.bat ile aynı sıra ve bayraklarla (pip → torch CPU → temel kilit).
-          $py = Get-ChildItem "$env:RUNNER_TOOL_CACHE\Python\3.11.*\x64\python.exe" -ErrorAction SilentlyContinue |
-                Sort-Object FullName | Select-Object -Last 1
-          if (-not $py) { throw "Runner araç önbelleğinde Python 3.11 yok ($env:RUNNER_TOOL_CACHE\Python)" }
-          & $py.FullName -m venv .venv
-          if ($LASTEXITCODE -ne 0) { throw "venv oluşturulamadı ($LASTEXITCODE)" }
-          $vpy = Join-Path $PWD '.venv\Scripts\python.exe'
-          $kilitPip = @('--require-hashes', '--only-binary=:all:', '--no-binary=proxy-tools', '--no-build-isolation',
-                        '--disable-pip-version-check', '--no-warn-script-location')
-          foreach ($k in @('kilit\pip.txt', 'kilit\torch-pypi.txt', 'kilit\windows-x64-py311.txt')) {
-            & $vpy -m pip install @kilitPip -r $k
-            if ($LASTEXITCODE -ne 0) { throw "pip install -r $k başarısız ($LASTEXITCODE)" }
-          }
+          # Önceki adımın kurduğu python-embed; SesVer kısayoluyla aynı açılış (pythonw.exe -E -s desktop.py).
+          $py = Join-Path $PWD 'python-embed\python.exe'
+          $pyw = Join-Path $PWD 'python-embed\pythonw.exe'
           $out = Join-Path $env:RUNNER_TEMP 'sesver-mikrofon.out.log'
-          $sv = Start-Process -FilePath $vpy -ArgumentList 'desktop.py' -WorkingDirectory $PWD -PassThru `
+          $sv = Start-Process -FilePath $pyw -ArgumentList '-E', '-s', 'desktop.py' -WorkingDirectory $PWD -PassThru `
                   -RedirectStandardOutput $out -RedirectStandardError "$out.err"
           $kod = 99
           try {
-            & $vpy tools\mikrofon_duman.py --cdp http://127.0.0.1:9222 --bekle 300 |
+            & $py -E -s tools\mikrofon_duman.py --cdp http://127.0.0.1:9222 --bekle 300 |
               Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-sonuc.json')
             $kod = $LASTEXITCODE
             try {
