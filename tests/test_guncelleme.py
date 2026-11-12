@@ -133,6 +133,75 @@ class KontrolTests(unittest.TestCase):
         self.assertEqual(bilgi.sayfa, g.RELEASES_URL)
         self.assertNotIn("kotu.example", g.bildirim_html(bilgi, platform="win32"))
 
+    # siberguvenlik 1.4.1 N1: önek denetimi yetmiyordu (".../releases/../../../evil/x" geçiyordu).
+    KOTU_ADRESLER = (
+        "https://github.com/hamarat52/sesver/releases/../../../evil/x",  # bulgudaki örnek
+        "https://github.com/hamarat52/sesver/releases/tag/../../../evil/x",
+        "https://github.com/hamarat52/sesver/releases/./latest",
+        "https://github.com/hamarat52/sesver/releases/%2e%2e/%2e%2e/%2e%2e/evil/x",
+        "https://github.com/hamarat52/sesver/releases/%2E%2E%2F%2E%2E%2Fevil",
+        "https://github.com/hamarat52/sesver/releases/tag%2f..%2f..%2fevil",
+        "https://github.com/hamarat52/sesver/releases/tag/v1.4.1%00",
+        "https://github.com/hamarat52/sesver/releases//evil.example/x",
+        "https://github.com/hamarat52/sesver/releases/tag//v1.4.1",
+        "https://github.com/hamarat52/sesver/releases/\\..\\..\\evil",
+        "https://github.com@evil.example/hamarat52/sesver/releases/latest",
+        "https://user:pass@github.com/hamarat52/sesver/releases/latest",
+        "https://github.com:8443/hamarat52/sesver/releases/latest",
+        "https://github.com:443/hamarat52/sesver/releases/latest",
+        "https://GitHub.com/hamarat52/sesver/releases/latest",
+        "https://github.com/Hamarat52/Sesver/releases/latest",
+        "https://github.com/hamarat52/sesver/Releases/latest",
+        "HTTPS://github.com/hamarat52/sesver/releases/latest",
+        "https://github.com/hamarat52/sesver/releases/LATEST",
+        "https://github.com/hamarat52/sesver/releases/latest?ref=evil",
+        "https://github.com/hamarat52/sesver/releases/latest#x",
+        "https://github.com/hamarat52/sesver/releases/latest/../../evil",
+        "https://github.com/hamarat52/sesver/releases/tag/v1.4.1/../../../../evil",
+        "https://github.com/hamarat52/sesver/releases/tag/v1.4.1\n",
+        " https://github.com/hamarat52/sesver/releases/latest",
+        "https://github.com/hamarat52/sesver/releases/tag/v1.4.1 ",
+        "https://github.com/hamarat52/sesver/releases/tag/v1.4.1\"onmouseover=\"x",
+        "https://github.com/hamarat52/sesver/releases/download/v1.4.1/SesVer-Kurulum-Windows.exe",
+        "https://github.com/hamarat52/sesver/releases/",
+        "https://github.com/hamarat52/sesver/releases/tag/",
+        "https://github.com/hamarat52/sesver/releases/tag/evil",
+        "http://github.com/hamarat52/sesver/releases/latest",
+        "https://github.com.evil.example/hamarat52/sesver/releases/latest",
+        "javascript:alert(1)//https://github.com/hamarat52/sesver/releases/latest",
+        "", None, 42, ["https://github.com/hamarat52/sesver/releases/latest"],
+    )
+    IYI_ADRESLER = (
+        "https://github.com/hamarat52/sesver/releases/latest",
+        "https://github.com/hamarat52/sesver/releases/tag/v1.4.1",
+        "https://github.com/hamarat52/sesver/releases/tag/1.4.1",
+        "https://github.com/hamarat52/sesver/releases/tag/v10.20.300",
+    )
+
+    def test_guvenli_sayfa_yalniz_gercek_release_yolunu_kabul_eder(self):
+        for kotu in self.KOTU_ADRESLER:
+            with self.subTest(kotu=kotu):
+                self.assertEqual(g.guvenli_sayfa(kotu), g.RELEASES_URL)
+        for iyi in self.IYI_ADRESLER:
+            with self.subTest(iyi=iyi):
+                self.assertEqual(g.guvenli_sayfa(iyi), iyi)
+        self.assertEqual(g.guvenli_sayfa(g.RELEASES_URL), g.RELEASES_URL)
+
+    def test_uc_yol_da_suzgecten_gecer(self):
+        """Açılış bildirimi (kontrol_et), elle denetim (elle_denetle) ve HTML (bildirim_html)."""
+        for kotu in self.KOTU_ADRESLER[:24]:
+            with self.subTest(kotu=kotu):
+                acilis = g.kontrol_et(yerel="1.0.0", istek=_yanit(tag_name="v9.0.0", html_url=kotu))
+                elle = g.elle_denetle(yerel="1.0.0", istek=_yanit(tag_name="v9.0.0", html_url=kotu))
+                self.assertEqual((acilis.sayfa, elle.sayfa), (g.RELEASES_URL, g.RELEASES_URL))
+                for h in (g.bildirim_html(acilis, platform="win32"), g.denetim_html(elle, platform="darwin"),
+                          g.bildirim_html(g.YeniSurum("9.0.0", kotu), platform="win32")):  # elle kurulmuş nesne
+                    self.assertEqual(re.findall(r'href="([^"]+)"', h), [g.RELEASES_URL])
+        iyi = "https://github.com/hamarat52/sesver/releases/tag/v1.4.1"
+        acilis = g.kontrol_et(yerel="1.0.0", istek=_yanit(tag_name="v1.4.1", html_url=iyi))
+        self.assertEqual(acilis.sayfa, iyi)
+        self.assertIn(f'href="{iyi}"', g.bildirim_html(acilis, platform="win32"))
+
     def test_ag_hatalarinda_sessiz_ve_tek_satir_log(self):
         def hata(exc):
             def istek(url, zaman_asimi):

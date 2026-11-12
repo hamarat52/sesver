@@ -37,6 +37,10 @@ REPO = "hamarat52/sesver"
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
 _GUVENLI_SAYFA_ONEKI = f"https://github.com/{REPO}/releases/"
+# Bağlantı için önek yetmez: ".../releases/../../../evil/x" önekten geçer ama tarayıcı onu başka bir
+# GitHub sayfasına çözer (siberguvenlik 1.4.1 N1). Yalnız bu iki biçim, harfi harfine ve tam eşleşmeyle
+# kabul edilir; nokta bölümü, %-kodlama, "//", "@", port, sorgu, parça, boşluk ve büyük harf kalmaz.
+_GUVENLI_SAYFA_RE = re.compile(re.escape(_GUVENLI_SAYFA_ONEKI) + r"(?:latest|tag/v?\d{1,4}\.\d{1,4}\.\d{1,4})")
 ORTAM_DEGISKENI = "SESVER_GUNCELLEME_KONTROLU"
 AYAR_ANAHTARI = "guncelleme_kontrolu"  # ayarlar.json; yoksa açık
 ZAMAN_ASIMI_SN = 3.0  # ağ isteği + bekleme için TOPLAM üst sınır
@@ -47,7 +51,7 @@ _SURUM_RE = re.compile(r"^[vV]?(\d+)\.(\d+)\.(\d+)$")
 @dataclass(frozen=True)
 class YeniSurum:
     surum: str      # "1.2.3" (v öneki temizlenmiş)
-    sayfa: str      # release sayfası (yalnız bu reponun github.com adresi)
+    sayfa: str      # release sayfası (guvenli_sayfa(): yalnız bu reponun releases/latest ya da releases/tag/vX.Y.Z adresi)
 
 
 def surum_parcala(metin):
@@ -62,6 +66,15 @@ def daha_yeni_mi(uzak, yerel):
     """Sayısal karşılaştırma (1.10.0 > 1.9.0). Ayrıştırılamayan sürüm -> False."""
     u, y = surum_parcala(uzak), surum_parcala(yerel)
     return bool(u and y and u > y)
+
+
+def guvenli_sayfa(adres):
+    """GitHub yanıtındaki release adresi yalnız bu reponun gerçek bir release yoluysa (``releases/latest``
+    ya da ``releases/tag/v1.2.3``) olduğu gibi döner; başka her şey yerine sabit ``RELEASES_URL``.
+    Açılış bildirimi, elle denetim ve HTML'e yazım hepsi buradan geçer."""
+    if isinstance(adres, str) and _GUVENLI_SAYFA_RE.fullmatch(adres):
+        return adres
+    return RELEASES_URL
 
 
 def ayar_acik_mi():
@@ -109,10 +122,8 @@ def _son_surum(istek, zaman_asimi):
     parcalar = surum_parcala(etiket)
     if parcalar is None:
         raise _Yanit(f"tanınmayan sürüm etiketi {etiket!r}")
-    sayfa = veri.get("html_url")
-    # Bağlantı yalnız bu reponun release sayfası olabilir; başka her adres yerine sabit adres.
-    if not (isinstance(sayfa, str) and sayfa.startswith(_GUVENLI_SAYFA_ONEKI)):
-        sayfa = RELEASES_URL
+    # Bağlantı yalnız bu reponun gerçek bir release yolu olabilir; başka her adres yerine sabit adres.
+    sayfa = guvenli_sayfa(veri.get("html_url"))
     return ".".join(str(p) for p in parcalar), sayfa
 
 
@@ -140,9 +151,7 @@ def kontrol_et(yerel=None, zaman_asimi=ZAMAN_ASIMI_SN, istek=_istek_yap, kayit=N
         if not daha_yeni_mi(uzak, yerel):
             kayit("Güncelleme kontrolü: güncel (yerel %s, son %s).", yerel, uzak)
             return None
-        sayfa = veri.get("html_url")
-        if not (isinstance(sayfa, str) and sayfa.startswith(_GUVENLI_SAYFA_ONEKI)):
-            sayfa = RELEASES_URL
+        sayfa = guvenli_sayfa(veri.get("html_url"))
         kayit("Güncelleme kontrolü: yeni sürüm var v%s (yerel %s).", uzak, yerel)
         return YeniSurum(uzak, sayfa)
     except Exception as exc:  # noqa: BLE001 — internet yok/rate limit/bozuk yanıt: sessiz kal
@@ -162,7 +171,7 @@ class Denetim:
     durum: str          # "guncel" | "yeni" | "hata"
     yerel: str
     uzak: str = ""      # GitHub'daki son sürüm (guncel/yeni)
-    sayfa: str = ""     # yalnız _GUVENLI_SAYFA_ONEKI ile başlayan adres (yeni)
+    sayfa: str = ""     # yalnız guvenli_sayfa() süzgecinden geçmiş adres (yeni)
     neden: str = ""     # hata: "internet" | "zaman_asimi" | "sinir" | "yanit"
 
 
@@ -264,7 +273,8 @@ def bildirim_html(bilgi, platform=None, lang=None):
     else:
         talimat = t("Mac'te şimdilik yeni sürümü release sayfasından indirin; "
                     "ayrıntı README'deki “Güncelleme” bölümünde.", lang)
-    sayfa = html.escape(bilgi.sayfa, quote=True)
+    # Savunma derinliği: YeniSurum başka yoldan kurulmuş olsa da HTML'e yalnız güvenli adres yazılır.
+    sayfa = html.escape(guvenli_sayfa(bilgi.sayfa), quote=True)
     baslik = html.escape(t("Yeni sürüm var: v{surum}", lang, surum=bilgi.surum))
     return (
         f'<div class="sv-update" role="status"><b>{baslik}</b> '
