@@ -608,5 +608,20 @@
  "Efekt ekle": "Añadir efectos",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "Crepitado, radio antigua, teléfono, walkie-talkie, eco de sala y megáfono. Se aplican tras la generación; el audio original no cambia. La vista previa se actualiza al cambiar los ajustes.",
  "Ses modeli bilgisayarınızda": "El modelo de voz está en tu equipo",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "No se vuelve a descargar; en la primera generación solo se carga en memoria."
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "No se vuelve a descargar; en la primera generación solo se carga en memoria.",
+ "ya da": "o",
+ "Mikrofonla kaydedin": "Graba con el micrófono",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Pulsa Grabar, habla durante 8–20 segundos y pulsa Detener. Escúchala; si no te gusta, bórrala y graba de nuevo. La grabación se queda solo en este ordenador.",
+ "Mikrofon kaydı": "Grabación con micrófono",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "Esperando el permiso del micrófono. Permítelo en la ventana que se abrió.",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "No se dio permiso al micrófono. Activa SesVer en Ajustes del Sistema > Privacidad y seguridad > Micrófono, reinicia SesVer e inténtalo de nuevo, o sube un archivo.",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "No se dio permiso al micrófono. En Configuración > Privacidad y seguridad > Micrófono, permite las aplicaciones de escritorio, vuelve a abrir SesVer e inténtalo de nuevo, o sube un archivo.",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "No se dio permiso al micrófono. Permite el acceso a tu navegador desde el icono de la barra de direcciones y en los ajustes del sistema, e inténtalo de nuevo, o sube un archivo.",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "No se encontró ningún micrófono. Conecta uno e inténtalo de nuevo, o sube un archivo.",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "No se pudo abrir el micrófono; puede que otra aplicación lo esté usando. Ciérrala e inténtalo de nuevo, o sube un archivo.",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "La grabación con micrófono no está disponible en esta ventana. Continúa subiendo un archivo.",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "No se pudo abrir el micrófono. Inténtalo de nuevo o sube un archivo.",
+ "{sn} sn · en az 8 sn konuşun": "{sn} s · habla al menos 8 s",
+ "{sn} sn · süre uygun": "{sn} s · duración correcta",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · más de 20 s, después eliges la parte que se usará"
 }

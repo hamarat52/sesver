@@ -608,5 +608,20 @@
  "Efekt ekle": "Ajouter des effets",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "Craquements, vieille radio, téléphone, talkie-walkie, écho de pièce et mégaphone. Appliqués après la génération ; l'audio brut ne change pas. L'aperçu se met à jour quand vous modifiez les réglages.",
  "Ses modeli bilgisayarınızda": "Le modèle vocal est sur votre ordinateur",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "Il n'est pas retéléchargé ; la première génération le charge seulement en mémoire."
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "Il n'est pas retéléchargé ; la première génération le charge seulement en mémoire.",
+ "ya da": "ou",
+ "Mikrofonla kaydedin": "Enregistrez avec le micro",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Appuyez sur Enregistrer, parlez 8–20 secondes puis appuyez sur Arrêter. Réécoutez ; si cela ne vous convient pas, supprimez et recommencez. L'enregistrement reste uniquement sur cet ordinateur.",
+ "Mikrofon kaydı": "Enregistrement micro",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "En attente de l'autorisation du micro. Autorisez-le dans la fenêtre qui s'est ouverte.",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "Le micro n'est pas autorisé. Activez SesVer dans Réglages Système > Confidentialité et sécurité > Microphone, redémarrez SesVer et réessayez, ou importez un fichier.",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "Le micro n'est pas autorisé. Dans Paramètres > Confidentialité et sécurité > Microphone, autorisez les applications de bureau, rouvrez SesVer et réessayez, ou importez un fichier.",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "Le micro n'est pas autorisé. Autorisez votre navigateur via l'icône de la barre d'adresse et dans les réglages du système, puis réessayez, ou importez un fichier.",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "Aucun micro trouvé. Branchez un micro et réessayez, ou importez un fichier.",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "Impossible d'ouvrir le micro ; une autre application l'utilise peut-être. Fermez-la et réessayez, ou importez un fichier.",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "L'enregistrement au micro n'est pas disponible dans cette fenêtre. Continuez en important un fichier.",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Impossible d'ouvrir le micro. Réessayez ou importez un fichier.",
+ "{sn} sn · en az 8 sn konuşun": "{sn} s · parlez au moins 8 s",
+ "{sn} sn · süre uygun": "{sn} s · durée correcte",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · plus de 20 s, vous choisirez ensuite la partie à utiliser"
 }

@@ -608,5 +608,20 @@
  "Efekt ekle": "Effekte hinzufügen",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "Knistern, altes Radio, Telefon, Funkgerät, Raumhall und Megafon. Werden nach der Erzeugung angewendet; das Originalaudio bleibt unverändert. Die Vorschau aktualisiert sich bei jeder Änderung.",
  "Ses modeli bilgisayarınızda": "Das Sprachmodell ist auf Ihrem Computer",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "Es wird nicht erneut heruntergeladen; bei der ersten Erzeugung wird es nur in den Speicher geladen."
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "Es wird nicht erneut heruntergeladen; bei der ersten Erzeugung wird es nur in den Speicher geladen.",
+ "ya da": "oder",
+ "Mikrofonla kaydedin": "Mit dem Mikrofon aufnehmen",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Drücken Sie Aufnehmen, sprechen Sie 8–20 Sekunden und drücken Sie Stopp. Hören Sie die Aufnahme an; gefällt sie Ihnen nicht, löschen Sie sie und nehmen Sie neu auf. Die Aufnahme bleibt nur auf diesem Computer.",
+ "Mikrofon kaydı": "Mikrofonaufnahme",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "Warte auf die Mikrofonberechtigung. Erlauben Sie den Zugriff im geöffneten Fenster.",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "Keine Mikrofonberechtigung. Aktivieren Sie SesVer unter Systemeinstellungen > Datenschutz & Sicherheit > Mikrofon, starten Sie SesVer neu und versuchen Sie es erneut, oder laden Sie eine Datei hoch.",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "Keine Mikrofonberechtigung. Erlauben Sie unter Einstellungen > Datenschutz und Sicherheit > Mikrofon den Zugriff für Desktop-Apps, öffnen Sie SesVer neu und versuchen Sie es erneut, oder laden Sie eine Datei hoch.",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "Keine Mikrofonberechtigung. Erlauben Sie Ihrem Browser den Zugriff über das Symbol in der Adressleiste und in den Systemeinstellungen und versuchen Sie es erneut, oder laden Sie eine Datei hoch.",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "Kein Mikrofon gefunden. Schließen Sie ein Mikrofon an und versuchen Sie es erneut, oder laden Sie eine Datei hoch.",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "Das Mikrofon konnte nicht geöffnet werden; möglicherweise verwendet es eine andere App. Schließen Sie diese und versuchen Sie es erneut, oder laden Sie eine Datei hoch.",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "In diesem Fenster ist keine Mikrofonaufnahme möglich. Laden Sie stattdessen eine Datei hoch.",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Das Mikrofon konnte nicht geöffnet werden. Versuchen Sie es erneut oder laden Sie eine Datei hoch.",
+ "{sn} sn · en az 8 sn konuşun": "{sn} s · mindestens 8 s sprechen",
+ "{sn} sn · süre uygun": "{sn} s · Länge passt",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · über 20 s, den zu verwendenden Abschnitt wählen Sie danach"
 }

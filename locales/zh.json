@@ -608,5 +608,20 @@
  "Efekt ekle": "添加效果",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "噼啪声、老式收音机、电话、对讲机、房间回声和扩音器。在生成后应用；原始音频不变。调整设置时预览会自动刷新。",
  "Ses modeli bilgisayarınızda": "语音模型已在您的电脑上",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "不会重新下载；首次生成时只会加载到内存。"
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "不会重新下载；首次生成时只会加载到内存。",
+ "ya da": "或",
+ "Mikrofonla kaydedin": "用麦克风录制",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "点击“录制”，说 8–20 秒，再点击“停止”。回听一遍；不满意就删除重录。录音只保存在这台电脑上。",
+ "Mikrofon kaydı": "麦克风录音",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "正在等待麦克风权限。请在弹出的窗口中允许。",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "未获得麦克风权限。请在 系统设置 > 隐私与安全性 > 麦克风 中打开 SesVer，重新启动 SesVer 后再试，或上传文件。",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "未获得麦克风权限。请在 设置 > 隐私和安全性 > 麦克风 中允许桌面应用，重新打开 SesVer 后再试，或上传文件。",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "未获得麦克风权限。请通过地址栏中的图标和系统设置允许浏览器使用麦克风后再试，或上传文件。",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "未找到麦克风。请连接麦克风后再试，或上传文件。",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "无法打开麦克风，可能有其他应用正在使用。请关闭该应用后再试，或上传文件。",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "此窗口无法使用麦克风录音。请上传文件继续。",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "无法打开麦克风。请重试或上传文件。",
+ "{sn} sn · en az 8 sn konuşun": "{sn} 秒 · 请至少说 8 秒",
+ "{sn} sn · süre uygun": "{sn} 秒 · 时长合适",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} 秒 · 已超过 20 秒，稍后可选择要使用的片段"
 }

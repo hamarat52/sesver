@@ -4,8 +4,19 @@
   SesVer.app — hardened runtime ("codesign options runtime") entitlement'ları.
   (Not: XML yorumunda çift tire yasak olduğundan bayrak adları tiresiz yazıldı.)
 
-  BİLEREK BOŞ: hiçbir hardened-runtime istisnası istenmez.
-  Gerekçe (ayrıntı: docs/macos-yayin.md, "Entitlement gerekçeleri"):
+  TEK İSTİSNA: com.apple.security.device.audio-input (1.4.2, mikrofonla kayıt).
+  Gerekçe (ayrıntı ve gerçek çıktı: docs/macos-yayin.md, "Entitlement gerekçeleri"):
+    - Ses Oluştur > Dosya yükle adımında kullanıcı Kaydet'e basınca pencere (WKWebView)
+      getUserMedia ile mikrofonu açar. TCC bu isteği paketin sorumlu sürecine, yani bu
+      başlatıcıya (com.hamaratlabs.sesver) atfeder. Başlatıcı hardened runtime ile imzalı
+      olduğundan bu anahtar yoksa tccd izin penceresini hiç göstermez:
+        tccd: Prompting policy for hardened runtime; service: kTCCServiceMicrophone
+        requires entitlement com.apple.security.device.audio-input but it is missing
+        for responsible=(yoklama paketi, aynı başlatıcı, boş entitlement)
+      Anahtar eklenince bu satır kayboldu (2026-11-12, macOS 27.0).
+    - Info.plist'teki NSMicrophoneUsageDescription de gerekir: yoksa WebKit pencerede
+      navigator.mediaDevices'ı hiç açmaz (kayıt düğmesi çalışmaz).
+  Diğer istisnalar BİLEREK yok:
     - Contents/MacOS/SesVer düz C başlatıcıdır (macos/sesver_app_launcher.c): JIT yok,
       çalışma anında kod üretmiyor, yalnız libSystem'e bağlı; üçüncü taraf dylib
       yüklemiyor -> allow-jit / allow-unsigned-executable-memory /
@@ -13,13 +24,15 @@
     - Python (python-embed ya da .venv) /bin/bash üzerinden AYRI bir süreç olarak
       başlar; hardened runtime kısıtları üst süreçten alt sürece geçmez, Python
       kendi imzasıyla (ya da imzasız) çalışır.
-    - Mikrofon kullanılmıyor (yalnız dosya yükleme, app.py sources=["upload"])
-      -> com.apple.security.device.audio-input gerekmez.
+    - Kamera kullanılmıyor -> com.apple.security.device.camera yok.
     - Sandbox yok (com.apple.security.app-sandbox eklenmez): Developer ID ile
       App Store dışı dağıtımda zorunlu değil; Python ortamı ~/Library/Application
       Support/SesVer altına kurulur ve ağdan paket indirir.
   Bir anahtar eklenecekse gerçek hata çıktısıyla gerekçelendirip docs/macos-yayin.md'ye yazın.
 -->
 <plist version="1.0">
-<dict/>
+<dict>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+</dict>
 </plist>

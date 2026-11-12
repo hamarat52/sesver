@@ -608,5 +608,20 @@
  "Efekt ekle": "इफ़ेक्ट जोड़ें",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "चरचराहट, पुराना रेडियो, टेलीफ़ोन, वॉकी-टॉकी, कमरे की गूँज और मेगाफ़ोन। निर्माण के बाद लागू होते हैं; मूल ऑडियो नहीं बदलती। सेटिंग बदलने पर पूर्वावलोकन ताज़ा होता है।",
  "Ses modeli bilgisayarınızda": "आवाज़ मॉडल आपके कंप्यूटर पर है",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "दोबारा डाउनलोड नहीं होता; पहली बार बनाने पर केवल मेमोरी में लोड होता है।"
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "दोबारा डाउनलोड नहीं होता; पहली बार बनाने पर केवल मेमोरी में लोड होता है।",
+ "ya da": "या",
+ "Mikrofonla kaydedin": "माइक्रोफ़ोन से रिकॉर्ड करें",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "रिकॉर्ड दबाएँ, 8–20 सेकंड बोलें और रोकें दबाएँ। सुनकर देखें; पसंद न आए तो हटाकर दोबारा रिकॉर्ड करें। रिकॉर्डिंग केवल इसी कंप्यूटर पर रहती है।",
+ "Mikrofon kaydı": "माइक्रोफ़ोन रिकॉर्डिंग",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "माइक्रोफ़ोन अनुमति की प्रतीक्षा है। खुली हुई विंडो में अनुमति दें।",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "माइक्रोफ़ोन की अनुमति नहीं मिली। सिस्टम सेटिंग्स > गोपनीयता और सुरक्षा > माइक्रोफ़ोन में SesVer चालू करें, SesVer फिर से शुरू करके दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "माइक्रोफ़ोन की अनुमति नहीं मिली। सेटिंग्स > गोपनीयता और सुरक्षा > माइक्रोफ़ोन में डेस्कटॉप ऐप्स को अनुमति दें, SesVer फिर से खोलकर दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "माइक्रोफ़ोन की अनुमति नहीं मिली। एड्रेस बार के आइकन और सिस्टम सेटिंग्स से अपने ब्राउज़र को अनुमति देकर दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "कोई माइक्रोफ़ोन नहीं मिला। माइक्रोफ़ोन जोड़कर दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "माइक्रोफ़ोन नहीं खुल सका; शायद कोई दूसरा ऐप इसका उपयोग कर रहा है। उसे बंद करके दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "इस विंडो में माइक्रोफ़ोन रिकॉर्डिंग उपलब्ध नहीं है। फ़ाइल अपलोड करके जारी रखें।",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "माइक्रोफ़ोन नहीं खुल सका। दोबारा कोशिश करें या फ़ाइल अपलोड करें।",
+ "{sn} sn · en az 8 sn konuşun": "{sn} सेकंड · कम से कम 8 सेकंड बोलें",
+ "{sn} sn · süre uygun": "{sn} सेकंड · अवधि ठीक है",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} सेकंड · 20 सेकंड से ज़्यादा, इस्तेमाल होने वाला हिस्सा बाद में चुनेंगे"
 }

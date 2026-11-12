@@ -608,5 +608,20 @@
  "Efekt ekle": "Добавить эффекты",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "Треск, старое радио, телефон, рация, эхо комнаты и мегафон. Применяются после синтеза; исходное аудио не меняется. Предпросмотр обновляется при изменении настроек.",
  "Ses modeli bilgisayarınızda": "Голосовая модель уже на вашем компьютере",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "Повторно не скачивается; при первом синтезе только загружается в память."
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "Повторно не скачивается; при первом синтезе только загружается в память.",
+ "ya da": "или",
+ "Mikrofonla kaydedin": "Запишите с микрофона",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Нажмите «Запись», говорите 8–20 секунд и нажмите «Стоп». Прослушайте; если не понравилось, удалите и запишите заново. Запись остаётся только на этом компьютере.",
+ "Mikrofon kaydı": "Запись с микрофона",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "Ожидание разрешения на микрофон. Разрешите доступ в открывшемся окне.",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "Нет разрешения на микрофон. Включите SesVer в «Системные настройки» > «Конфиденциальность и безопасность» > «Микрофон», перезапустите SesVer и попробуйте снова или загрузите файл.",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "Нет разрешения на микрофон. В «Параметры» > «Конфиденциальность и защита» > «Микрофон» разрешите доступ классическим приложениям, откройте SesVer заново и попробуйте снова или загрузите файл.",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "Нет разрешения на микрофон. Разрешите доступ браузеру через значок в адресной строке и в настройках системы, затем попробуйте снова или загрузите файл.",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "Микрофон не найден. Подключите микрофон и попробуйте снова или загрузите файл.",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "Не удалось открыть микрофон; возможно, его использует другое приложение. Закройте его и попробуйте снова или загрузите файл.",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "В этом окне запись с микрофона недоступна. Продолжите, загрузив файл.",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "Не удалось открыть микрофон. Попробуйте снова или загрузите файл.",
+ "{sn} sn · en az 8 sn konuşun": "{sn} с · говорите не меньше 8 с",
+ "{sn} sn · süre uygun": "{sn} с · длительность подходит",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} с · больше 20 с, нужный отрезок выберете дальше"
 }

@@ -608,5 +608,20 @@
  "Efekt ekle": "エフェクトを追加",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "ノイズ、古いラジオ、電話、無線機、部屋の残響、メガホン。生成後に適用され、元の音声は変わりません。設定を変えるとプレビューが更新されます。",
  "Ses modeli bilgisayarınızda": "音声モデルはこのコンピューターにあります",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "再ダウンロードはされません。最初の生成時にメモリーへ読み込むだけです。"
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "再ダウンロードはされません。最初の生成時にメモリーへ読み込むだけです。",
+ "ya da": "または",
+ "Mikrofonla kaydedin": "マイクで録音",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "「録音」を押して 8–20 秒話し、「停止」を押します。聞き直して、気に入らなければ削除して録り直してください。録音はこのパソコンにのみ保存されます。",
+ "Mikrofon kaydı": "マイク録音",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "マイクの許可を待っています。開いたウィンドウで許可してください。",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "マイクが許可されていません。システム設定 > プライバシーとセキュリティ > マイク で SesVer をオンにし、SesVer を再起動してもう一度試すか、ファイルをアップロードしてください。",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "マイクが許可されていません。設定 > プライバシーとセキュリティ > マイク でデスクトップ アプリを許可し、SesVer を開き直してもう一度試すか、ファイルをアップロードしてください。",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "マイクが許可されていません。アドレスバーのアイコンとシステム設定でブラウザーを許可してもう一度試すか、ファイルをアップロードしてください。",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "マイクが見つかりません。マイクを接続してもう一度試すか、ファイルをアップロードしてください。",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "マイクを開けませんでした。別のアプリが使用中の可能性があります。そのアプリを閉じてもう一度試すか、ファイルをアップロードしてください。",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "このウィンドウではマイク録音を使えません。ファイルをアップロードして続けてください。",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "マイクを開けませんでした。もう一度試すか、ファイルをアップロードしてください。",
+ "{sn} sn · en az 8 sn konuşun": "{sn} 秒 · 8 秒以上話してください",
+ "{sn} sn · süre uygun": "{sn} 秒 · 長さは十分です",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} 秒 · 20 秒を超えました。使う部分はあとで選べます"
 }

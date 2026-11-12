@@ -608,5 +608,20 @@
  "Efekt ekle": "Add effects",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "Crackle, old radio, telephone, walkie-talkie, room echo and megaphone. Applied after generation; the raw audio is unchanged. The preview refreshes as you change settings.",
  "Ses modeli bilgisayarınızda": "The voice model is on your computer",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "It is not downloaded again; the first generation only loads it into memory."
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "It is not downloaded again; the first generation only loads it into memory.",
+ "ya da": "or",
+ "Mikrofonla kaydedin": "Record with your microphone",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "Press Record, speak for 8–20 seconds and press Stop. Listen back; if you don't like it, delete it and record again. The recording stays only on this computer.",
+ "Mikrofon kaydı": "Microphone recording",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "Waiting for microphone permission. Allow it in the window that opened.",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "Microphone permission was not given. Turn on SesVer in System Settings > Privacy & Security > Microphone, restart SesVer and try again, or upload a file.",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "Microphone permission was not given. In Settings > Privacy & security > Microphone, allow desktop apps, reopen SesVer and try again, or upload a file.",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "Microphone permission was not given. Allow your browser using the icon in the address bar and in your system settings, then try again, or upload a file.",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "No microphone found. Connect a microphone and try again, or upload a file.",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "The microphone could not be opened; another app may be using it. Close that app and try again, or upload a file.",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "Microphone recording isn't available in this window. Continue by uploading a file.",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "The microphone could not be opened. Try again or upload a file.",
+ "{sn} sn · en az 8 sn konuşun": "{sn} s · speak for at least 8 s",
+ "{sn} sn · süre uygun": "{sn} s · length is good",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} s · over 20 s, you'll choose the part to use next"
 }

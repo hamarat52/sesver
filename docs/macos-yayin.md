@@ -118,7 +118,7 @@ Betik her modda basar; elle tekrar için:
 ```
 codesign --verify --deep --strict --verbose=2 dist/SesVer.app     # valid on disk + satisfies its DR
 codesign -dv --verbose=4 dist/SesVer.app                          # Authority, TeamIdentifier, flags=0x10000(runtime), Timestamp
-codesign -d --entitlements - --xml dist/SesVer.app                # boş <dict/>
+codesign -d --entitlements - --xml dist/SesVer.app                # yalnız com.apple.security.device.audio-input = true
 hdiutil verify dist/SesVer-<sürüm>-macOS.dmg                      # checksum VALID
 codesign --verify --strict --verbose=2 dist/SesVer-<sürüm>-macOS.dmg
 hdiutil attach -nobrowse -readonly dist/SesVer-<sürüm>-macOS.dmg  # içindeki app: codesign --verify --deep --strict; sonra hdiutil detach
@@ -141,8 +141,8 @@ http://127.0.0.1:7881/` 200.
 
 ## 5. Entitlement gerekçeleri (`macos/SesVer.entitlements`)
 
-Dosya **bilerek boştur** (`<dict/>`): hardened runtime (`--options runtime`) açık, hiçbir istisna
-istenmez.
+Hardened runtime (`--options runtime`) açık; **tek istisna** `com.apple.security.device.audio-input`
+(1.4.2, Ses Oluştur → Dosya yükle → mikrofonla kayıt).
 
 | Anahtar | Durum | Neden |
 |---|---|---|
@@ -150,12 +150,36 @@ istenmez.
 | `com.apple.security.cs.allow-unsigned-executable-memory` | yok | Aynı neden. |
 | `com.apple.security.cs.disable-library-validation` | yok | Başlatıcı yalnız libSystem'e bağlı; üçüncü taraf dylib yüklemez. |
 | `com.apple.security.cs.allow-dyld-environment-variables` | yok | DYLD_* kullanılmaz. |
-| `com.apple.security.device.audio-input` | yok | Mikrofon kullanılmaz (yalnız dosya yükleme, `app.py` `sources=["upload"]`). |
+| `com.apple.security.device.audio-input` | **var** (1.4.2) | Pencerede mikrofonla kayıt. Gerekçe ve kanıt aşağıda. |
+| `com.apple.security.device.camera` | yok | Kamera kullanılmaz. |
 | `com.apple.security.app-sandbox` | yok | Developer ID dağıtımında zorunlu değil; Python ortamı Application Support'a kurulur ve ağdan paket indirir. |
 
 Python (`python-embed` / `.venv`) başlatıcının `/bin/bash` alt süreci üzerinden **ayrı süreç**
 olarak çalışır; hardened runtime kısıtları alt süreçlere geçmez. Bir anahtar eklenecekse gerçek
 hata çıktısıyla gerekçelendirip bu tabloya yazın.
+
+### Mikrofon: neden `audio-input` ve `NSMicrophoneUsageDescription`?
+
+Kayıt pencerede (pywebview → WKWebView) `getUserMedia` ile alınır. TCC isteği pencerenin
+Python sürecine değil, paketin **sorumlu sürecine** (bu başlatıcı, `com.hamaratlabs.sesver`)
+atfeder; Python `CFProcessPath=$SESVER_APP_EXE` ile çalıştığı için WebKit'in baktığı ana bundle
+da `SesVer.app`'tir. Yoklama (2026-11-12, macOS 27.0, pywebview 6.2.1, Gradio 6.30): gerçek
+`macos/sesver_app_launcher.c` + `CFProcessPath` + aynı `.venv`, `codesign --options runtime`,
+üç paket, `127.0.0.1` üzerindeki test sayfası:
+
+| Paket | `NSMicrophoneUsageDescription` | `audio-input` | Sonuç |
+|---|---|---|---|
+| a (1.4.1 ile aynı) | yok | yok | `navigator.mediaDevices` **tanımsız**: kayıt düğmesi hiç çalışmaz. |
+| b | var | yok | `mediaDevices` var; tccd: `Prompting policy for hardened runtime; service: kTCCServiceMicrophone requires entitlement com.apple.security.device.audio-input but it is missing for responsible={... identifier=com.hamaratlabs.mikprobe.b ...}` → izin penceresi gösterilmeden ret. |
+| c (1.4.2) | var | var | tccd'de bu hata yok; istek kullanıcı onayına gider. |
+
+Gözlem: ekran kilitliyken (sayfa görünmezken) c paketindeki istek yanıtsız bekledi; izin penceresi
+pencere öndeyken beklenir. İzin bir kez verilince macOS SesVer için hatırlar (Sistem Ayarları →
+Gizlilik ve Güvenlik → Mikrofon → SesVer).
+`MACOS_BASLAT.command` (Terminal, `SESVER_MOD=konsol`) yolunda `CFProcessPath` verilmez; ana
+bundle Python.app olur ve kullanım metni olmadığı için pencere mikrofonu açamaz. Arayüz bunu
+"Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin." diye söyler; dosya
+yükleme çalışır.
 
 ## 6. Kullanıcı talimatı taslağı (Releases sayfası)
 

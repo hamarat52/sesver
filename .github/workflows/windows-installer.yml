@@ -32,6 +32,8 @@ on:
       - "VERSION"
       - "engines/**"
       - "voices/hazir/**"
+      - "tools/mikrofon_duman.py"
+      - "locales/**"
 
 permissions:
   contents: read
@@ -902,5 +904,78 @@ jobs:
             ${{ runner.temp }}/sesver-*.err
             ${{ runner.temp }}/sesver-*.png
             ${{ runner.temp }}/sesver_durum_*.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+  # 1.4.2: Ses Oluştur → Dosya yükle → mikrofonla kayıt, gerçek SesVer penceresinde (desktop.py:
+  # pywebview + Edge WebView2). Gerçek mikrofon yok: WebView2 sahte ses cihazı ve otomatik izinle
+  # başlatılır (WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS); tools/mikrofon_duman.py CDP ile Kaydet →
+  # ~9,5 sn → Durdur yapar ve kaydın dosya yüklemeyle aynı hazırlıktan geçtiğini (WAV satırı, ileti
+  # yok) denetler. Kurulum programından bağımsızdır (kaynaktan, kilit/ dosyalarıyla, kurulumla aynı
+  # pip bayrakları). Başarısızlık workflow'u kırmızı yapar; release job'u yalnız build'i bekler,
+  # yayın akışı ve var olan adımlar değişmez.
+  mikrofon-duman:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Mikrofon kaydı duman testi (WebView2 sahte cihaz, tools/mikrofon_duman.py)
+        shell: pwsh
+        env:
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --remote-debugging-port=9222 --use-fake-device-for-media-stream --use-fake-ui-for-media-stream
+          SESVER_GUNCELLEME_KONTROLU: "0"
+          GRADIO_SERVER_PORT: "7860"
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Runner araç önbelleğindeki Python 3.11 (ek action yok). Paketler kilit/ dosyalarından,
+          # WINDOWS_BASLAT.bat ile aynı sıra ve bayraklarla (pip → torch CPU → temel kilit).
+          $py = Get-ChildItem "$env:RUNNER_TOOL_CACHE\Python\3.11.*\x64\python.exe" -ErrorAction SilentlyContinue |
+                Sort-Object FullName | Select-Object -Last 1
+          if (-not $py) { throw "Runner araç önbelleğinde Python 3.11 yok ($env:RUNNER_TOOL_CACHE\Python)" }
+          & $py.FullName -m venv .venv
+          if ($LASTEXITCODE -ne 0) { throw "venv oluşturulamadı ($LASTEXITCODE)" }
+          $vpy = Join-Path $PWD '.venv\Scripts\python.exe'
+          $kilitPip = @('--require-hashes', '--only-binary=:all:', '--no-binary=proxy-tools', '--no-build-isolation',
+                        '--disable-pip-version-check', '--no-warn-script-location')
+          foreach ($k in @('kilit\pip.txt', 'kilit\torch-pypi.txt', 'kilit\windows-x64-py311.txt')) {
+            & $vpy -m pip install @kilitPip -r $k
+            if ($LASTEXITCODE -ne 0) { throw "pip install -r $k başarısız ($LASTEXITCODE)" }
+          }
+          $out = Join-Path $env:RUNNER_TEMP 'sesver-mikrofon.out.log'
+          $sv = Start-Process -FilePath $vpy -ArgumentList 'desktop.py' -WorkingDirectory $PWD -PassThru `
+                  -RedirectStandardOutput $out -RedirectStandardError "$out.err"
+          $kod = 99
+          try {
+            & $vpy tools\mikrofon_duman.py --cdp http://127.0.0.1:9222 --bekle 300 |
+              Tee-Object -FilePath (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-sonuc.json')
+            $kod = $LASTEXITCODE
+            try {
+              Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+              $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+              $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+              $g = [System.Drawing.Graphics]::FromImage($bmp); $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+              $bmp.Save((Join-Path $env:RUNNER_TEMP 'sesver-mikrofon.png')); $g.Dispose(); $bmp.Dispose()
+            } catch { Write-Host "::warning::Ekran görüntüsü alınamadı: $_" }
+          } finally {
+            Stop-Process -Id $sv.Id -Force -ErrorAction SilentlyContinue
+            Write-Host '----- sesver_log.txt (son 60 satır) -----'
+            Get-Content 'sesver_log.txt' -Tail 60 -Encoding utf8 -ErrorAction SilentlyContinue | Out-Host
+            Copy-Item 'sesver_log.txt' (Join-Path $env:RUNNER_TEMP 'sesver-mikrofon-sesver_log.txt') -ErrorAction SilentlyContinue
+          }
+          if ($kod -ne 0) { throw "Mikrofon duman testi başarısız (çıkış kodu $kod; 1 = kayıt hazırlanmadı, 2 = SesVer penceresi/sekmesi yok)" }
+          $global:LASTEXITCODE = 0
+          Write-Host 'Mikrofon duman testi BAŞARILI: SesVer penceresinde (WebView2) Kaydet → Durdur, kayıt dosya yüklemeyle aynı hazırlıktan geçti.'
+
+      - name: Mikrofon duman testi kanıtı
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sesver-mikrofon-duman
+          path: |
+            ${{ runner.temp }}/sesver-mikrofon*
           if-no-files-found: warn
           retention-days: 14

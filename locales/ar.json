@@ -608,5 +608,20 @@
  "Efekt ekle": "إضافة مؤثرات",
  "Cızırtı, eski radyo, telefon, telsiz, oda yankısı ve megafon. Üretimden sonra uygulanır; ham ses değişmez. Ayar değiştikçe önizleme yenilenir.": "طقطقة، راديو قديم، هاتف، لاسلكي، صدى غرفة ومكبّر صوت. تُطبَّق بعد التوليد؛ لا يتغير الصوت الأصلي. تتحدّث المعاينة كلما غيّرت الإعدادات.",
  "Ses modeli bilgisayarınızda": "نموذج الصوت موجود على حاسوبك",
- "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "لا يُنزَّل مرة أخرى؛ في أول توليد يُحمَّل في الذاكرة فقط."
+ "Yeniden indirilmez; ilk üretimde yalnız belleğe yüklenir.": "لا يُنزَّل مرة أخرى؛ في أول توليد يُحمَّل في الذاكرة فقط.",
+ "ya da": "أو",
+ "Mikrofonla kaydedin": "سجّل بالميكروفون",
+ "Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.": "اضغط تسجيل وتحدّث لمدة 8–20 ثانية ثم اضغط إيقاف. استمع إلى التسجيل؛ إن لم يعجبك فاحذفه وسجّل من جديد. يبقى التسجيل على هذا الحاسوب فقط.",
+ "Mikrofon kaydı": "تسجيل الميكروفون",
+ "Mikrofon izni bekleniyor. Açılan pencerede izin verin.": "بانتظار إذن الميكروفون. اسمح بالوصول في النافذة التي فُتحت.",
+ "Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin.": "لم يُمنح إذن الميكروفون. فعّل SesVer في إعدادات النظام > الخصوصية والأمن > الميكروفون، ثم أعد تشغيل SesVer وحاول مجددًا، أو ارفع ملفًا.",
+ "Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin.": "لم يُمنح إذن الميكروفون. في الإعدادات > الخصوصية والأمان > الميكروفون اسمح لتطبيقات سطح المكتب، ثم أعد فتح SesVer وحاول مجددًا، أو ارفع ملفًا.",
+ "Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin.": "لم يُمنح إذن الميكروفون. اسمح للمتصفح من الرمز في شريط العنوان ومن إعدادات النظام ثم حاول مجددًا، أو ارفع ملفًا.",
+ "Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin.": "لم يُعثر على ميكروفون. وصّل ميكروفونًا وحاول مجددًا، أو ارفع ملفًا.",
+ "Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin ya da dosya yükleyin.": "تعذّر فتح الميكروفون؛ ربما يستخدمه تطبيق آخر. أغلقه وحاول مجددًا، أو ارفع ملفًا.",
+ "Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin.": "التسجيل بالميكروفون غير متاح في هذه النافذة. تابع برفع ملف.",
+ "Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin.": "تعذّر فتح الميكروفون. حاول مجددًا أو ارفع ملفًا.",
+ "{sn} sn · en az 8 sn konuşun": "{sn} ث · تحدّث 8 ث على الأقل",
+ "{sn} sn · süre uygun": "{sn} ث · المدة مناسبة",
+ "{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz": "{sn} ث · تجاوز 20 ث، ستختار الجزء المستخدم لاحقًا"
 }

@@ -973,6 +973,19 @@ def save_uploaded_ui(prepared, text, name, aciklama, kategori, consent):
     return _voice_list(), voice["id"], gr.Tabs(selected="lib"), t("Kaydedildi: **{ad}**.", ad=escape(voice["ad"]))
 
 
+# --- Ses oluştur: mikrofonla kaydet ------------------------------------------
+# Kayıt pencerede/tarayıcıda alınır; Gradio kaydedicisi WAV'a çevirip yalnız bu bilgisayardaki sunucuya
+# (127.0.0.1) gönderir. Sonrası dosya yüklemeyle AYNI: upload_analyze_ui (çöz, mono 16-bit, sessizlik
+# kırpma, seviye uyarıları, 8–20 sn kuralı), aynı Whisper ve aynı izin kutucuklu kaydetme.
+# Son kullanılan kaynak geçerlidir: biri gelince öbür kutu boşaltılır (ekranda iki farklı kayıt kalmasın).
+def file_analyze_ui(path):
+    """Dosya yüklendi: hazırlık + mikrofon kutusunu boşalt."""
+    return (*upload_analyze_ui(path), None)
+
+
+def mic_analyze_ui(path):
+    """Mikrofon kaydı bitti: dosya yüklemeyle aynı hazırlık + dosya kutusunu boşalt."""
+    return (*upload_analyze_ui(path), None)
 
 
 # --- Görünüm --------------------------------------------------------------
@@ -1019,6 +1032,47 @@ def _head(icon, title, text, step=None):
     return _html(
         f'<div class="sv-head">{badge}<div><h3>{title}</h3><p>{text}</p></div></div>'
     )
+
+
+def _mic_intro_html():
+    """Dosya kutusuyla mikrofon kaydedicisi arasındaki ayraç ve kısa yönerge."""
+    # Düğme adları Gradio kaydedicisinin kendi çevirileridir (TR: Kaydet / Durdur; çevirilerde o dilin adları).
+    hint = t("Kaydet'e basın, 8–20 saniye konuşun ve Durdur'a basın. Dinleyin; beğenmezseniz silip "
+             "yeniden kaydedin. Kayıt yalnız bu bilgisayarda kalır.")
+    return (f'<div class="sv-or"><span>{escape(t("ya da"))}</span></div>'
+            f'<div class="sv-mic-head"><h4>{_svg(_IC_MIC)}{escape(t("Mikrofonla kaydedin"))}</h4>'
+            f'<p>{escape(hint)}</p></div>')
+
+
+def _mic_status_html():
+    """Kaydedicinin altı: canlı süre göstergesi (8–20 sn) ve izin/cihaz iletisi.
+
+    Metinler bu sayfanın dilinde data-* özniteliklerinde durur; _MIC_JS durumu bunlardan yazar
+    ({sn} yerine saniye). İleti seçimi: SesVer penceresi (window.pywebview) Mac/Windows ayar yolunu,
+    tarayıcı adres çubuğunu söyler.
+    """
+    data = {
+        "wait": t("Mikrofon izni bekleniyor. Açılan pencerede izin verin."),
+        "denied-mac": t("Mikrofon izni verilmedi. Sistem Ayarları > Gizlilik ve Güvenlik > Mikrofon'da SesVer'i "
+                        "açın, SesVer'i yeniden başlatıp tekrar deneyin ya da dosya yükleyin."),
+        "denied-win": t("Mikrofon izni verilmedi. Ayarlar > Gizlilik ve güvenlik > Mikrofon'da masaüstü "
+                        "uygulamalarına izin verin, SesVer'i yeniden açıp tekrar deneyin ya da dosya yükleyin."),
+        "denied-browser": t("Mikrofon izni verilmedi. Adres çubuğundaki simgeden ve sistem ayarlarından "
+                            "tarayıcınıza izin verip tekrar deneyin ya da dosya yükleyin."),
+        "nodevice": t("Mikrofon bulunamadı. Bir mikrofon bağlayıp tekrar deneyin ya da dosya yükleyin."),
+        "busy": t("Mikrofon açılamadı; başka bir uygulama kullanıyor olabilir. Onu kapatıp tekrar deneyin "
+                  "ya da dosya yükleyin."),
+        "unsupported": t("Bu pencerede mikrofon kaydı kullanılamıyor. Dosya yükleyerek devam edin."),
+        "error": t("Mikrofon açılamadı. Tekrar deneyin ya da dosya yükleyin."),
+        "short": t("{sn} sn · en az 8 sn konuşun"),
+        "ok": t("{sn} sn · süre uygun"),
+        "long": t("{sn} sn · 20 sn'yi geçti, kullanılacak aralığı sonra seçersiniz"),
+    }
+    attrs = " ".join(f'data-{k}="{escape(v)}"' for k, v in data.items())
+    return (f'<div class="sv-mic-status" {attrs}>'
+            '<div class="sv-mic-meter" hidden><div class="sv-mic-bar"><i></i></div>'
+            '<span class="sv-mic-time"></span></div>'
+            '<p class="sv-mic-msg" role="status" aria-live="polite"></p></div>')
 
 
 # --- Şemsiye marka imzası (HamaratLabs) -------------------------------
@@ -1714,6 +1768,41 @@ body.sv-rtl textarea, body.sv-rtl input[type="text"] { unicode-bidi: plaintext; 
 .sv-panel .block.sv-file:hover { border-color: rgba(242,92,59,.55) !important; background: #FFF9F6 !important; }
 .sv-consent label { font-size: .9rem !important; font-weight: 600 !important; color: var(--sv-ink) !important; }
 
+/* --- Mikrofonla kayıt (Dosya yükle → 1) ------------------------------ */
+.sv-or { display: flex; align-items: center; gap: 12px; color: var(--sv-muted); font-size: .78rem; font-weight: 600; }
+.sv-or::before, .sv-or::after { content: ""; flex: 1; height: 1px; background: var(--sv-line); }
+.sv-mic-head h4 { display: flex; align-items: center; gap: 8px; margin: 0 0 3px; font-size: .95rem; font-weight: 650;
+  color: var(--sv-ink); }
+.sv-mic-head h4 .sv-ic { width: 17px; height: 17px; color: var(--sv-coral); }
+.sv-mic-head p { margin: 0; font-size: .85rem; line-height: 1.5; color: var(--sv-muted); }
+/* Duraklat yok: süre göstergesi kesintisiz kaydı ölçer (8–20 sn kısa bir kayıt). Mikrofon seçici izin
+   verilmeden "mikrofon yok" der; izin gelince (seçenekler dolunca) görünür. */
+.sv-mic .pause-button, .sv-mic .resume-button, .sv-mic .stop-button-paused { display: none !important; }
+/* Gradio'nun Kaydet/Durdur düğmesi 80 px sabit: Durdur ve uzun çeviriler taşmasın. */
+.sv-mic .record-button, .sv-mic .stop-button { width: auto !important; min-width: 80px; padding-inline: 8px 12px !important; }
+.sv-mic .mic-select:disabled { display: none !important; }
+.sv-mic-status { display: flex; flex-direction: column; gap: 8px; }
+.sv-mic-meter { display: flex; align-items: center; gap: 12px; }
+.sv-mic-meter[hidden] { display: none; }
+.sv-mic-bar { position: relative; flex: 1; height: 8px; border-radius: 999px; overflow: hidden;
+  background: var(--sv-line); }
+.sv-mic-bar::before { content: ""; position: absolute; top: 0; bottom: 0; inset-inline-start: 32%; width: 48%;
+  background: rgba(242, 92, 59, .16); }
+.sv-mic-bar i { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; border-radius: inherit;
+  background: #9C918A; transition: width .1s linear; }
+.sv-mic-meter[data-state="ok"] .sv-mic-bar i { background: var(--sv-coral); }
+.sv-mic-meter[data-state="long"] .sv-mic-bar i { background: #B5452B; }
+.sv-mic-time { font-size: .82rem; font-weight: 600; color: var(--sv-ink-2); font-variant-numeric: tabular-nums; }
+.sv-mic-meter.is-live .sv-mic-time::before { content: ""; display: inline-block; width: 8px; height: 8px;
+  margin-inline-end: 6px; border-radius: 50%; background: var(--sv-coral); animation: sv-mic-blink 1s infinite; }
+@keyframes sv-mic-blink { 50% { opacity: .2; } }
+@media (prefers-reduced-motion: reduce) { .sv-mic-meter.is-live .sv-mic-time::before { animation: none; } }
+.sv-mic-msg { margin: 0; font-size: .85rem; line-height: 1.5; color: #8A2E17; }
+.sv-mic-msg:empty { display: none; }
+.sv-mic-status.has-msg .sv-mic-msg { padding: 10px 12px; border-radius: 12px; background: #FFF1EC;
+  border: 1px solid rgba(242, 92, 59, .35); }
+body.sv-rtl .sv-mic-head, body.sv-rtl .sv-mic-msg, body.sv-rtl .sv-mic-meter { direction: rtl; text-align: right; }
+
 /* --- Mobil --------------------------------------------------------- */
 @media (max-width: 860px) {
   .sv-panel { padding: 20px 18px 18px !important; }
@@ -1928,6 +2017,111 @@ _THEME = gr.themes.Base(
 # eşleşmediğini) sınar.
 _HAM_ILERLEME = (r"Downloading bytes|Reconstructing|Fetching \d+ files|/\s*\d+\s*steps"
                  r"|\d[\d.]*[kMGT]?/\d[\d.]*[kMGT]?\s*(?:B|it)\b")
+# Mikrofon kaydı (Ses Oluştur → Dosya yükle → 1). Gradio kaydedicisinin kendisi değişmez; bu yardımcı
+# yalnız (a) getUserMedia hatasını sayfanın dilinde, nedenine göre (izin / cihaz yok / meşgul /
+# desteklenmiyor) .sv-mic-msg'ye yazar, (b) izin penceresi beklerken ipucu verir ve (c) kayıt sürerken
+# 8–20 sn kuralına göre canlı süre gösterir. Metinler .sv-mic-status'un data-* özniteliklerindedir
+# (bkz. _mic_status_html). Yalnız .sv-mic içindeki "kaydet" tıklamasının açtığı istek izlenir.
+_MIC_JS = """
+    (() => {
+        const box = () => document.querySelector('.sv-mic-status');
+        const inMic = (el, sel) => !!(el && el.closest && el.closest('.sv-mic') && el.closest(sel));
+        let asked = false, t0 = 0, timer = 0, waitTimer = 0;
+        // Saniye, sunucunun "Süre: 10.8 sn" iletisiyle aynı biçimde (nokta, tek ondalık, Latin rakam).
+        const fmt = (s) => s.toFixed(1);
+        function say(key) {
+            const b = box();
+            if (!b) return;
+            b.querySelector('.sv-mic-msg').textContent = key ? (b.dataset[key] || b.dataset.error) : '';
+            b.classList.toggle('has-msg', !!key);
+        }
+        function show(sec, live) {
+            const b = box();
+            if (!b) return;
+            const m = b.querySelector('.sv-mic-meter');
+            m.hidden = sec === null;
+            if (sec === null) return;
+            const state = sec < 8 ? 'short' : (sec <= 20 ? 'ok' : 'long');
+            m.dataset.state = state;
+            m.classList.toggle('is-live', !!live);
+            m.querySelector('.sv-mic-bar i').style.width = (Math.min(sec / 25, 1) * 100).toFixed(1) + '%';
+            m.querySelector('.sv-mic-time').textContent = b.dataset[state].replace('{sn}', fmt(sec));
+        }
+        function finish() {
+            if (!timer) return;
+            clearInterval(timer);
+            timer = 0;
+            show((performance.now() - t0) / 1000, false);
+        }
+        function deniedKey() {
+            if (!window.pywebview) return 'deniedBrowser';
+            return /Mac/i.test(navigator.platform || navigator.userAgent) ? 'deniedMac' : 'deniedWin';
+        }
+        function reason(e) {
+            const n = (e && e.name) || '';
+            if (['NotAllowedError', 'SecurityError', 'PermissionDeniedError'].includes(n)) return deniedKey();
+            if (['NotFoundError', 'DevicesNotFoundError', 'OverconstrainedError'].includes(n)) return 'nodevice';
+            if (['NotReadableError', 'TrackStartError', 'AbortError'].includes(n)) return 'busy';
+            return 'error';
+        }
+        const md = navigator.mediaDevices;
+        if (md && md.getUserMedia && !md.__svMic) {
+            const orig = md.getUserMedia.bind(md);
+            md.__svMic = true;
+            md.getUserMedia = async function (constraints) {
+                const mine = asked;
+                asked = false;
+                if (mine) {
+                    say('');
+                    clearTimeout(waitTimer);
+                    waitTimer = setTimeout(() => say('wait'), 1500);
+                }
+                try {
+                    const stream = await orig(constraints);
+                    if (mine) {
+                        clearTimeout(waitTimer);
+                        say('');
+                        clearInterval(timer);
+                        t0 = performance.now();
+                        show(0, true);
+                        timer = setInterval(() => show((performance.now() - t0) / 1000, true), 100);
+                        stream.getTracks().forEach((track) => {
+                            const stop = track.stop.bind(track);
+                            track.stop = () => { finish(); stop(); };
+                        });
+                    }
+                    return stream;
+                } catch (e) {
+                    if (mine) {
+                        clearTimeout(waitTimer);
+                        show(null);
+                        say(reason(e));
+                    }
+                    throw e;
+                }
+            };
+        }
+        document.addEventListener('click', (ev) => {
+            if (inMic(ev.target, '.record-button')) {
+                if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) say('unsupported');
+                else asked = true;
+            } else if (inMic(ev.target, '.stop-button, .stop-button-paused')) {
+                finish();
+            }
+        }, true);
+        // Kayıt silinince ya da dosya yüklenince kaydedici boş hâline döner: eski süre kalmasın. Durdur'dan
+        // hemen sonra kayıt işlenirken kaydedici kısa bir an boş görünebilir; bu yüzden yalnız oynatıcı
+        // bir kez göründükten (shown) sonra boşa dönüş sayılır.
+        let shown = false;
+        setInterval(() => {
+            const b = box();
+            if (timer || !b) { shown = false; return; }
+            const empty = !!document.querySelector('.sv-mic .record-button');
+            if (!empty) shown = true;
+            else if (shown) { shown = false; show(null); }
+        }, 400);
+    })();
+"""
 _JS = """() => {
     document.querySelectorAll('.dark').forEach((el) => el.classList.remove('dark'));
     const raw = new RegExp(%s);
@@ -1942,7 +2136,8 @@ _JS = """() => {
     }
     new MutationObserver(sweep).observe(document.body, { childList: true, subtree: true, characterData: true });
     setInterval(sweep, 150);
-}""" % json.dumps(_HAM_ILERLEME)
+%s
+}""" % (json.dumps(_HAM_ILERLEME), _MIC_JS)
 
 
 def _frame_bar(chips):
@@ -2313,6 +2508,15 @@ def _upload_subtab(lib, tabs):
                         "baştaki ve sondaki sessizlik kırpılır."), step="1")
                 u_file = gr.File(label=t("Ses dosyası (WAV, MP3, M4A)"), file_types=[".wav", ".mp3", ".m4a"],
                                  type="filepath", elem_classes=["sv-upload", "sv-file"])
+                _html(_mic_intro_html())
+                # Yalnız mikrofon; Gradio kaydı tarayıcıda WAV'a çevirip yükler (format=None: sunucuda ikinci
+                # dönüştürme yok, ffmpeg gerekmez). Kırpma araçları kapalı: aralık seçimi aşağıdaki aynı
+                # kaydırıcılarla yapılır. Paylaş/indir düğmesi yok: kayıt yalnız bu bilgisayarda.
+                u_mic = gr.Audio(sources=["microphone"], type="filepath", label=t("Mikrofon kaydı"),
+                                 editable=False, buttons=[], waveform_options=gr.WaveformOptions(
+                                     waveform_color="#CFC6BD", waveform_progress_color="#F25C3B"),
+                                 elem_classes=["sv-audio", "sv-mic"])
+                _html(_mic_status_html())
                 u_info = gr.Markdown(t(audio_prep.CLEAN_NOTE), elem_classes=["sv-fine-md"])
                 with gr.Row(visible=False, elem_classes=["sv-sliders"]) as u_range:
                     u_start = gr.Slider(0, 20, value=0, step=0.1, label=t("Başlangıç (sn)"), min_width=200)
@@ -2350,8 +2554,11 @@ def _upload_subtab(lib, tabs):
     u_full = gr.State(None)
     u_prepared = gr.State(None)
     analyze_outputs = [u_full, u_prepared, u_preview, u_info, u_range, u_start, u_end, u_text]
-    u_file.upload(upload_analyze_ui, inputs=u_file, outputs=analyze_outputs)
+    u_file.upload(file_analyze_ui, inputs=u_file, outputs=[*analyze_outputs, u_mic])
     u_file.clear(lambda: upload_analyze_ui(None), outputs=analyze_outputs, queue=False)
+    # Mikrofon: kayıt durunca aynı hazırlık; kutu temizlenince (yeniden kayıt) hazırlanan kayıt da düşer.
+    u_mic.stop_recording(mic_analyze_ui, inputs=u_mic, outputs=[*analyze_outputs, u_file])
+    u_mic.clear(lambda: upload_analyze_ui(None), outputs=analyze_outputs, queue=False)
     for slider in (u_start, u_end):
         slider.release(upload_cut_ui, inputs=[u_full, u_start, u_end], outputs=[u_prepared, u_preview, u_range_md])
     u_transcribe.click(upload_transcribe_ui, inputs=u_prepared, outputs=[u_text, u_transcribe_md],
